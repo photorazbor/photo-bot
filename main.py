@@ -38,9 +38,9 @@ def run_flask():
 
 DONATE_KEYBOARD = InlineKeyboardMarkup(
     inline_keyboard=[
-        [InlineKeyboardButton(text="💛 Поддержать на 100 ₽", url="https://www.sberbank.ru/ru/choise_bank?requisiteNumber=79039159884&bankCode=100000000111")],
-        [InlineKeyboardButton(text="💛 Поддержать на 200 ₽", url="https://www.sberbank.ru/ru/choise_bank?requisiteNumber=79039159884&bankCode=100000000111")],
-        [InlineKeyboardButton(text="💛 Поддержать (любая сумма)", url="https://www.sberbank.ru/ru/choise_bank?requisiteNumber=79039159884&bankCode=100000000111")],
+        [InlineKeyboardButton(text="💛 Поддержать на 100 ₽", url="https://yoomoney.ru/transfer/quickpay?requestType=submit&sum=100&receiver=410014933441143")],
+        [InlineKeyboardButton(text="💛 Поддержать на 200 ₽", url="https://yoomoney.ru/transfer/quickpay?requestType=submit&sum=200&receiver=410014933441143")],
+        [InlineKeyboardButton(text="💛 Поддержать (любая сумма)", url="https://yoomoney.ru/transfer/quickpay?requestType=submit&receiver=410014933441143")],
         [InlineKeyboardButton(text="📷 Разобрать другое фото", callback_data="new_photo")],
     ]
 )
