@@ -1,9 +1,11 @@
 """
-Точка входа: Telegram-бот на aiogram 3, который принимает фото
-и возвращает разбор композиции с подсказками, нарисованными поверх снимка.
+Точка входа: Telegram-бот на aiogram 3 + заглушка для Render
 """
 import asyncio
 import logging
+from threading import Thread
+from flask import Flask
+import os
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import CommandStart
@@ -24,6 +26,17 @@ logging.basicConfig(level=logging.INFO)
 bot = Bot(token=TELEGRAM_BOT_TOKEN)
 dp = Dispatcher()
 
+# Заглушка для Render
+flask_app = Flask(__name__)
+
+@flask_app.route('/')
+def home():
+    return "Bot is running"
+
+def run_flask():
+    port = int(os.environ.get("PORT", 10000))
+    flask_app.run(host='0.0.0.0', port=port)
+
 RETRY_KEYBOARD = InlineKeyboardMarkup(
     inline_keyboard=[
         [InlineKeyboardButton(text="📷 Разобрать другое фото", callback_data="new_photo")]
@@ -33,7 +46,6 @@ RETRY_KEYBOARD = InlineKeyboardMarkup(
 
 @dp.message(CommandStart())
 async def handle_start(message: Message):
-    """Приветственное сообщение по команде /start."""
     await message.answer(
         "👋 Привет! Я — бот-наставник по мобильной фотографии.\n\n"
         "Пришли мне фото, и я найду композиционные ошибки: "
@@ -44,14 +56,12 @@ async def handle_start(message: Message):
 
 @dp.callback_query(F.data == "new_photo")
 async def handle_retry_button(callback: CallbackQuery):
-    """Обработка нажатия кнопки «Разобрать другое фото»."""
     await callback.message.answer("Присылай следующее фото — жду! 📷")
     await callback.answer()
 
 
 @dp.message(F.photo)
 async def handle_photo(message: Message):
-    """Основной обработчик: получает фото, анализирует и отвечает."""
     processing_msg = await message.answer("🔍 Анализирую кадр... Обычно до минуты, иногда быстрее.")
 
     try:
@@ -82,9 +92,9 @@ async def handle_photo(message: Message):
             f"🔄 Как исправить: {result.get('how_to_fix', '—')}\n\n"
             f"✨ Совет от профи: {result.get('pro_tip', '—')}\n\n"
             f"👍 Что хорошо: {result.get('praise', '—')}\n\n"
-            f"🔴 проблема\n"
-            f"🟢 правильно\n"
-            f"🟡 обрати внимание"
+            f"🔴 красный — проблема\n"
+            f"🟢 зелёный — правильно\n"
+            f"🟡 жёлтый — внимание"
         )
         await message.answer(caption, reply_markup=RETRY_KEYBOARD)
 
@@ -99,13 +109,15 @@ async def handle_photo(message: Message):
 
 @dp.message(~F.photo)
 async def handle_non_photo(message: Message):
-    """Вежливый ответ, если прислали не фото."""
     await message.answer(
         "Пришли мне, пожалуйста, фотографию 📷 — я умею разбирать только изображения."
     )
 
 
 async def main():
+    flask_thread = Thread(target=run_flask)
+    flask_thread.daemon = True
+    flask_thread.start()
     await dp.start_polling(bot)
 
 
