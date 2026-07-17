@@ -37,9 +37,13 @@ def run_flask():
     port = int(os.environ.get("PORT", 10000))
     flask_app.run(host='0.0.0.0', port=port)
 
-RETRY_KEYBOARD = InlineKeyboardMarkup(
+# Клавиатура с донатом
+DONATE_KEYBOARD = InlineKeyboardMarkup(
     inline_keyboard=[
-        [InlineKeyboardButton(text="📷 Разобрать другое фото", callback_data="new_photo")]
+        [InlineKeyboardButton(text="💛 Поддержать на 100 ₽", url="https://qr.nspk.ru/AS0100?sum=100&phone=79039159884")],
+        [InlineKeyboardButton(text="💛 Поддержать на 200 ₽", url="https://qr.nspk.ru/AS0100?sum=200&phone=79039159884")],
+        [InlineKeyboardButton(text="💛 Поддержать (любая сумма)", url="https://qr.nspk.ru/AS0100?phone=79039159884")],
+        [InlineKeyboardButton(text="📷 Разобрать другое фото", callback_data="new_photo")],
     ]
 )
 
@@ -94,9 +98,10 @@ async def handle_photo(message: Message):
             f"👍 Что хорошо: {result.get('praise', '—')}\n\n"
             f"🔴 красный — проблема\n"
             f"🟢 зелёный — правильно\n"
-            f"🟡 жёлтый — внимание"
+            f"🟡 жёлтый — внимание\n\n"
+            f"🙏 Если бот помогает — поддержите проект любой суммой:"
         )
-        await message.answer(caption, reply_markup=RETRY_KEYBOARD)
+        await message.answer(caption, reply_markup=DONATE_KEYBOARD)
 
         await processing_msg.delete()
 
