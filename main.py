@@ -26,7 +26,6 @@ logging.basicConfig(level=logging.INFO)
 bot = Bot(token=TELEGRAM_BOT_TOKEN)
 dp = Dispatcher()
 
-# Заглушка для Render
 flask_app = Flask(__name__)
 
 @flask_app.route('/')
@@ -37,12 +36,11 @@ def run_flask():
     port = int(os.environ.get("PORT", 10000))
     flask_app.run(host='0.0.0.0', port=port)
 
-# Клавиатура с донатом
 DONATE_KEYBOARD = InlineKeyboardMarkup(
     inline_keyboard=[
-        [InlineKeyboardButton(text="💛 Поддержать на 100 ₽", url="https://qr.nspk.ru/AS0100?sum=100&phone=79039159884")],
-        [InlineKeyboardButton(text="💛 Поддержать на 200 ₽", url="https://qr.nspk.ru/AS0100?sum=200&phone=79039159884")],
-        [InlineKeyboardButton(text="💛 Поддержать (любая сумма)", url="https://qr.nspk.ru/AS0100?phone=79039159884")],
+        [InlineKeyboardButton(text="💛 Поддержать на 100 ₽", url="https://www.sberbank.ru/ru/choise_bank?requisiteNumber=79039159884&bankCode=100000000111")],
+        [InlineKeyboardButton(text="💛 Поддержать на 200 ₽", url="https://www.sberbank.ru/ru/choise_bank?requisiteNumber=79039159884&bankCode=100000000111")],
+        [InlineKeyboardButton(text="💛 Поддержать (любая сумма)", url="https://www.sberbank.ru/ru/choise_bank?requisiteNumber=79039159884&bankCode=100000000111")],
         [InlineKeyboardButton(text="📷 Разобрать другое фото", callback_data="new_photo")],
     ]
 )
@@ -98,8 +96,7 @@ async def handle_photo(message: Message):
             f"👍 Что хорошо: {result.get('praise', '—')}\n\n"
             f"🔴 красный — проблема\n"
             f"🟢 зелёный — правильно\n"
-            f"🟡 жёлтый — внимание\n\n"
-            f"🙏 Если бот помогает — поддержите проект любой суммой:"
+            f"🟡 жёлтый — внимание"
         )
         await message.answer(caption, reply_markup=DONATE_KEYBOARD)
 
