@@ -8,7 +8,7 @@ from flask import Flask
 import os
 
 from aiogram import Bot, Dispatcher, F
-from aiogram.filters import CommandStart
+from aiogram.filters import CommandStart, Command
 from aiogram.types import (
     Message,
     CallbackQuery,
@@ -36,12 +36,19 @@ def run_flask():
     port = int(os.environ.get("PORT", 10000))
     flask_app.run(host='0.0.0.0', port=port)
 
+DONATE_LOGIN = "1515230"
+
 DONATE_KEYBOARD = InlineKeyboardMarkup(
     inline_keyboard=[
-        [InlineKeyboardButton(text="💛 Поддержать на 100 ₽", url="https://donatepay.ru/don/1515230?sum=100")],
-        [InlineKeyboardButton(text="💛 Поддержать на 200 ₽", url="https://donatepay.ru/don/1515230?sum=200")],
-        [InlineKeyboardButton(text="💛 Поддержать (любая сумма)", url="https://donatepay.ru/don/1515230")],
+        [InlineKeyboardButton(text="💛 Поддержать на 100 ₽", url=f"https://donatepay.ru/don/{DONATE_LOGIN}?sum=100")],
+        [InlineKeyboardButton(text="💛 Поддержать (любая сумма)", url=f"https://donatepay.ru/don/{DONATE_LOGIN}")],
         [InlineKeyboardButton(text="📷 Разобрать другое фото", callback_data="new_photo")],
+    ]
+)
+
+AUTHOR_KEYBOARD = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [InlineKeyboardButton(text="👤 Об авторе", callback_data="author_info")],
     ]
 )
 
@@ -52,8 +59,38 @@ async def handle_start(message: Message):
         "👋 Привет! Я — бот-наставник по мобильной фотографии.\n\n"
         "Пришли мне фото, и я найду композиционные ошибки: "
         "заваленный горизонт, мусор в кадре, неудачную позу и другое. "
-        "Ты получишь фото с подсказками прямо на нём и короткий разбор от профи. 📸"
+        "Ты получишь фото с подсказками прямо на нём и короткий разбор от профи. 📸",
+        reply_markup=AUTHOR_KEYBOARD,
     )
+
+
+@dp.message(Command("author"))
+async def handle_author(message: Message):
+    await message.answer(
+        "📸 <b>Автор бота — Евгений Севостьянов</b>\n"
+        "Фотограф, преподаватель мобильной фотографии.\n\n"
+        "📷 Instagram: <a href='https://instagram.com/sevosphoto'>@sevosphoto</a>\n"
+        "💬 Telegram: <a href='https://t.me/sevosphoto'>@sevosphoto</a>\n"
+        "🌐 VK: <a href='https://vk.com/cevoc'>@cevoc</a>\n\n"
+        "По вопросам сотрудничества и обучения — пишите в личные сообщения!",
+        parse_mode="HTML",
+        disable_web_page_preview=True,
+    )
+
+
+@dp.callback_query(F.data == "author_info")
+async def handle_author_info(callback: CallbackQuery):
+    await callback.message.answer(
+        "📸 <b>Автор бота — Евгений Севостьянов</b>\n"
+        "Фотограф, преподаватель мобильной фотографии.\n\n"
+        "📷 Instagram: <a href='https://instagram.com/sevosphoto'>@sevosphoto</a>\n"
+        "💬 Telegram: <a href='https://t.me/sevosphoto'>@sevosphoto</a>\n"
+        "🌐 VK: <a href='https://vk.com/cevoc'>@cevoc</a>\n\n"
+        "По вопросам сотрудничества и обучения — пишите в личные сообщения!",
+        parse_mode="HTML",
+        disable_web_page_preview=True,
+    )
+    await callback.answer()
 
 
 @dp.callback_query(F.data == "new_photo")
@@ -96,7 +133,7 @@ async def handle_photo(message: Message):
             f"👍 Что хорошо: {result.get('praise', '—')}\n\n"
             f"🔴 красный — проблема\n"
             f"🟢 зелёный — правильно\n"
-            f"🟡 жёлтый — внимание"
+            f"🟡 жёлтый — обрати внимание"
         )
         await message.answer(caption, reply_markup=DONATE_KEYBOARD)
 
