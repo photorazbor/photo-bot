@@ -44,7 +44,6 @@ DONATE_KEYBOARD = InlineKeyboardMarkup(
         [InlineKeyboardButton(text="💛 Поддержать на 100 ₽", url=f"https://donatepay.ru/don/{DONATE_LOGIN}?sum=100")],
         [InlineKeyboardButton(text="💛 Поддержать (любая сумма)", url=f"https://donatepay.ru/don/{DONATE_LOGIN}")],
         [InlineKeyboardButton(text="📊 Моя статистика", callback_data="my_stats")],
-        [InlineKeyboardButton(text="👤 Об авторе", callback_data="author_info")],
         [InlineKeyboardButton(text="📷 Разобрать другое фото", callback_data="new_photo")],
     ]
 )
