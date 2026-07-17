@@ -36,14 +36,11 @@ def run_flask():
     port = int(os.environ.get("PORT", 10000))
     flask_app.run(host='0.0.0.0', port=port)
 
-# 🔽 ЗАМЕНИТЕ ЗДЕСЬ ВАШ ЛОГИН DONATEPAY (то, что после /don/)
-DONATE_LOGIN = "ВАШ_ЛОГИН"
-
 DONATE_KEYBOARD = InlineKeyboardMarkup(
     inline_keyboard=[
-        [InlineKeyboardButton(text="💛 Поддержать на 100 ₽", url=f"https://donatepay.ru/don/{DONATE_LOGIN}?sum=100")],
-        [InlineKeyboardButton(text="💛 Поддержать на 200 ₽", url=f"https://donatepay.ru/don/{DONATE_LOGIN}?sum=200")],
-        [InlineKeyboardButton(text="💛 Поддержать (любая сумма)", url=f"https://donatepay.ru/don/{DONATE_LOGIN}")],
+        [InlineKeyboardButton(text="💛 Поддержать на 100 ₽", url="https://donatepay.ru/don/1515230?sum=100")],
+        [InlineKeyboardButton(text="💛 Поддержать на 200 ₽", url="https://donatepay.ru/don/1515230?sum=200")],
+        [InlineKeyboardButton(text="💛 Поддержать (любая сумма)", url="https://donatepay.ru/don/1515230")],
         [InlineKeyboardButton(text="📷 Разобрать другое фото", callback_data="new_photo")],
     ]
 )
