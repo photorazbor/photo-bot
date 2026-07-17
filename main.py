@@ -20,6 +20,7 @@ from aiogram.types import (
 from config import TELEGRAM_BOT_TOKEN
 from ai_service import analyze_photo
 from image_utils import download_and_resize, image_to_bytes, draw_hints
+from stats import add_analysis, get_stats
 
 logging.basicConfig(level=logging.INFO)
 
@@ -36,12 +37,14 @@ def run_flask():
     port = int(os.environ.get("PORT", 10000))
     flask_app.run(host='0.0.0.0', port=port)
 
-DONATE_LOGIN = "1515230"
+DONATE_LOGIN = "ВАШ_ЛОГИН"
 
 DONATE_KEYBOARD = InlineKeyboardMarkup(
     inline_keyboard=[
         [InlineKeyboardButton(text="💛 Поддержать на 100 ₽", url=f"https://donatepay.ru/don/{DONATE_LOGIN}?sum=100")],
         [InlineKeyboardButton(text="💛 Поддержать (любая сумма)", url=f"https://donatepay.ru/don/{DONATE_LOGIN}")],
+        [InlineKeyboardButton(text="📊 Моя статистика", callback_data="my_stats")],
+        [InlineKeyboardButton(text="👤 Об авторе", callback_data="author_info")],
         [InlineKeyboardButton(text="📷 Разобрать другое фото", callback_data="new_photo")],
     ]
 )
@@ -78,6 +81,12 @@ async def handle_author(message: Message):
     )
 
 
+@dp.message(Command("stats"))
+async def handle_stats(message: Message):
+    text = get_stats(message.from_user.id)
+    await message.answer(text, parse_mode="HTML")
+
+
 @dp.callback_query(F.data == "author_info")
 async def handle_author_info(callback: CallbackQuery):
     await callback.message.answer(
@@ -90,6 +99,13 @@ async def handle_author_info(callback: CallbackQuery):
         parse_mode="HTML",
         disable_web_page_preview=True,
     )
+    await callback.answer()
+
+
+@dp.callback_query(F.data == "my_stats")
+async def handle_stats_button(callback: CallbackQuery):
+    text = get_stats(callback.from_user.id)
+    await callback.message.answer(text, parse_mode="HTML")
     await callback.answer()
 
 
@@ -112,6 +128,10 @@ async def handle_photo(message: Message):
         image_bytes = image_to_bytes(image)
 
         result = analyze_photo(image_bytes)
+
+        if result is not None:
+            error_type = result.get("error_type", "unknown")
+            add_analysis(message.from_user.id, error_type)
 
         if result is None:
             await processing_msg.edit_text("😕 Не смог разобрать, попробуй другое фото.")
