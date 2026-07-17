@@ -38,7 +38,7 @@ def run_flask():
     port = int(os.environ.get("PORT", 10000))
     flask_app.run(host='0.0.0.0', port=port)
 
-DONATE_LOGIN = "DONATE_LOGIN = "1515230"
+DONATE_LOGIN = "1515230"
 
 DONATE_KEYBOARD = InlineKeyboardMarkup(
     inline_keyboard=[
