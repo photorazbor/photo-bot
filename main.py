@@ -33,7 +33,6 @@ dp = Dispatcher()
 
 flask_app = Flask(__name__)
 
-# Храним режим пользователя: "course" или "free"
 user_mode = {}
 
 @flask_app.route('/')
@@ -79,7 +78,6 @@ def run_flask():
 DONATE_LOGIN = "1515230"
 
 def get_keyboard(user_id: int) -> InlineKeyboardMarkup:
-    """Возвращает клавиатуру в зависимости от режима и доступа к курсу."""
     if has_access(user_id) and user_mode.get(user_id) == "course":
         return InlineKeyboardMarkup(
             inline_keyboard=[
@@ -256,11 +254,11 @@ async def handle_photo(message: Message):
         image_bytes = image_to_bytes(image)
 
         course_topic = None
-if has_access(message.from_user.id) and user_mode.get(message.from_user.id) == "course":
-    from course import get_current_topic
-    course_topic = get_current_topic(message.from_user.id)
+        if has_access(message.from_user.id) and user_mode.get(message.from_user.id) == "course":
+            from course import get_current_topic
+            course_topic = get_current_topic(message.from_user.id)
 
-result = analyze_photo(image_bytes, course_topic=course_topic)
+        result = analyze_photo(image_bytes, course_topic=course_topic)
 
         if result is not None:
             error_type = result.get("error_type", "unknown")
@@ -290,17 +288,17 @@ result = analyze_photo(image_bytes, course_topic=course_topic)
         )
         await message.answer(caption, reply_markup=get_keyboard(message.from_user.id))
 
-        # Проверка курса — только если режим "course"
         if has_access(message.from_user.id) and user_mode.get(message.from_user.id) == "course":
             status = get_status(message.from_user.id)
             if status is not None and "День" in status:
                 add_text = add_photo(message.from_user.id)
                 if add_text:
-                    await message.answer(add_text)
-                if "проверки" in add_text:
-                    check_text = check_day(message.from_user.id, result)
-                    if check_text:
-                        await message.answer(check_text, parse_mode="HTML")
+                    if add_text == "THIRD_PHOTO":
+                        check_text = check_day(message.from_user.id, result)
+                        if check_text:
+                            await message.answer(check_text, parse_mode="HTML")
+                    else:
+                        await message.answer(add_text)
 
         await processing_msg.delete()
 
