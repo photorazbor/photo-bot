@@ -39,7 +39,6 @@ def home():
 
 @flask_app.route('/donate-webhook', methods=['POST'])
 def donate_webhook():
-    """Принимает уведомления от DonatePay и активирует доступ к курсу."""
     API_KEY = "pytBdeWXxqGPKL0PW5jLL2QdKCLfDjSiL614W0bZbMehtBMSA7VhE31ylqRE"
 
     body = request.get_data().decode('utf-8')
@@ -172,12 +171,12 @@ async def handle_stats_button(callback: CallbackQuery):
 
 @dp.callback_query(F.data == "course_status")
 async def handle_course_status(callback: CallbackQuery):
+    await callback.answer()
     if not has_access(callback.from_user.id):
         await callback.message.answer("У тебя нет доступа. Напиши /course чтобы узнать, как оплатить.")
     else:
         status = get_status(callback.from_user.id)
         await callback.message.answer(status, parse_mode="HTML")
-    await callback.answer()
 
 
 @dp.callback_query(F.data == "new_photo")
