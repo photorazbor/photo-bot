@@ -147,6 +147,18 @@ async def handle_course(message: Message):
         )
 
 
+@dp.message(Command("reset"))
+async def handle_reset(message: Message):
+    if message.from_user.id != 456504792:
+        await message.answer("Только автор может сбрасывать курс.")
+        return
+    if os.path.exists("course_users.json"):
+        os.remove("course_users.json")
+        await message.answer("✅ Данные курса сброшены. Можешь начинать заново.")
+    else:
+        await message.answer("Файл уже отсутствует.")
+
+
 @dp.callback_query(F.data == "author_info")
 async def handle_author_info(callback: CallbackQuery):
     await callback.message.answer(
@@ -176,7 +188,10 @@ async def handle_course_status(callback: CallbackQuery):
         await callback.message.answer("У тебя нет доступа. Напиши /course чтобы узнать, как оплатить.")
     else:
         status = get_status(callback.from_user.id)
-        await callback.message.answer(status, parse_mode="HTML")
+        if status is not None:
+            await callback.message.answer(status, parse_mode="HTML")
+        else:
+            await callback.message.answer("Произошла ошибка. Напиши /reset для сброса курса.")
 
 
 @dp.callback_query(F.data == "new_photo")
