@@ -117,10 +117,10 @@ def analyze_photo(image_bytes: bytes, course_topic: str = None) -> dict:
 {{
   "error_type": "good_shot или topic_error",
   "title": "Задание: {course_topic}",
-  "what_is_wrong": "Конкретно по теме: что не так и почему.",
+  "what_is_wrong": "Конкретно по теме: что не так и почему. Если задание НЕ выполнено — напиши 'Задание не выполнено' в начале.",
   "how_to_fix": "Как исправить.",
   "pro_tip": "Один совет.",
-  "praise": "Что хорошо. Поддержи.",
+  "praise": "Что хорошо. Поддержи. Даже если задание не выполнено.",
   "drawings": [
     {{"type": "line", "x1": 0, "y1": 320, "x2": 1024, "y2": 380, "color": "red"}}
   ]
