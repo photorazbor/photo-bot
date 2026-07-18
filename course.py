@@ -1,13 +1,10 @@
 """
-Мини-курс по композиции: 7-дневный челлендж с авто-активацией
+Мини-курс по композиции: 7-дневный челлендж с проверкой доступа
 """
 import json
 import os
-import random
-import string
 
 COURSE_FILE = "course_users.json"
-CODES_FILE = "activation_codes.json"
 
 DAYS = {
     1: {
@@ -60,49 +57,23 @@ def _save_users(users: dict):
         json.dump(users, f, ensure_ascii=False, indent=2)
 
 
-def _load_codes() -> dict:
-    if not os.path.exists(CODES_FILE):
-        return {}
-    with open(CODES_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-
-def _save_codes(codes: dict):
-    with open(CODES_FILE, "w", encoding="utf-8") as f:
-        json.dump(codes, f, ensure_ascii=False, indent=2)
-
-
 def has_access(user_id: int) -> bool:
     users = _load_users()
-    return str(user_id) in users
+    uid = str(user_id)
+    return uid in users
 
 
-def generate_code(user_id: int) -> str:
-    """Генерирует уникальный код для пользователя."""
-    codes = _load_codes()
-    code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
-    codes[code] = {"user_id": user_id, "used": False}
-    _save_codes(codes)
-    return code
-
-
-def activate_by_code(code: str) -> int | None:
-    """Активирует доступ по коду. Возвращает user_id или None."""
-    codes = _load_codes()
-    if code in codes and not codes[code]["used"]:
-        user_id = codes[code]["user_id"]
-        users = _load_users()
-        users[str(user_id)] = {"day": 1, "completed": []}
-        _save_users(users)
-        codes[code]["used"] = True
-        _save_codes(codes)
-        return user_id
-    return None
+def activate_by_username(username: str):
+    users = _load_users()
+    if username in users:
+        return
+    users[username] = {"day": 1, "completed": [], "username": username}
+    _save_users(users)
 
 
 def start_course(user_id: int) -> str:
     if not has_access(user_id):
-        return "У тебя нет доступа к курсу."
+        return "У тебя нет доступа к курсу. Оплати и получи доступ."
     return _day_text(1)
 
 
@@ -111,6 +82,8 @@ def get_status(user_id: int) -> str | None:
         return None
     users = _load_users()
     uid = str(user_id)
+    if uid not in users:
+        return None
     day = users[uid]["day"]
     if day > 7:
         return "🎉 Ты прошёл весь мини-курс! Поздравляю!\n\nТы освоил горизонт, правило третей, позу, свет, тень, отражения и фрейминг. Теперь снимай как профи!"
@@ -122,6 +95,8 @@ def complete_day(user_id: int) -> str:
         return "У тебя нет доступа к курсу."
     users = _load_users()
     uid = str(user_id)
+    if uid not in users:
+        return "У тебя нет доступа к курсу."
     users[uid]["completed"].append(users[uid]["day"])
     users[uid]["day"] += 1
     _save_users(users)
