@@ -22,7 +22,13 @@ def add_analysis(user_id: int, error_type: str):
     if uid not in stats:
         stats[uid] = {"total": 0, "errors": {}}
     stats[uid]["total"] += 1
-    stats[uid]["errors"][error_type] = stats[uid]["errors"].get(error_type, 0) + 1
+
+    # Разбиваем составной тип на отдельные ошибки, исключаем good_shot
+    errors = [e.strip() for e in error_type.split(",")]
+    for err in errors:
+        if err and err != "good_shot":
+            stats[uid]["errors"][err] = stats[uid]["errors"].get(err, 0) + 1
+
     _save_stats(stats)
 
 def get_stats(user_id: int) -> str:
@@ -46,7 +52,17 @@ def get_stats(user_id: int) -> str:
         "distortion": "Искажения",
         "pose": "Поза",
         "lighting": "Освещение",
-        "good_shot": "Отличный кадр",
+        "rhythm": "Ритм",
+        "silhouette": "Силуэт",
+        "reflection": "Отражения",
+        "cropping": "Кадрирование",
+        "perspective": "Перспектива",
+        "color": "Цвет",
+        "sharpness": "Резкость",
+        "emotion": "Эмоция",
+        "depth": "Глубина кадра",
+        "symmetry": "Симметрия",
+        "diagonal": "Диагональ",
     }
 
     text = f"📊 <b>Твоя статистика</b>\nПроанализировано фото: <b>{total}</b>\n\n"
