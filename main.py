@@ -255,7 +255,12 @@ async def handle_photo(message: Message):
         image = download_and_resize(photo_url, target_width=1024)
         image_bytes = image_to_bytes(image)
 
-        result = analyze_photo(image_bytes)
+        course_topic = None
+if has_access(message.from_user.id) and user_mode.get(message.from_user.id) == "course":
+    from course import get_current_topic
+    course_topic = get_current_topic(message.from_user.id)
+
+result = analyze_photo(image_bytes, course_topic=course_topic)
 
         if result is not None:
             error_type = result.get("error_type", "unknown")
