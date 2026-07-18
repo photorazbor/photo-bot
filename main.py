@@ -33,7 +33,6 @@ dp = Dispatcher()
 
 flask_app = Flask(__name__)
 
-# Храним режим пользователя: "course" или "free"
 user_mode = {}
 
 @flask_app.route('/')
@@ -132,7 +131,19 @@ async def handle_course(message: Message):
     if has_access(message.from_user.id):
         user_mode[message.from_user.id] = "course"
         status = get_status(message.from_user.id)
-        await message.answer(status, parse_mode="HTML")
+        if status is not None:
+            if "День 0" in status or "Подготовка" in status:
+                await message.answer(
+                    status,
+                    parse_mode="HTML",
+                    reply_markup=InlineKeyboardMarkup(
+                        inline_keyboard=[
+                            [InlineKeyboardButton(text="🚀 Начать курс", callback_data="start_course_btn")],
+                        ]
+                    ),
+                )
+            else:
+                await message.answer(status, parse_mode="HTML")
     else:
         await message.answer(
             "🎓 <b>Мини-курс по композиции</b>\n\n"
@@ -206,7 +217,6 @@ async def handle_course_status(callback: CallbackQuery):
         user_mode[callback.from_user.id] = "course"
         status = get_status(callback.from_user.id)
         if status is not None:
-            # Если это День 0 — показываем кнопку «Начать курс»
             if "День 0" in status or "Подготовка" in status:
                 await callback.message.answer(
                     status,
@@ -249,7 +259,6 @@ async def handle_photo(message: Message):
         image = download_and_resize(photo_url, target_width=1024)
         image_bytes = image_to_bytes(image)
 
-        # Определяем тему дня для курса
         course_topic = None
         if has_access(message.from_user.id) and user_mode.get(message.from_user.id) == "course":
             from course import get_current_topic
@@ -285,7 +294,6 @@ async def handle_photo(message: Message):
         )
         await message.answer(caption, reply_markup=get_keyboard(message.from_user.id))
 
-        # Проверка курса — после каждого фото
         if has_access(message.from_user.id) and user_mode.get(message.from_user.id) == "course":
             status = get_status(message.from_user.id)
             if status is not None and "День" in status:
