@@ -78,7 +78,6 @@ def run_flask():
 
 DONATE_LOGIN = "1515230"
 
-# Единая клавиатура для всех — всегда показывает донаты и мини-курс
 def get_keyboard(user_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
@@ -208,7 +207,7 @@ async def handle_course_status(callback: CallbackQuery):
         status = get_status(callback.from_user.id)
         if status is not None:
             # Если это День 0 — показываем кнопку «Начать курс»
-            if "День 0" in status:
+            if "День 0" in status or "Подготовка" in status:
                 await callback.message.answer(
                     status,
                     parse_mode="HTML",
@@ -227,7 +226,8 @@ async def handle_course_status(callback: CallbackQuery):
 @dp.callback_query(F.data == "start_course_btn")
 async def handle_start_course_btn(callback: CallbackQuery):
     add_text = add_photo(callback.from_user.id)
-    await callback.message.answer(add_text, parse_mode="HTML")
+    if add_text:
+        await callback.message.answer(add_text, parse_mode="HTML")
     await callback.answer()
 
 
@@ -285,19 +285,14 @@ async def handle_photo(message: Message):
         )
         await message.answer(caption, reply_markup=get_keyboard(message.from_user.id))
 
-        # Проверка курса — только если режим "course"
+        # Проверка курса — после каждого фото
         if has_access(message.from_user.id) and user_mode.get(message.from_user.id) == "course":
             status = get_status(message.from_user.id)
             if status is not None and "День" in status:
-                add_text = add_photo(message.from_user.id)
-                if add_text:
-                    if add_text == "THIRD_PHOTO":
-                        # Третье фото — проверяем сразу
-                        check_text = check_day(message.from_user.id, result)
-                        if check_text:
-                            await message.answer(check_text, parse_mode="HTML")
-                    else:
-                        await message.answer(add_text)
+                add_photo(message.from_user.id)
+                check_text = check_day(message.from_user.id, result)
+                if check_text:
+                    await message.answer(check_text, parse_mode="HTML")
 
         await processing_msg.delete()
 
