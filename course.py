@@ -160,8 +160,22 @@ def get_status(user_id: int) -> str | None:
         return None
     users = _load_users()
     uid = str(user_id)
+    # Ищем пользователя по ID или по username
     if uid not in users:
-        return None
+        found = False
+        for key, data in users.items():
+            if isinstance(data, dict) and data.get("username") == uid:
+                found = True
+                uid = key
+                break
+        # Для автора — создаём запись автоматически
+        if not found and user_id == 456504792:
+            users["456504792"] = {"day": 0, "completed": [], "photos_today": [], "attempts": 0, "username": "sevosphoto"}
+            _save_users(users)
+            return _day_text(0)
+        elif not found:
+            return None
+
     day = users[uid].get("day", 1)
     photos_today = users[uid].get("photos_today", [])
     if day == 0:
@@ -179,10 +193,20 @@ def add_photo(user_id: int) -> str:
     users = _load_users()
     uid = str(user_id)
     if uid not in users:
-        return ""
+        # Ищем по username
+        for key, data in users.items():
+            if isinstance(data, dict) and data.get("username") == uid:
+                uid = key
+                break
+        else:
+            if user_id == 456504792:
+                users["456504792"] = {"day": 0, "completed": [], "photos_today": [], "attempts": 0, "username": "sevosphoto"}
+                _save_users(users)
+                return ""
+            return ""
+
     day = users[uid]["day"]
     if day == 0:
-        # Переход от Дня 0 к Дню 1
         users[uid]["day"] = 1
         users[uid]["photos_today"] = []
         users[uid]["attempts"] = 0
@@ -211,6 +235,14 @@ def check_day(user_id: int, result: dict) -> str:
         return ""
     users = _load_users()
     uid = str(user_id)
+    if uid not in users:
+        for key, data in users.items():
+            if isinstance(data, dict) and data.get("username") == uid:
+                uid = key
+                break
+        else:
+            return ""
+
     day = users[uid]["day"]
     if day == 0 or day > 7:
         return ""
@@ -219,7 +251,6 @@ def check_day(user_id: int, result: dict) -> str:
     target_error = DAYS[day]["error_type"]
     check_text = DAYS[day]["check"]
     error_type = result.get("error_type", "")
-    praise = result.get("praise", "")
 
     # Проверка задания
     if target_error == "horizon" and "horizon" not in error_type:
