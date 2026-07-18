@@ -24,7 +24,7 @@ from config import TELEGRAM_BOT_TOKEN
 from ai_service import analyze_photo
 from image_utils import download_and_resize, image_to_bytes, draw_hints
 from stats import add_analysis, get_stats
-from course import start_course, get_status, complete_day, has_access
+from course import start_course, get_status, add_photo, check_day, has_access
 
 logging.basicConfig(level=logging.INFO)
 
@@ -132,7 +132,7 @@ async def handle_course(message: Message):
     else:
         await message.answer(
             "🎓 <b>Мини-курс по композиции</b>\n\n"
-            "7-дневный челлендж: горизонт, правило третей, поза, свет, тень, отражения, фрейминг.\n\n"
+            "8-дневный челлендж: подготовка, горизонт, правило третей, поза, свет, тень, отражения, фрейминг.\n\n"
             "Стоимость: 990 ₽.\n\n"
             "<b>Как оплатить и получить доступ:</b>\n"
             "1. Нажми кнопку «Оплатить доступ».\n"
@@ -228,11 +228,17 @@ async def handle_photo(message: Message):
         )
         await message.answer(caption, reply_markup=DONATE_KEYBOARD)
 
+        # Проверка курса
         if has_access(message.from_user.id):
             status = get_status(message.from_user.id)
             if status is not None and "День" in status:
-                course_text = complete_day(message.from_user.id)
-                await message.answer(course_text, parse_mode="HTML")
+                add_text = add_photo(message.from_user.id)
+                if add_text:
+                    await message.answer(add_text)
+                if "проверки" in add_text:
+                    check_text = check_day(message.from_user.id, result)
+                    if check_text:
+                        await message.answer(check_text, parse_mode="HTML")
 
         await processing_msg.delete()
 
