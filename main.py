@@ -24,7 +24,10 @@ from config import TELEGRAM_BOT_TOKEN
 from ai_service import analyze_photo
 from image_utils import download_and_resize, image_to_bytes, draw_hints
 from stats import add_analysis, get_stats
-from course import start_course, get_status, add_photo, check_day, has_access
+from course import (
+    start_course, get_status, add_photo, check_day, has_access,
+    _load_users, _save_users, _day_text,
+)
 
 logging.basicConfig(level=logging.INFO)
 
@@ -141,7 +144,21 @@ async def handle_course(message: Message):
     if has_access(message.from_user.id):
         user_mode[message.from_user.id] = "course"
         status = get_status(message.from_user.id)
-        await message.answer(status, parse_mode="HTML")
+        if status is not None:
+            users = _load_users()
+            uid = str(message.from_user.id)
+            if uid in users and users[uid].get("day") == 0:
+                await message.answer(
+                    status,
+                    parse_mode="HTML",
+                    reply_markup=InlineKeyboardMarkup(
+                        inline_keyboard=[
+                            [InlineKeyboardButton(text="🚀 Начать курс", callback_data="start_course_btn")],
+                        ]
+                    ),
+                )
+            else:
+                await message.answer(status, parse_mode="HTML")
     else:
         await message.answer(
             "🎓 <b>Мини-курс по композиции</b>\n\n"
@@ -215,9 +232,39 @@ async def handle_course_status(callback: CallbackQuery):
         user_mode[callback.from_user.id] = "course"
         status = get_status(callback.from_user.id)
         if status is not None:
-            await callback.message.answer(status, parse_mode="HTML")
+            users = _load_users()
+            uid = str(callback.from_user.id)
+            if uid in users and users[uid].get("day") == 0:
+                await callback.message.answer(
+                    status,
+                    parse_mode="HTML",
+                    reply_markup=InlineKeyboardMarkup(
+                        inline_keyboard=[
+                            [InlineKeyboardButton(text="🚀 Начать курс", callback_data="start_course_btn")],
+                        ]
+                    ),
+                )
+            else:
+                await callback.message.answer(status, parse_mode="HTML")
         else:
             await callback.message.answer("Произошла ошибка. Напиши /reset для сброса курса.")
+
+
+@dp.callback_query(F.data == "start_course_btn")
+async def handle_start_course_btn(callback: CallbackQuery):
+    await callback.answer()
+    users = _load_users()
+    uid = str(callback.from_user.id)
+    if uid in users and users[uid].get("day") == 0:
+        users[uid]["day"] = 1
+        users[uid]["photos_today"] = []
+        users[uid]["attempts"] = 0
+        _save_users(users)
+        await callback.message.answer("🚀 Поехали!\n\n" + _day_text(1), parse_mode="HTML")
+    else:
+        status = get_status(callback.from_user.id)
+        if status:
+            await callback.message.answer(status, parse_mode="HTML")
 
 
 @dp.callback_query(F.data == "mode_course")
