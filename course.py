@@ -43,7 +43,7 @@ DAYS = {
             "💡 <b>Главное правило</b>\n"
             "Телефон сам выставляет экспозицию и фокус. Твоя задача — композиция. Об этом весь курс."
         ),
-        "task": "Напиши «Начать курс», чтобы перейти к Дню 1.",
+        "task": "Нажми кнопку «Начать курс», чтобы перейти к Дню 1.",
         "check": "",
         "error_type": "",
         "is_intro": True,
@@ -143,6 +143,8 @@ def activate_by_username(username: str):
         "day": 0,
         "completed": [],
         "photos_today": [],
+        "good_photos": 0,
+        "bad_photos": 0,
         "attempts": 0,
         "username": username,
     }
@@ -162,7 +164,7 @@ def get_status(user_id: int) -> str | None:
                 uid = key
                 break
         if not found and user_id == 456504792:
-            users["456504792"] = {"day": 0, "completed": [], "photos_today": [], "attempts": 0, "username": "sevosphoto"}
+            users["456504792"] = {"day": 0, "completed": [], "photos_today": [], "good_photos": 0, "bad_photos": 0, "attempts": 0, "username": "sevosphoto"}
             _save_users(users)
             return _day_text(0)
         elif not found:
@@ -175,7 +177,7 @@ def get_status(user_id: int) -> str | None:
     if day > 7:
         return _course_result(uid)
     if len(photos_today) < 3:
-        return _day_text(day) + f"\n\n📸 Отправь ещё {3 - len(photos_today)} фото по заданию."
+        return _day_text(day)
     return _day_text(day)
 
 
@@ -191,7 +193,7 @@ def add_photo(user_id: int) -> str:
                 break
         else:
             if user_id == 456504792:
-                users["456504792"] = {"day": 0, "completed": [], "photos_today": [], "attempts": 0, "username": "sevosphoto"}
+                users["456504792"] = {"day": 0, "completed": [], "photos_today": [], "good_photos": 0, "bad_photos": 0, "attempts": 0, "username": "sevosphoto"}
                 _save_users(users)
                 return ""
             return ""
@@ -200,24 +202,16 @@ def add_photo(user_id: int) -> str:
     if day == 0:
         users[uid]["day"] = 1
         users[uid]["photos_today"] = []
+        users[uid]["good_photos"] = 0
+        users[uid]["bad_photos"] = 0
         users[uid]["attempts"] = 0
         _save_users(users)
         return "🚀 Поехали!\n\n" + _day_text(1)
     if day > 7:
         return ""
 
-    users[uid]["photos_today"] = users[uid].get("photos_today", []) + [1]
-    count = len(users[uid]["photos_today"])
+    users[uid]["photos_today"] = users[uid].get("photos_today", []) + [None]
     _save_users(users)
-
-    if count == 1:
-        return "✅ Первое фото принято! Пришли ещё 2."
-    elif count == 2:
-        return "✅ Второе фото принято! Пришли ещё 1."
-    elif count >= 3:
-        users[uid]["attempts"] = users[uid].get("attempts", 0) + 1
-        _save_users(users)
-        return "THIRD_PHOTO"
     return ""
 
 
@@ -238,45 +232,52 @@ def check_day(user_id: int, result: dict) -> str:
     if day == 0 or day > 7:
         return ""
 
-    attempts = users[uid].get("attempts", 1)
     check_text = DAYS[day]["check"]
     error_type = result.get("error_type", "")
     what_is_wrong = result.get("what_is_wrong", "")
+    what_lower = what_is_wrong.lower()
 
-    # Проверяем, выполнено ли задание
-    is_done = (
+    is_good = (
         error_type == "good_shot" or
-        "выполнено" in what_is_wrong.lower() or
-        "правильно" in what_is_wrong.lower()
+        ("выполнено" in what_lower and "не выполнено" not in what_lower) or
+        "правильно" in what_lower
     )
 
-    if is_done:
-        verdict = "done"
-    elif attempts < 2:
-        verdict = "retry"
+    if is_good:
+        users[uid]["good_photos"] = users[uid].get("good_photos", 0) + 1
     else:
-        verdict = "fail"
+        users[uid]["bad_photos"] = users[uid].get("bad_photos", 0) + 1
 
-    if verdict == "done":
+    good = users[uid]["good_photos"]
+    bad = users[uid]["bad_photos"]
+    total = good + bad
+    _save_users(users)
+
+    if bad >= 2:
+        users[uid]["photos_today"] = []
+        users[uid]["good_photos"] = 0
+        users[uid]["bad_photos"] = 0
+        users[uid]["attempts"] = users[uid].get("attempts", 0) + 1
+        _save_users(users)
+        return f"❌ <b>День не засчитан.</b>\n\n2 из 3 фото не прошли проверку.\n{check_text}\n\nПришли 3 новых фото для пересдачи."
+
+    if good >= 2:
         users[uid]["completed"].append(day)
         users[uid]["day"] += 1
         users[uid]["photos_today"] = []
+        users[uid]["good_photos"] = 0
+        users[uid]["bad_photos"] = 0
         users[uid]["attempts"] = 0
         _save_users(users)
         if users[uid]["day"] > 7:
             return "✅ Задание выполнено!\n\n" + _course_result(uid)
-        return f"✅ Задание выполнено!\n\n{check_text}\n\n" + _day_text(users[uid]["day"])
+        return f"✅ <b>Задание выполнено!</b>\n\n{check_text}\n\n" + _day_text(users[uid]["day"])
 
-    elif verdict == "retry":
-        users[uid]["photos_today"] = []
-        _save_users(users)
-        return f"⚠️ Почти получилось! Приём виден, но есть ошибка.\n\n{check_text}\n\nПришли ещё 3 фото — и идём дальше."
-
+    remaining = 3 - total
+    if is_good:
+        return f"✅ <b>Фото {total} из 3 принято.</b>\n\nХороших фото: {good}. Присылай ещё {remaining} (по одному)."
     else:
-        users[uid]["photos_today"] = []
-        users[uid]["attempts"] = 0
-        _save_users(users)
-        return f"❌ Задание не выполнено.\n\n{check_text}\n\nПришли 3 новых фото для пересдачи."
+        return f"❌ <b>Фото {total} из 3 не принято.</b>\n\nХороших фото: {good}, плохих: {bad}. Нужно 2 хороших из 3. Присылай ещё {remaining} (по одному)."
 
 
 def get_current_topic(user_id: int) -> str | None:
@@ -309,7 +310,7 @@ def _day_text(day: int) -> str:
         f"📚 <b>День {day}: {d['title']}</b>\n\n"
         f"<b>Теория:</b>\n{d['theory']}\n\n"
         f"<b>Задание:</b> {d['task']}\n\n"
-        f"📸 Пришли <b>3 фотографии</b> по заданию."
+        f"📸 Присылай <b>по одной фотографии</b> (всего 3). Дождись ответа перед следующей."
     )
 
 
