@@ -43,7 +43,7 @@ DAYS = {
             "💡 <b>Главное правило</b>\n"
             "Телефон сам выставляет экспозицию и фокус. Твоя задача — композиция. Об этом весь курс."
         ),
-        "task": "Нажми кнопку «Начать курс», чтобы перейти к Дню 1.",
+        "task": "Нажми кнопку «🚀 Начать курс» ниже, чтобы перейти к Дню 1.",
         "check": "",
         "error_type": "",
         "is_intro": True,
@@ -171,13 +171,10 @@ def get_status(user_id: int) -> str | None:
             return None
 
     day = users[uid].get("day", 1)
-    photos_today = users[uid].get("photos_today", [])
     if day == 0:
         return _day_text(0)
     if day > 7:
         return _course_result(uid)
-    if len(photos_today) < 3:
-        return _day_text(day)
     return _day_text(day)
 
 
@@ -237,10 +234,10 @@ def check_day(user_id: int, result: dict) -> str:
     what_is_wrong = result.get("what_is_wrong", "")
     what_lower = what_is_wrong.lower()
 
+    # Задание выполнено, если нет фразы «не выполнено» или если good_shot
     is_good = (
         error_type == "good_shot" or
-        ("выполнено" in what_lower and "не выполнено" not in what_lower) or
-        "правильно" in what_lower
+        "не выполнено" not in what_lower
     )
 
     if is_good:
