@@ -78,15 +78,26 @@ def run_flask():
 DONATE_LOGIN = "1515230"
 
 def get_keyboard(user_id: int) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="💛 Поддержать на 100 ₽", url=f"https://donatepay.ru/don/{DONATE_LOGIN}?sum=100")],
-            [InlineKeyboardButton(text="💛 Поддержать (любая сумма)", url=f"https://donatepay.ru/don/{DONATE_LOGIN}")],
-            [InlineKeyboardButton(text="📊 Моя статистика", callback_data="my_stats")],
-            [InlineKeyboardButton(text="🎓 Мини-курс", callback_data="course_status")],
-            [InlineKeyboardButton(text="📷 Разобрать другое фото", callback_data="new_photo")],
-        ]
-    )
+    """Умная клавиатура: на курсе — кнопки курса, иначе — донаты."""
+    if has_access(user_id) and user_mode.get(user_id) == "course":
+        return InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text="📸 Продолжить курс", callback_data="mode_course")],
+                [InlineKeyboardButton(text="🔍 Просто анализ", callback_data="mode_free")],
+                [InlineKeyboardButton(text="📊 Моя статистика", callback_data="my_stats")],
+                [InlineKeyboardButton(text="📷 Разобрать другое фото", callback_data="new_photo")],
+            ]
+        )
+    else:
+        return InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text="💛 Поддержать на 100 ₽", url=f"https://donatepay.ru/don/{DONATE_LOGIN}?sum=100")],
+                [InlineKeyboardButton(text="💛 Поддержать (любая сумма)", url=f"https://donatepay.ru/don/{DONATE_LOGIN}")],
+                [InlineKeyboardButton(text="📊 Моя статистика", callback_data="my_stats")],
+                [InlineKeyboardButton(text="🎓 Мини-курс", callback_data="course_status")],
+                [InlineKeyboardButton(text="📷 Разобрать другое фото", callback_data="new_photo")],
+            ]
+        )
 
 AUTHOR_KEYBOARD = InlineKeyboardMarkup(
     inline_keyboard=[
@@ -129,7 +140,6 @@ async def handle_stats(message: Message):
 @dp.message(Command("course"))
 async def handle_course(message: Message):
     if has_access(message.from_user.id):
-        user_mode[message.from_user.id] = "course"
         status = get_status(message.from_user.id)
         if status is not None:
             if "День 0" in status or "Подготовка" in status:
@@ -214,7 +224,6 @@ async def handle_course_status(callback: CallbackQuery):
     if not has_access(callback.from_user.id):
         await callback.message.answer("У тебя нет доступа. Напиши /course чтобы узнать, как оплатить.")
     else:
-        user_mode[callback.from_user.id] = "course"
         status = get_status(callback.from_user.id)
         if status is not None:
             if "День 0" in status or "Подготовка" in status:
@@ -235,10 +244,26 @@ async def handle_course_status(callback: CallbackQuery):
 
 @dp.callback_query(F.data == "start_course_btn")
 async def handle_start_course_btn(callback: CallbackQuery):
+    user_mode[callback.from_user.id] = "course"
     add_text = add_photo(callback.from_user.id)
     if add_text:
         await callback.message.answer(add_text, parse_mode="HTML")
     await callback.answer()
+
+
+@dp.callback_query(F.data == "mode_course")
+async def handle_mode_course(callback: CallbackQuery):
+    user_mode[callback.from_user.id] = "course"
+    await callback.answer("✅ Режим курса. Присылай фото для задания.")
+    status = get_status(callback.from_user.id)
+    if status:
+        await callback.message.answer(status, parse_mode="HTML")
+
+
+@dp.callback_query(F.data == "mode_free")
+async def handle_mode_free(callback: CallbackQuery):
+    user_mode[callback.from_user.id] = "free"
+    await callback.answer("🔍 Обычный анализ. Фото не засчитается в курс.")
 
 
 @dp.callback_query(F.data == "new_photo")
