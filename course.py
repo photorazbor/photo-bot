@@ -162,12 +162,12 @@ def get_status(user_id: int) -> str | None:
     uid = str(user_id)
     if uid not in users:
         return None
-    day = users[uid]["day"]
+    day = users[uid].get("day", 1)
     photos_today = users[uid].get("photos_today", [])
-    if day > 7:
-        return _course_result(uid)
     if day == 0:
         return _day_text(0)
+    if day > 7:
+        return _course_result(uid)
     if len(photos_today) < 3:
         return _day_text(day) + f"\n\n📸 Отправь ещё {3 - len(photos_today)} фото по заданию."
     return _day_text(day)
