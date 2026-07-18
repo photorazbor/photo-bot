@@ -157,7 +157,15 @@ async def handle_reset(message: Message):
         await message.answer("✅ Данные курса сброшены. Можешь начинать заново.")
     else:
         await message.answer("Файл уже отсутствует.")
-
+        
+@dp.message(Command("start_course"))
+async def handle_force_start(message: Message):
+    if message.from_user.id != 456504792:
+        await message.answer("Только автор.")
+        return
+    from course import activate_by_username
+    activate_by_username("sevosphoto")
+    await message.answer("✅ Курс активирован. Напиши /course или нажми кнопку Мини-курс.")
 
 @dp.callback_query(F.data == "author_info")
 async def handle_author_info(callback: CallbackQuery):
