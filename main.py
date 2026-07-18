@@ -224,6 +224,8 @@ async def handle_course_status(callback: CallbackQuery):
     if not has_access(callback.from_user.id):
         await callback.message.answer("У тебя нет доступа. Напиши /course чтобы узнать, как оплатить.")
     else:
+        # Включаем режим курса и показываем статус
+        user_mode[callback.from_user.id] = "course"
         status = get_status(callback.from_user.id)
         if status is not None:
             if "День 0" in status or "Подготовка" in status:
