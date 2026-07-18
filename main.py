@@ -21,7 +21,8 @@ from config import TELEGRAM_BOT_TOKEN
 from ai_service import analyze_photo
 from image_utils import download_and_resize, image_to_bytes, draw_hints
 from stats import add_analysis, get_stats
-from course import start_course, get_status, complete_day
+from course import start_course, get_status, complete_day, has_access, generate_code, activate_by_code
+from donate_checker import donate_poller
 
 logging.basicConfig(level=logging.INFO)
 
@@ -90,23 +91,24 @@ async def handle_stats(message: Message):
 
 @dp.message(Command("course"))
 async def handle_course(message: Message):
-    status = get_status(message.from_user.id)
-    if status is None:
+    if has_access(message.from_user.id):
+        status = get_status(message.from_user.id)
+        await message.answer(status, parse_mode="HTML")
+    else:
+        code = generate_code(message.from_user.id)
         await message.answer(
             "🎓 <b>Мини-курс по композиции</b>\n\n"
-            "5-дневный челлендж: горизонт, правило третей, поза, свет, фрейминг.\n\n"
-            "Стоимость: 990 ₽.\n"
-            "Оплати доступ и начни учиться прямо в боте!",
+            "7-дневный челлендж: горизонт, правило третей, поза, свет, тень, отражения, фрейминг.\n\n"
+            "Стоимость: 990 ₽.\n\n"
+            f"Твой код активации: <b>{code}</b>\n\n"
+            "Оплати и укажи этот код в комментарии к платежу. Доступ откроется автоматически!",
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(
                 inline_keyboard=[
                     [InlineKeyboardButton(text="💛 Оплатить доступ (990 ₽)", url=f"https://donatepay.ru/don/{DONATE_LOGIN}?sum=990")],
-                    [InlineKeyboardButton(text="🎓 Начать курс (уже оплатил)", callback_data="start_course")],
                 ]
             ),
         )
-    else:
-        await message.answer(status, parse_mode="HTML")
 
 
 @dp.callback_query(F.data == "author_info")
@@ -131,19 +133,12 @@ async def handle_stats_button(callback: CallbackQuery):
     await callback.answer()
 
 
-@dp.callback_query(F.data == "start_course")
-async def handle_start_course(callback: CallbackQuery):
-    text = start_course(callback.from_user.id)
-    await callback.message.answer(text, parse_mode="HTML")
-    await callback.answer()
-
-
 @dp.callback_query(F.data == "course_status")
 async def handle_course_status(callback: CallbackQuery):
-    status = get_status(callback.from_user.id)
-    if status is None:
-        await callback.message.answer("Ты ещё не начал курс. Напиши /course чтобы начать!")
+    if not has_access(callback.from_user.id):
+        await callback.message.answer("У тебя нет доступа. Напиши /course чтобы узнать, как оплатить.")
     else:
+        status = get_status(callback.from_user.id)
         await callback.message.answer(status, parse_mode="HTML")
     await callback.answer()
 
@@ -156,7 +151,6 @@ async def handle_retry_button(callback: CallbackQuery):
 
 @dp.message(F.photo)
 async def handle_photo(message: Message):
-    # Проверяем, не на курсе ли пользователь
     status = get_status(message.from_user.id)
     processing_msg = await message.answer("🔍 Анализирую кадр... Обычно до минуты, иногда быстрее.")
 
@@ -194,11 +188,10 @@ async def handle_photo(message: Message):
             f"👍 Что хорошо: {result.get('praise', '—')}\n\n"
             f"🔴 красный — проблема\n"
             f"🟢 зелёный — правильно\n"
-            f"🟡 жёлтый — обрати внимание"
+            f"🟡 жёлтый — внимание"
         )
         await message.answer(caption, reply_markup=DONATE_KEYBOARD)
 
-        # Если пользователь на курсе — завершаем день
         if status is not None and "День" in status:
             course_text = complete_day(message.from_user.id)
             await message.answer(course_text, parse_mode="HTML")
@@ -223,6 +216,7 @@ async def main():
     flask_thread = Thread(target=run_flask)
     flask_thread.daemon = True
     flask_thread.start()
+    asyncio.create_task(donate_poller(bot))
     await dp.start_polling(bot)
 
 
