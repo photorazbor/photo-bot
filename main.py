@@ -78,27 +78,17 @@ def run_flask():
 
 DONATE_LOGIN = "1515230"
 
+# Единая клавиатура для всех — всегда показывает донаты и мини-курс
 def get_keyboard(user_id: int) -> InlineKeyboardMarkup:
-    """Возвращает клавиатуру в зависимости от режима и доступа к курсу."""
-    if has_access(user_id) and user_mode.get(user_id) == "course":
-        return InlineKeyboardMarkup(
-            inline_keyboard=[
-                [InlineKeyboardButton(text="📸 Фото для курса", callback_data="mode_course")],
-                [InlineKeyboardButton(text="🔍 Обычный анализ", callback_data="mode_free")],
-                [InlineKeyboardButton(text="📊 Моя статистика", callback_data="my_stats")],
-                [InlineKeyboardButton(text="📷 Разобрать другое фото", callback_data="new_photo")],
-            ]
-        )
-    else:
-        return InlineKeyboardMarkup(
-            inline_keyboard=[
-                [InlineKeyboardButton(text="💛 Поддержать на 100 ₽", url=f"https://donatepay.ru/don/{DONATE_LOGIN}?sum=100")],
-                [InlineKeyboardButton(text="💛 Поддержать (любая сумма)", url=f"https://donatepay.ru/don/{DONATE_LOGIN}")],
-                [InlineKeyboardButton(text="📊 Моя статистика", callback_data="my_stats")],
-                [InlineKeyboardButton(text="🎓 Мини-курс", callback_data="course_status")],
-                [InlineKeyboardButton(text="📷 Разобрать другое фото", callback_data="new_photo")],
-            ]
-        )
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="💛 Поддержать на 100 ₽", url=f"https://donatepay.ru/don/{DONATE_LOGIN}?sum=100")],
+            [InlineKeyboardButton(text="💛 Поддержать (любая сумма)", url=f"https://donatepay.ru/don/{DONATE_LOGIN}")],
+            [InlineKeyboardButton(text="📊 Моя статистика", callback_data="my_stats")],
+            [InlineKeyboardButton(text="🎓 Мини-курс", callback_data="course_status")],
+            [InlineKeyboardButton(text="📷 Разобрать другое фото", callback_data="new_photo")],
+        ]
+    )
 
 AUTHOR_KEYBOARD = InlineKeyboardMarkup(
     inline_keyboard=[
@@ -217,24 +207,28 @@ async def handle_course_status(callback: CallbackQuery):
         user_mode[callback.from_user.id] = "course"
         status = get_status(callback.from_user.id)
         if status is not None:
-            await callback.message.answer(status, parse_mode="HTML")
+            # Если это День 0 — показываем кнопку «Начать курс»
+            if "День 0" in status:
+                await callback.message.answer(
+                    status,
+                    parse_mode="HTML",
+                    reply_markup=InlineKeyboardMarkup(
+                        inline_keyboard=[
+                            [InlineKeyboardButton(text="🚀 Начать курс", callback_data="start_course_btn")],
+                        ]
+                    ),
+                )
+            else:
+                await callback.message.answer(status, parse_mode="HTML")
         else:
             await callback.message.answer("Произошла ошибка. Напиши /reset для сброса курса.")
 
 
-@dp.callback_query(F.data == "mode_course")
-async def handle_mode_course(callback: CallbackQuery):
-    user_mode[callback.from_user.id] = "course"
-    await callback.answer("✅ Режим курса. Присылай фото для задания.")
-    status = get_status(callback.from_user.id)
-    if status:
-        await callback.message.answer(status, parse_mode="HTML")
-
-
-@dp.callback_query(F.data == "mode_free")
-async def handle_mode_free(callback: CallbackQuery):
-    user_mode[callback.from_user.id] = "free"
-    await callback.answer("🔍 Обычный анализ. Фото не засчитается в курс.")
+@dp.callback_query(F.data == "start_course_btn")
+async def handle_start_course_btn(callback: CallbackQuery):
+    add_text = add_photo(callback.from_user.id)
+    await callback.message.answer(add_text, parse_mode="HTML")
+    await callback.answer()
 
 
 @dp.callback_query(F.data == "new_photo")
