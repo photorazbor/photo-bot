@@ -317,3 +317,20 @@ def _course_result(uid: str) -> str:
         "Ты освоил: горизонт, правило третей, позу, свет, тень, отражения, фрейминг.\n\n"
         "Теперь снимай как профи! 🚀"
     )
+
+def get_current_topic(user_id: int) -> str | None:
+    if not has_access(user_id):
+        return None
+    users = _load_users()
+    uid = str(user_id)
+    if uid not in users:
+        for key, data in users.items():
+            if isinstance(data, dict) and data.get("username") == uid:
+                uid = key
+                break
+        else:
+            return None
+    day = users[uid]["day"]
+    if day == 0 or day > 7:
+        return None
+    return DAYS[day]["title"]
