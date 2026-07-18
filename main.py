@@ -1,11 +1,14 @@
 """
-Точка входа: Telegram-бот на aiogram 3 + заглушка для Render
+Точка входа: Telegram-бот на aiogram 3 + заглушка для Render + webhook DonatePay
 """
 import asyncio
 import logging
 from threading import Thread
-from flask import Flask
+from flask import Flask, request
 import os
+import hashlib
+import hmac
+import re
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import CommandStart, Command
@@ -21,8 +24,7 @@ from config import TELEGRAM_BOT_TOKEN
 from ai_service import analyze_photo
 from image_utils import download_and_resize, image_to_bytes, draw_hints
 from stats import add_analysis, get_stats
-from course import start_course, get_status, complete_day, has_access, generate_code, activate_by_code
-from donate_checker import donate_poller
+from course import start_course, get_status, complete_day, has_access
 
 logging.basicConfig(level=logging.INFO)
 
@@ -34,6 +36,39 @@ flask_app = Flask(__name__)
 @flask_app.route('/')
 def home():
     return "Bot is running"
+
+@flask_app.route('/donate-webhook', methods=['POST'])
+def donate_webhook():
+    """Принимает уведомления от DonatePay и активирует доступ к курсу."""
+    API_KEY = "pytBdeWXxqGPKL0PW5jLL2QdKCLfDjSiL614W0bZbMehtBMSA7VhE31ylqRE"
+
+    body = request.get_data().decode('utf-8')
+    signature = request.headers.get('X-DonatePay-Signature', '')
+    expected = hashlib.sha256((body + API_KEY).encode()).hexdigest()
+
+    if signature != expected:
+        return 'Invalid signature', 403
+
+    try:
+        data = request.get_json()
+        amount = float(data.get('amount', 0))
+        comment = data.get('comment', '')
+        nickname = data.get('nickname', '')
+
+        match = re.search(r'@(\w+)', comment)
+        if not match:
+            telegram_username = nickname
+        else:
+            telegram_username = match.group(1)
+
+        if amount >= 1 and telegram_username:
+            from course import activate_by_username
+            activate_by_username(telegram_username)
+
+        return 'OK', 200
+    except Exception as e:
+        print(f"Webhook error: {e}")
+        return 'Error', 500
 
 def run_flask():
     port = int(os.environ.get("PORT", 10000))
@@ -95,13 +130,15 @@ async def handle_course(message: Message):
         status = get_status(message.from_user.id)
         await message.answer(status, parse_mode="HTML")
     else:
-        code = generate_code(message.from_user.id)
         await message.answer(
             "🎓 <b>Мини-курс по композиции</b>\n\n"
             "7-дневный челлендж: горизонт, правило третей, поза, свет, тень, отражения, фрейминг.\n\n"
             "Стоимость: 990 ₽.\n\n"
-            f"Твой код активации: <b>{code}</b>\n\n"
-            "Оплати и укажи этот код в комментарии к платежу. Доступ откроется автоматически!",
+            "<b>Как оплатить и получить доступ:</b>\n"
+            "1. Нажми кнопку «Оплатить доступ».\n"
+            "2. В комментарии к платежу напиши свой Telegram: <b>@твойник</b>\n"
+            "3. После оплаты доступ откроется автоматически!\n\n"
+            "Напиши /course после оплаты.",
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(
                 inline_keyboard=[
@@ -151,7 +188,6 @@ async def handle_retry_button(callback: CallbackQuery):
 
 @dp.message(F.photo)
 async def handle_photo(message: Message):
-    status = get_status(message.from_user.id)
     processing_msg = await message.answer("🔍 Анализирую кадр... Обычно до минуты, иногда быстрее.")
 
     try:
@@ -192,9 +228,11 @@ async def handle_photo(message: Message):
         )
         await message.answer(caption, reply_markup=DONATE_KEYBOARD)
 
-        if status is not None and "День" in status:
-            course_text = complete_day(message.from_user.id)
-            await message.answer(course_text, parse_mode="HTML")
+        if has_access(message.from_user.id):
+            status = get_status(message.from_user.id)
+            if status is not None and "День" in status:
+                course_text = complete_day(message.from_user.id)
+                await message.answer(course_text, parse_mode="HTML")
 
         await processing_msg.delete()
 
@@ -216,7 +254,6 @@ async def main():
     flask_thread = Thread(target=run_flask)
     flask_thread.daemon = True
     flask_thread.start()
-    asyncio.create_task(donate_poller(bot))
     await dp.start_polling(bot)
 
 
