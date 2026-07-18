@@ -43,7 +43,7 @@ DAYS = {
             "💡 <b>Главное правило</b>\n"
             "Телефон сам выставляет экспозицию и фокус. Твоя задача — композиция. Об этом весь курс."
         ),
-        "task": "Напиши «Начать курс», чтобы перейти к Дню 1.",
+        "task": "Нажми кнопку «Начать курс», чтобы перейти к Дню 1.",
         "check": "",
         "error_type": "",
         "is_intro": True,
@@ -160,7 +160,6 @@ def get_status(user_id: int) -> str | None:
         return None
     users = _load_users()
     uid = str(user_id)
-    # Ищем пользователя по ID или по username
     if uid not in users:
         found = False
         for key, data in users.items():
@@ -168,7 +167,6 @@ def get_status(user_id: int) -> str | None:
                 found = True
                 uid = key
                 break
-        # Для автора — создаём запись автоматически
         if not found and user_id == 456504792:
             users["456504792"] = {"day": 0, "completed": [], "photos_today": [], "attempts": 0, "username": "sevosphoto"}
             _save_users(users)
@@ -193,7 +191,6 @@ def add_photo(user_id: int) -> str:
     users = _load_users()
     uid = str(user_id)
     if uid not in users:
-        # Ищем по username
         for key, data in users.items():
             if isinstance(data, dict) and data.get("username") == uid:
                 uid = key
@@ -226,7 +223,7 @@ def add_photo(user_id: int) -> str:
     elif count >= 3:
         users[uid]["attempts"] = users[uid].get("attempts", 0) + 1
         _save_users(users)
-        return "✅ Третье фото принято! Теперь отправь любое фото для проверки всех трёх."
+        return "THIRD_PHOTO"
     return ""
 
 
@@ -252,21 +249,43 @@ def check_day(user_id: int, result: dict) -> str:
     check_text = DAYS[day]["check"]
     error_type = result.get("error_type", "")
 
-    # Проверка задания
-    if target_error == "horizon" and "horizon" not in error_type:
-        verdict = "done"
-    elif target_error == "thirds" and ("thirds" in error_type or "good_shot" in error_type):
-        verdict = "done"
-    elif target_error == "pose" and "pose" not in error_type:
-        verdict = "done"
-    elif target_error == "lighting" and "lighting" not in error_type:
-        verdict = "done"
-    elif target_error == "shadow" and ("shadow" in error_type or "good_shot" in error_type):
-        verdict = "done"
-    elif target_error == "reflection" and "good_shot" in error_type:
-        verdict = "done"
-    elif target_error == "framing" and "framing" not in error_type:
-        verdict = "done"
+    verdict = "fail"
+
+    if target_error == "horizon":
+        if "horizon" not in error_type:
+            verdict = "done"
+        else:
+            verdict = "retry" if attempts < 2 else "fail"
+    elif target_error == "thirds":
+        if "thirds" not in error_type or "good_shot" in error_type:
+            verdict = "done"
+        else:
+            verdict = "retry" if attempts < 2 else "fail"
+    elif target_error == "pose":
+        if "pose" not in error_type:
+            verdict = "done"
+        else:
+            verdict = "retry" if attempts < 2 else "fail"
+    elif target_error == "lighting":
+        if "lighting" not in error_type and "shadow" not in error_type:
+            verdict = "done"
+        else:
+            verdict = "retry" if attempts < 2 else "fail"
+    elif target_error == "shadow":
+        if "good_shot" in error_type or "shadow" not in error_type:
+            verdict = "done"
+        else:
+            verdict = "retry" if attempts < 2 else "fail"
+    elif target_error == "reflection":
+        if "good_shot" in error_type or "reflection" not in error_type:
+            verdict = "done"
+        else:
+            verdict = "retry" if attempts < 2 else "fail"
+    elif target_error == "framing":
+        if "framing" not in error_type:
+            verdict = "done"
+        else:
+            verdict = "retry" if attempts < 2 else "fail"
     else:
         verdict = "retry" if attempts < 2 else "fail"
 
@@ -289,7 +308,7 @@ def check_day(user_id: int, result: dict) -> str:
         users[uid]["photos_today"] = []
         users[uid]["attempts"] = 0
         _save_users(users)
-        return f"❌ Приём не применён.\n\n{check_text}\n\nПришли 3 новых фото для пересдачи."
+        return f"❌ Приём не применён. Ошибка по теме дня.\n\n{check_text}\n\nПришли 3 новых фото для пересдачи."
 
 
 def _day_text(day: int) -> str:
@@ -317,6 +336,7 @@ def _course_result(uid: str) -> str:
         "Ты освоил: горизонт, правило третей, позу, свет, тень, отражения, фрейминг.\n\n"
         "Теперь снимай как профи! 🚀"
     )
+
 
 def get_current_topic(user_id: int) -> str | None:
     if not has_access(user_id):
