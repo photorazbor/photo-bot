@@ -33,6 +33,9 @@ dp = Dispatcher()
 
 flask_app = Flask(__name__)
 
+# Храним режим пользователя: "course" или "free"
+user_mode = {}
+
 @flask_app.route('/')
 def home():
     return "Bot is running"
@@ -75,15 +78,27 @@ def run_flask():
 
 DONATE_LOGIN = "1515230"
 
-DONATE_KEYBOARD = InlineKeyboardMarkup(
-    inline_keyboard=[
-        [InlineKeyboardButton(text="💛 Поддержать на 100 ₽", url=f"https://donatepay.ru/don/{DONATE_LOGIN}?sum=100")],
-        [InlineKeyboardButton(text="💛 Поддержать (любая сумма)", url=f"https://donatepay.ru/don/{DONATE_LOGIN}")],
-        [InlineKeyboardButton(text="📊 Моя статистика", callback_data="my_stats")],
-        [InlineKeyboardButton(text="🎓 Мини-курс", callback_data="course_status")],
-        [InlineKeyboardButton(text="📷 Разобрать другое фото", callback_data="new_photo")],
-    ]
-)
+def get_keyboard(user_id: int) -> InlineKeyboardMarkup:
+    """Возвращает клавиатуру в зависимости от режима и доступа к курсу."""
+    if has_access(user_id) and user_mode.get(user_id) == "course":
+        return InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text="📸 Фото для курса", callback_data="mode_course")],
+                [InlineKeyboardButton(text="🔍 Обычный анализ", callback_data="mode_free")],
+                [InlineKeyboardButton(text="📊 Моя статистика", callback_data="my_stats")],
+                [InlineKeyboardButton(text="📷 Разобрать другое фото", callback_data="new_photo")],
+            ]
+        )
+    else:
+        return InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text="💛 Поддержать на 100 ₽", url=f"https://donatepay.ru/don/{DONATE_LOGIN}?sum=100")],
+                [InlineKeyboardButton(text="💛 Поддержать (любая сумма)", url=f"https://donatepay.ru/don/{DONATE_LOGIN}")],
+                [InlineKeyboardButton(text="📊 Моя статистика", callback_data="my_stats")],
+                [InlineKeyboardButton(text="🎓 Мини-курс", callback_data="course_status")],
+                [InlineKeyboardButton(text="📷 Разобрать другое фото", callback_data="new_photo")],
+            ]
+        )
 
 AUTHOR_KEYBOARD = InlineKeyboardMarkup(
     inline_keyboard=[
@@ -126,6 +141,7 @@ async def handle_stats(message: Message):
 @dp.message(Command("course"))
 async def handle_course(message: Message):
     if has_access(message.from_user.id):
+        user_mode[message.from_user.id] = "course"
         status = get_status(message.from_user.id)
         await message.answer(status, parse_mode="HTML")
     else:
@@ -157,7 +173,8 @@ async def handle_reset(message: Message):
         await message.answer("✅ Данные курса сброшены. Можешь начинать заново.")
     else:
         await message.answer("Файл уже отсутствует.")
-        
+
+
 @dp.message(Command("start_course"))
 async def handle_force_start(message: Message):
     if message.from_user.id != 456504792:
@@ -165,7 +182,9 @@ async def handle_force_start(message: Message):
         return
     from course import activate_by_username
     activate_by_username("sevosphoto")
+    user_mode[message.from_user.id] = "course"
     await message.answer("✅ Курс активирован. Напиши /course или нажми кнопку Мини-курс.")
+
 
 @dp.callback_query(F.data == "author_info")
 async def handle_author_info(callback: CallbackQuery):
@@ -195,11 +214,27 @@ async def handle_course_status(callback: CallbackQuery):
     if not has_access(callback.from_user.id):
         await callback.message.answer("У тебя нет доступа. Напиши /course чтобы узнать, как оплатить.")
     else:
+        user_mode[callback.from_user.id] = "course"
         status = get_status(callback.from_user.id)
         if status is not None:
             await callback.message.answer(status, parse_mode="HTML")
         else:
             await callback.message.answer("Произошла ошибка. Напиши /reset для сброса курса.")
+
+
+@dp.callback_query(F.data == "mode_course")
+async def handle_mode_course(callback: CallbackQuery):
+    user_mode[callback.from_user.id] = "course"
+    await callback.answer("✅ Режим курса. Присылай фото для задания.")
+    status = get_status(callback.from_user.id)
+    if status:
+        await callback.message.answer(status, parse_mode="HTML")
+
+
+@dp.callback_query(F.data == "mode_free")
+async def handle_mode_free(callback: CallbackQuery):
+    user_mode[callback.from_user.id] = "free"
+    await callback.answer("🔍 Обычный анализ. Фото не засчитается в курс.")
 
 
 @dp.callback_query(F.data == "new_photo")
@@ -248,10 +283,10 @@ async def handle_photo(message: Message):
             f"🟢 зелёный — правильно\n"
             f"🟡 жёлтый — внимание"
         )
-        await message.answer(caption, reply_markup=DONATE_KEYBOARD)
+        await message.answer(caption, reply_markup=get_keyboard(message.from_user.id))
 
-        # Проверка курса
-        if has_access(message.from_user.id):
+        # Проверка курса — только если режим "course"
+        if has_access(message.from_user.id) and user_mode.get(message.from_user.id) == "course":
             status = get_status(message.from_user.id)
             if status is not None and "День" in status:
                 add_text = add_photo(message.from_user.id)
