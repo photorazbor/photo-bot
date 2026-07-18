@@ -61,7 +61,7 @@ def donate_webhook():
         else:
             telegram_username = match.group(1)
 
-        if amount >= 1 and telegram_username:
+        if amount >= 990 and telegram_username:
             from course import activate_by_username
             activate_by_username(telegram_username)
 
