@@ -23,7 +23,6 @@ def add_analysis(user_id: int, error_type: str):
         stats[uid] = {"total": 0, "errors": {}}
     stats[uid]["total"] += 1
 
-    # Разбиваем составной тип на отдельные ошибки, исключаем good_shot
     errors = [e.strip() for e in error_type.split(",")]
     for err in errors:
         if err and err != "good_shot":
@@ -63,19 +62,25 @@ def get_stats(user_id: int) -> str:
         "depth": "Глубина кадра",
         "symmetry": "Симметрия",
         "diagonal": "Диагональ",
+        "good_shot": "Отличный кадр",
+        "topic_error": "Ошибка в задании",
     }
 
     text = f"📊 <b>Твоя статистика</b>\nПроанализировано фото: <b>{total}</b>\n\n"
     if errors:
+        real_errors = {k: v for k, v in errors.items() if k not in ("good_shot", "topic_error")}
         text += "Частые ошибки:\n"
         for err, count in sorted(errors.items(), key=lambda x: x[1], reverse=True):
             name = error_names.get(err, err)
             text += f"  • {name}: {count} раз(а)\n"
 
-        top_error = max(errors, key=errors.get)
-        top_name = error_names.get(top_error, top_error)
-        text += f"\n💡 Совет: поработай над <b>{top_name.lower()}</b> — это твоя главная зона роста!"
+        if real_errors:
+            top_error = max(real_errors, key=real_errors.get)
+            top_name = error_names.get(top_error, top_error)
+            text += f"\n💡 Совет: поработай над <b>{top_name.lower()}</b> — это твоя главная зона роста!"
+        else:
+            text += "\n🎉 У тебя нет типичных ошибок — ты снимаешь как профи!"
     else:
-        text += "Ошибок нет — ты снимаешь как профи! 🎉"
+        text += "🎉 Ошибок нет — ты снимаешь как профи!"
 
     return text
