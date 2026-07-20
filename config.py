@@ -3,12 +3,11 @@
 """
 import os
 
-# На Render переменные окружения передаются через Environment Variables,
-# локально — через файл .env
+# Пробуем загрузить .env (для локального запуска), если нет — ок
 try:
     from dotenv import load_dotenv
     load_dotenv()
-except ImportError:
+except (ImportError, FileNotFoundError):
     pass
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
