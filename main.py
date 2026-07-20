@@ -107,6 +107,23 @@ AUTHOR_KEYBOARD = InlineKeyboardMarkup(
 )
 
 
+async def send_photos(chat_id: int, day: int):
+    """Отправляет фото-примеры для указанного дня."""
+    photos = get_day_photos(day)
+    if not photos:
+        return
+    try:
+        if len(photos) == 1:
+            await bot.send_photo(chat_id, URLInputFile(photos[0]))
+        elif len(photos) >= 2:
+            media = [InputMediaPhoto(media=URLInputFile(photos[0]))]
+            for url in photos[1:]:
+                media.append(InputMediaPhoto(media=URLInputFile(url)))
+            await bot.send_media_group(chat_id, media)
+    except Exception as e:
+        logging.error(f"Ошибка отправки фото: {e}")
+
+
 @dp.message(CommandStart())
 async def handle_start(message: Message):
     await message.answer(
@@ -155,6 +172,13 @@ async def handle_course(message: Message):
                 )
             else:
                 await message.answer(status, parse_mode="HTML")
+                # Отправляем фото для текущего дня
+                from course import _load_users
+                users = _load_users()
+                uid = str(message.from_user.id)
+                if uid in users:
+                    day = users[uid].get("day", 1)
+                    await send_photos(message.chat.id, day)
     else:
         await message.answer(
             "🎓 <b>Мини-курс по композиции</b>\n\n"
@@ -240,6 +264,13 @@ async def handle_course_status(callback: CallbackQuery):
                 )
             else:
                 await callback.message.answer(status, parse_mode="HTML")
+                # Отправляем фото для текущего дня
+                from course import _load_users
+                users = _load_users()
+                uid = str(callback.from_user.id)
+                if uid in users:
+                    day = users[uid].get("day", 1)
+                    await send_photos(callback.message.chat.id, day)
         else:
             await callback.message.answer("Произошла ошибка. Напиши /reset для сброса курса.")
 
@@ -250,6 +281,8 @@ async def handle_start_course_btn(callback: CallbackQuery):
     add_text = add_photo(callback.from_user.id)
     if add_text:
         await callback.message.answer(add_text, parse_mode="HTML")
+        # Отправляем фото для Дня 1
+        await send_photos(callback.message.chat.id, 1)
     await callback.answer()
 
 
@@ -260,6 +293,13 @@ async def handle_mode_course(callback: CallbackQuery):
     status = get_status(callback.from_user.id)
     if status:
         await callback.message.answer(status, parse_mode="HTML")
+        # Отправляем фото для текущего дня
+        from course import _load_users
+        users = _load_users()
+        uid = str(callback.from_user.id)
+        if uid in users:
+            day = users[uid].get("day", 1)
+            await send_photos(callback.message.chat.id, day)
 
 
 @dp.callback_query(F.data == "mode_free")
@@ -328,6 +368,14 @@ async def handle_photo(message: Message):
                 check_text = check_day(message.from_user.id, result)
                 if check_text:
                     await message.answer(check_text, parse_mode="HTML")
+                    # Если день засчитан — отправляем фото для следующего дня
+                    if "✅ Задание выполнено" in check_text:
+                        from course import _load_users
+                        users = _load_users()
+                        uid = str(message.from_user.id)
+                        if uid in users:
+                            next_day = users[uid].get("day", 1)
+                            await send_photos(message.chat.id, next_day)
 
         await processing_msg.delete()
 
