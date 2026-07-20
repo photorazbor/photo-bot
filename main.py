@@ -211,7 +211,7 @@ async def handle_course(message: Message):
         await message.answer(
             "🎓 <b>Мини-курс по композиции</b>\n\n"
             "9-дневный челлендж: подготовка, горизонт, правило третей, поза, свет, тень, отражения, фрейминг, ритм и перспектива, глубина кадра.\n\n"
-            "Стоимость: 990 ₽.\n\n"
+            "Стоимость: 490 ₽.\n\n"
             "<b>Как оплатить и получить доступ:</b>\n"
             "1. Нажми кнопку «Оплатить доступ».\n"
             "2. В комментарии к платежу напиши свой Telegram: <b>@твойник</b>\n"
@@ -220,7 +220,7 @@ async def handle_course(message: Message):
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(
                 inline_keyboard=[
-                    [InlineKeyboardButton(text="💛 Оплатить доступ (990 ₽)", url=f"https://donatepay.ru/don/{DONATE_LOGIN}?sum=990")],
+                    [InlineKeyboardButton(text="💛 Оплатить доступ (490 ₽)", url=f"https://donatepay.ru/don/{DONATE_LOGIN}?sum=990")],
                 ]
             ),
         )
