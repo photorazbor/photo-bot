@@ -277,4 +277,10 @@ async def handle_course_status(callback: CallbackQuery):
 
 @dp.callback_query(F.data == "start_course_btn")
 async def handle_start_course_btn(callback: CallbackQuery):
+    user_mode[callback.from_user.id] = "course"
+    add_text = add_photo(callback.from_user.id)
+    if add_text:
+        await callback.message.answer(add_text, parse_mode="HTML")
+        await send_photos(callback.message.chat.id, 1)
+    await callback.answer()
    
