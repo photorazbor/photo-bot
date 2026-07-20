@@ -1,6 +1,10 @@
 """
 Точка входа: Telegram-бот на aiogram 3 + заглушка для Render + webhook DonatePay
 """
+print("STARTING BOT...")
+import sys
+print("Python path:", sys.path)
+
 import asyncio
 import logging
 from threading import Thread
@@ -9,6 +13,8 @@ import os
 import hashlib
 import hmac
 import re
+
+print("Basic imports done, loading aiogram...")
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import CommandStart, Command
@@ -22,11 +28,15 @@ from aiogram.types import (
     URLInputFile,
 )
 
+print("Aiogram loaded, loading project modules...")
+
 from config import TELEGRAM_BOT_TOKEN
 from ai_service import analyze_photo
 from image_utils import download_and_resize, image_to_bytes, draw_hints
 from stats import add_analysis, get_stats
 from course import get_status, add_photo, check_day, has_access, get_day_photos
+
+print("All imports done! Starting bot setup...")
 
 logging.basicConfig(level=logging.INFO)
 
