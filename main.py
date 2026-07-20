@@ -38,14 +38,32 @@ from course import get_status, add_photo, check_day, has_access, get_day_photos
 
 print("All imports done! Starting bot setup...")
 
-logging.basicConfig(level=logging.INFO)
+try:
+    logging.basicConfig(level=logging.INFO)
+    print("Logging configured")
+except Exception as e:
+    print(f"Logging error: {e}")
 
-bot = Bot(token=TELEGRAM_BOT_TOKEN)
-dp = Dispatcher()
+try:
+    bot = Bot(token=TELEGRAM_BOT_TOKEN)
+    print("Bot created")
+except Exception as e:
+    print(f"Bot error: {e}")
 
-flask_app = Flask(__name__)
+try:
+    dp = Dispatcher()
+    print("Dispatcher created")
+except Exception as e:
+    print(f"Dispatcher error: {e}")
+
+try:
+    flask_app = Flask(__name__)
+    print("Flask created")
+except Exception as e:
+    print(f"Flask error: {e}")
 
 user_mode = {}
+print("Setup complete!")
 
 @flask_app.route('/')
 def home():
@@ -293,3 +311,106 @@ async def handle_start_course_btn(callback: CallbackQuery):
         await callback.message.answer(add_text, parse_mode="HTML")
         await send_photos(callback.message.chat.id, 1)
     await callback.answer()
+
+
+@dp.callback_query(F.data == "mode_course")
+async def handle_mode_course(callback: CallbackQuery):
+    user_mode[callback.from_user.id] = "course"
+    await callback.answer("✅ Режим курса. Присылай фото для задания.")
+    status = get_status(callback.from_user.id)
+    if status:
+        await callback.message.answer(status, parse_mode="HTML")
+
+
+@dp.callback_query(F.data == "mode_free")
+async def handle_mode_free(callback: CallbackQuery):
+    user_mode[callback.from_user.id] = "free"
+    await callback.answer("🔍 Обычный анализ. Фото не засчитается в курс.")
+
+
+@dp.callback_query(F.data == "new_photo")
+async def handle_retry_button(callback: CallbackQuery):
+    await callback.message.answer("Присылай следующее фото — жду! 📷")
+    await callback.answer()
+
+
+@dp.message(F.photo)
+async def handle_photo(message: Message):
+    processing_msg = await message.answer("🔍 Анализирую кадр... Обычно до минуты, иногда быстрее.")
+
+    try:
+        photo = message.photo[-1]
+        file = await bot.get_file(photo.file_id)
+        photo_url = f"https://api.telegram.org/file/bot{TELEGRAM_BOT_TOKEN}/{file.file_path}"
+
+        image = download_and_resize(photo_url, target_width=1024)
+        image_bytes = image_to_bytes(image)
+
+        course_topic = None
+        if has_access(message.from_user.id) and user_mode.get(message.from_user.id) == "course":
+            from course import get_current_topic
+            course_topic = get_current_topic(message.from_user.id)
+
+        result = analyze_photo(image_bytes, course_topic=course_topic)
+
+        if result is not None:
+            error_type = result.get("error_type", "unknown")
+            add_analysis(message.from_user.id, error_type)
+
+        if result is None:
+            await processing_msg.edit_text("😕 Не смог разобрать, попробуй другое фото.")
+            return
+
+        drawings = result.get("drawings", [])
+        annotated_image = draw_hints(image, drawings)
+        annotated_bytes = image_to_bytes(annotated_image)
+
+        await message.answer_photo(
+            BufferedInputFile(annotated_bytes, filename="analysis.jpg")
+        )
+
+        caption = (
+            f"📸 {result.get('title', 'Разбор кадра')}\n\n"
+            f"❌ Что не так: {result.get('what_is_wrong', '—')}\n\n"
+            f"🔄 Как исправить: {result.get('how_to_fix', '—')}\n\n"
+            f"✨ Совет от профи: {result.get('pro_tip', '—')}\n\n"
+            f"👍 Что хорошо: {result.get('praise', '—')}\n\n"
+            f"🔴 красный — проблема\n"
+            f"🟢 зелёный — правильно\n"
+            f"🟡 жёлтый — внимание"
+        )
+        await message.answer(caption, reply_markup=get_keyboard(message.from_user.id))
+
+        if has_access(message.from_user.id) and user_mode.get(message.from_user.id) == "course":
+            status = get_status(message.from_user.id)
+            if status is not None and "День" in status:
+                add_photo(message.from_user.id)
+                check_text = check_day(message.from_user.id, result)
+                if check_text:
+                    await message.answer(check_text, parse_mode="HTML")
+
+        await processing_msg.delete()
+
+    except Exception:
+        logging.exception("Ошибка при обработке фото")
+        await processing_msg.edit_text(
+            "😕 Что-то пошло не так при анализе фото. Попробуй ещё раз."
+        )
+
+
+@dp.message(~F.photo)
+async def handle_non_photo(message: Message):
+    await message.answer(
+        "Пришли мне, пожалуйста, фотографию 📷 — я умею разбирать только изображения."
+    )
+
+
+async def main():
+    flask_thread = Thread(target=run_flask)
+    flask_thread.daemon = True
+    flask_thread.start()
+    await dp.start_polling(bot)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
