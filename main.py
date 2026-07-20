@@ -18,13 +18,15 @@ from aiogram.types import (
     BufferedInputFile,
     InlineKeyboardMarkup,
     InlineKeyboardButton,
+    InputMediaPhoto,
+    URLInputFile,
 )
 
 from config import TELEGRAM_BOT_TOKEN
 from ai_service import analyze_photo
 from image_utils import download_and_resize, image_to_bytes, draw_hints
 from stats import add_analysis, get_stats
-from course import get_status, add_photo, check_day, has_access
+from course import get_status, add_photo, check_day, has_access, get_day_photos
 
 logging.basicConfig(level=logging.INFO)
 
@@ -78,7 +80,6 @@ def run_flask():
 DONATE_LOGIN = "1515230"
 
 def get_keyboard(user_id: int) -> InlineKeyboardMarkup:
-    """Умная клавиатура: на курсе — кнопки курса, иначе — донаты."""
     if has_access(user_id) and user_mode.get(user_id) == "course":
         return InlineKeyboardMarkup(
             inline_keyboard=[
@@ -157,7 +158,7 @@ async def handle_course(message: Message):
     else:
         await message.answer(
             "🎓 <b>Мини-курс по композиции</b>\n\n"
-            "8-дневный челлендж: подготовка, горизонт, правило третей, поза, свет, тень, отражения, фрейминг.\n\n"
+            "9-дневный челлендж: подготовка, горизонт, правило третей, поза, свет, тень, отражения, фрейминг, ритм и перспектива, глубина кадра.\n\n"
             "Стоимость: 990 ₽.\n\n"
             "<b>Как оплатить и получить доступ:</b>\n"
             "1. Нажми кнопку «Оплатить доступ».\n"
@@ -224,7 +225,6 @@ async def handle_course_status(callback: CallbackQuery):
     if not has_access(callback.from_user.id):
         await callback.message.answer("У тебя нет доступа. Напиши /course чтобы узнать, как оплатить.")
     else:
-        # Включаем режим курса и показываем статус
         user_mode[callback.from_user.id] = "course"
         status = get_status(callback.from_user.id)
         if status is not None:
