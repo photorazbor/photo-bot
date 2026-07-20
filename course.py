@@ -6,7 +6,6 @@ import os
 
 COURSE_FILE = "course_users.json"
 
-# Ссылки на фото-примеры (лежат на GitHub)
 PHOTO_BASE = "https://raw.githubusercontent.com/photorazbor/photo-bot/main"
 
 DAYS = {
@@ -50,7 +49,7 @@ DAYS = {
         "check": "",
         "error_type": "",
         "is_intro": True,
-        "photos": [f"{PHOTO_BASE}/day0_a.jpg", f"{PHOTO_BASE}/day0_b.jpg"],
+        "photos": [f"{PHOTO_BASE}/day0_a.jpg"],
     },
     1: {
         "title": "Горизонт и геометрия",
@@ -61,7 +60,7 @@ DAYS = {
         "task": "Сфоткай пейзаж, архитектуру или интерьер так, чтобы горизонт был идеально ровным, а вертикальные линии — строго вертикальны.",
         "check": "Главное: горизонт ровный, вертикали не завалены.",
         "error_type": "horizon",
-        "photos": [f"{PHOTO_BASE}/day1_a.jpg"],
+        "photos": [f"{PHOTO_BASE}/day1_a.jpg", f"{PHOTO_BASE}/day1_b.jpg"],
     },
     2: {
         "title": "Правило третей",
