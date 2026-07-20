@@ -283,4 +283,3 @@ async def handle_start_course_btn(callback: CallbackQuery):
         await callback.message.answer(add_text, parse_mode="HTML")
         await send_photos(callback.message.chat.id, 1)
     await callback.answer()
-   
