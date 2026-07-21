@@ -174,7 +174,7 @@ Drawings: line, dashed_line, circle, frame, arrow, grid_thirds, crop_frame.
 
 
 def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
-    """Генерирует изображение через GPT Image API на CheapAI."""
+    """Генерирует изображение (отладка)."""
     data_url = _image_bytes_to_data_url(image_bytes)
 
     headers = {
@@ -208,22 +208,8 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
         return None
 
     result = response.json()
-    try:
-        content = result["choices"][0]["message"]["content"]
-        # Пробуем найти base64 изображение
-        if isinstance(content, str) and "data:image" in content:
-            img_data = content.split("data:image", 1)[1]
-            img_data = img_data.split(",", 1)[1] if "," in img_data else img_data
-            return base64.b64decode(img_data)
-        # Или пробуем найти URL изображения
-        if isinstance(content, str) and "http" in content:
-            img_url = content.strip()
-            img_response = requests.get(img_url, timeout=30)
-            if img_response.status_code == 200:
-                return img_response.content
-        # Или просто пробуем декодировать весь ответ как base64
-        return base64.b64decode(content)
-    except Exception as e:
-        print(f"Не удалось извлечь изображение: {e}")
-        print(f"Ответ модели: {result}")
-        return None
+    # Выводим ВЕСЬ ответ в логи для анализа
+    print("=== ОТВЕТ МОДЕЛИ ===")
+    print(json.dumps(result, indent=2, ensure_ascii=False))
+    print("=== КОНЕЦ ОТВЕТА ===")
+    return None  # Пока возвращаем None, чтобы увидеть ответ
