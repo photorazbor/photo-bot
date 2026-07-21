@@ -10,6 +10,7 @@ import hashlib
 import hmac
 import re
 import json
+import requests
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import CommandStart, Command
@@ -24,7 +25,7 @@ from aiogram.types import (
 )
 
 from config import TELEGRAM_BOT_TOKEN
-from ai_service import analyze_photo, generate_image
+from ai_service import analyze_photo, generate_image, transcribe_audio
 from image_utils import download_and_resize, image_to_bytes, draw_hints
 from stats import add_analysis, get_stats
 from course import get_status, add_photo, check_day, has_access, get_day_photos
@@ -122,8 +123,8 @@ def get_keyboard(user_id: int) -> InlineKeyboardMarkup:
     elif paid_left > 0:
         buttons.append([InlineKeyboardButton(text=f"✨ Улучшить фото (осталось {paid_left})", callback_data="gen_paid")])
     else:
-        buttons.append([InlineKeyboardButton(text="💛 5 улучшений — 99 ₽", url="https://donatepay.ru/don/1515230?goal=5%20Gen")])
-        buttons.append([InlineKeyboardButton(text="💛 20 улучшений — 249 ₽", url="https://donatepay.ru/don/1515230?goal=20%20Gen")])
+        buttons.append([InlineKeyboardButton(text="💛 5 улучшений — 99 ₽", url=f"https://donatepay.ru/don/{DONATE_LOGIN}?sum=99&comment=генерации")])
+        buttons.append([InlineKeyboardButton(text="💛 20 улучшений — 249 ₽", url=f"https://donatepay.ru/don/{DONATE_LOGIN}?sum=249&comment=генерации")])
 
     if has_access(user_id) and user_mode.get(user_id) == "course":
         buttons.append([InlineKeyboardButton(text="📸 Продолжить курс", callback_data="mode_course")])
@@ -231,7 +232,7 @@ async def handle_course(message: Message):
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(
                 inline_keyboard=[
-                    [InlineKeyboardButton(text="💛 Оплатить доступ (490 ₽)", url="https://donatepay.ru/don/1515230?goal=mini-course")],
+                    [InlineKeyboardButton(text="💛 Оплатить доступ (490 ₽)", url=f"https://donatepay.ru/don/{DONATE_LOGIN}?sum=490&comment=курс")],
                 ]
             ),
         )
@@ -345,7 +346,7 @@ async def handle_retry_button(callback: CallbackQuery):
     await callback.answer()
 
 
-# ===== ГЕНЕРАЦИЯ (без форматов) =====
+# ===== ГЕНЕРАЦИЯ =====
 
 @dp.callback_query(F.data == "gen_free")
 async def handle_gen_free(callback: CallbackQuery):
@@ -359,8 +360,8 @@ async def handle_gen_free(callback: CallbackQuery):
     await callback.answer()
     await callback.message.answer(
         "✨ <b>Улучшение фото</b>\n\n"
-        "Напиши одним сообщением, что улучшить (например: «дорисуй руку, сделай свет теплее»)\n"
-        "Или напиши «ок», чтобы просто улучшить.\n\n"
+        "Напиши пожелание, отправь голосовое сообщение 🎤 или просто напиши «ок».\n"
+        "Например: «дорисуй руку, сделай свет теплее».\n\n"
         "ℹ️ Фото будет в формате исходного изображения.",
         parse_mode="HTML",
     )
@@ -379,8 +380,8 @@ async def handle_gen_paid(callback: CallbackQuery):
     await callback.answer()
     await callback.message.answer(
         "✨ <b>Улучшение фото</b>\n\n"
-        "Напиши одним сообщением, что улучшить (например: «дорисуй руку, сделай свет теплее»)\n"
-        "Или напиши «ок», чтобы просто улучшить.\n\n"
+        "Напиши пожелание, отправь голосовое сообщение 🎤 или просто напиши «ок».\n"
+        "Например: «дорисуй руку, сделай свет теплее».\n\n"
         "ℹ️ Фото будет в формате исходного изображения.",
         parse_mode="HTML",
     )
@@ -398,128 +399,4 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str):
     try:
         image_bytes = last_photo[user_id]
 
-        prompt = f"Улучши это фото: исправь композицию, выровняй горизонт, дорисуй обрезанные края, убери отвлекающие объекты, улучши свет и цвета. Сохрани все важные детали и объекты."
-        if wish and wish.lower() != "ок":
-            prompt += f" Дополнительное пожелание: {wish}"
-
-        result = generate_image(image_bytes, prompt)
-
-        if result is None:
-            await bot.send_message(chat_id, "😕 Не удалось сгенерировать изображение. Попробуй другое фото.")
-            return
-
-        if gen_type == "free" and user_id != 456504792:
-            free_generations[user_id] = 1
-            _save_gen()
-        elif gen_type == "paid":
-            paid_generations[user_id] = max(0, paid_generations.get(user_id, 0) - 1)
-            _save_gen()
-
-        await bot.send_photo(
-            chat_id,
-            BufferedInputFile(result, filename="generated.jpg"),
-            caption="✨ Вот твой улучшенный кадр!\n\n"
-                    "Если хочешь ещё — купи пакет генераций.",
-            reply_markup=get_keyboard(user_id),
-        )
-
-    except Exception as e:
-        logging.exception("Ошибка генерации")
-        await bot.send_message(chat_id, "😕 Что-то пошло не так при генерации. Попробуй ещё раз.")
-
-
-@dp.message(F.photo)
-async def handle_photo(message: Message):
-    user_id = message.from_user.id
-    mode = user_mode.get(user_id, "")
-
-    processing_msg = await message.answer("🔍 Анализирую кадр... Обычно до минуты, иногда быстрее.")
-
-    try:
-        photo = message.photo[-1]
-        file = await bot.get_file(photo.file_id)
-        photo_url = f"https://api.telegram.org/file/bot{TELEGRAM_BOT_TOKEN}/{file.file_path}"
-
-        image = download_and_resize(photo_url, target_width=1024)
-        image_bytes = image_to_bytes(image)
-
-        last_photo[user_id] = image_bytes
-
-        course_topic = None
-        if has_access(user_id) and user_mode.get(user_id) == "course":
-            from course import get_current_topic
-            course_topic = get_current_topic(user_id)
-
-        result = analyze_photo(image_bytes, course_topic=course_topic)
-
-        if result is not None:
-            error_type = result.get("error_type", "unknown")
-            add_analysis(user_id, error_type)
-
-        if result is None:
-            await processing_msg.edit_text("😕 Не смог разобрать, попробуй другое фото.")
-            return
-
-        drawings = result.get("drawings", [])
-        annotated_image = draw_hints(image, drawings)
-        annotated_bytes = image_to_bytes(annotated_image)
-
-        await message.answer_photo(
-            BufferedInputFile(annotated_bytes, filename="analysis.jpg")
-        )
-
-        caption = (
-            f"📸 {result.get('title', 'Разбор кадра')}\n\n"
-            f"❌ Что не так: {result.get('what_is_wrong', '—')}\n\n"
-            f"🔄 Как исправить: {result.get('how_to_fix', '—')}\n\n"
-            f"✨ Совет от профи: {result.get('pro_tip', '—')}\n\n"
-            f"👍 Что хорошо: {result.get('praise', '—')}\n\n"
-            f"🔴 красный — проблема\n"
-            f"🟢 зелёный — правильно\n"
-            f"🟡 жёлтый — внимание"
-        )
-        await message.answer(caption, reply_markup=get_keyboard(user_id))
-
-        if has_access(user_id) and user_mode.get(user_id) == "course":
-            status = get_status(user_id)
-            if status is not None and "День" in status:
-                add_photo(user_id)
-                check_text = check_day(user_id, result)
-                if check_text:
-                    await message.answer(check_text, parse_mode="HTML")
-
-        await processing_msg.delete()
-
-    except Exception:
-        logging.exception("Ошибка при обработке фото")
-        await processing_msg.edit_text(
-            "😕 Что-то пошло не так при анализе фото. Попробуй ещё раз."
-        )
-
-
-@dp.message(~F.photo)
-async def handle_non_photo(message: Message):
-    user_id = message.from_user.id
-    mode = user_mode.get(user_id, "")
-
-    if mode in ("gen_wish_free", "gen_wish_paid"):
-        gen_wish[user_id] = message.text
-        gen_type = "free" if "free" in mode else "paid"
-        await do_generation(user_id, message.chat.id, gen_type)
-        user_mode[user_id] = "free"
-        return
-
-    await message.answer(
-        "Пришли мне, пожалуйста, фотографию 📷 — я умею разбирать только изображения."
-    )
-
-
-async def main():
-    flask_thread = Thread(target=run_flask)
-    flask_thread.daemon = True
-    flask_thread.start()
-    await dp.start_polling(bot)
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
+        prompt = f"Улучши это фото: исправь композицию, выровняй горизонт, дорисуй обрезанные края, убери отвлекающие объекты, улучши свет и цвета. Сохрани все важные
