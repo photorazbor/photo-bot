@@ -334,7 +334,6 @@ async def handle_mode_course(callback: CallbackQuery):
     status = get_status(user_id)
     if status:
         await callback.message.answer(status, parse_mode="HTML")
-        # Отправляем фото для текущего дня
         from course import _load_users
         users = _load_users()
         uid = str(user_id)
@@ -506,6 +505,14 @@ async def handle_photo(message: Message):
                 check_text = check_day(user_id, result)
                 if check_text:
                     await message.answer(check_text, parse_mode="HTML")
+                    # Отправляем фото для следующего дня
+                    if "✅ Задание выполнено" in check_text:
+                        from course import _load_users
+                        users = _load_users()
+                        uid = str(user_id)
+                        if uid in users:
+                            next_day = users[uid].get("day", 1)
+                            await send_photos(message.chat.id, next_day)
 
         await processing_msg.delete()
 
