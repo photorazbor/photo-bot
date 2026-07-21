@@ -509,7 +509,6 @@ async def handle_photo(message: Message):
                 check_text = check_day(user_id, result)
                 if check_text:
                     await message.answer(check_text, parse_mode="HTML")
-                    # Отправляем фото для следующего дня
                     if "✅ Задание выполнено" in check_text:
                         from course import _load_users
                         users = _load_users()
@@ -536,7 +535,7 @@ async def handle_non_photo(message: Message):
         gen_wish[user_id] = message.text
         gen_type = "free" if "free" in mode else "paid"
         await do_generation(user_id, message.chat.id, gen_type)
-        user_mode[user_id] = "free"
+        user_mode[user_id] = "course" if has_access(user_id) else "free"
         return
 
     await message.answer(
