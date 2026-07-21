@@ -509,12 +509,15 @@ async def handle_photo(message: Message):
                 check_text = check_day(user_id, result)
                 if check_text:
                     await message.answer(check_text, parse_mode="HTML")
+                    print(f"CHECK_TEXT: {check_text[:80]}...")
                     if "✅ Задание выполнено" in check_text:
+                        print("SENDING PHOTOS FOR NEXT DAY")
                         from course import _load_users
                         users = _load_users()
                         uid = str(user_id)
                         if uid in users:
                             next_day = users[uid].get("day", 1)
+                            print(f"NEXT DAY: {next_day}")
                             await send_photos(message.chat.id, next_day)
 
         await processing_msg.delete()
