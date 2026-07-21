@@ -40,6 +40,8 @@ user_mode = {}
 free_generations = {}
 paid_generations = {}
 GEN_FILE = "generations.json"
+# Храним последнее фото пользователя для генерации
+last_photo = {}
 
 def _load_gen():
     global free_generations, paid_generations
@@ -113,6 +115,7 @@ DONATE_LOGIN = "1515230"
 SIZE_MAP = {
     "1:1": "1024x1024",
     "3:4": "768x1024",
+    "4:3": "1024x768",
     "4:5": "896x1080",
     "16:9": "1280x720",
     "9:16": "720x1280",
@@ -121,9 +124,10 @@ SIZE_MAP = {
 # Форматы для кнопок
 FORMATS = [
     ("1_1", "📱 1:1 (квадрат)"),
-    ("3_4", "📱 3:4 (вертикаль, телефон)"),
+    ("3_4", "📱 3:4 (вертикаль)"),
+    ("4_3", "🖼️ 4:3 (горизонт)"),
     ("4_5", "📱 4:5 (вертикаль, Instagram)"),
-    ("16_9", "🖼️ 16:9 (горизонт)"),
+    ("16_9", "🖼️ 16:9 (панорама)"),
     ("9_16", "📱 9:16 (сториз)"),
 ]
 
@@ -140,12 +144,12 @@ def get_keyboard(user_id: int) -> InlineKeyboardMarkup:
     paid_left = paid_generations.get(user_id, 0)
 
     if free_left > 0:
-        buttons.append([InlineKeyboardButton(text="✨ Сгенерировать идеальный кадр (1 бесплатно)", callback_data="gen_free")])
+        buttons.append([InlineKeyboardButton(text="✨ Улучшить фото (1 бесплатно)", callback_data="gen_free")])
     elif paid_left > 0:
-        buttons.append([InlineKeyboardButton(text=f"✨ Сгенерировать кадр (осталось {paid_left})", callback_data="gen_paid")])
+        buttons.append([InlineKeyboardButton(text=f"✨ Улучшить фото (осталось {paid_left})", callback_data="gen_paid")])
     else:
-        buttons.append([InlineKeyboardButton(text="💛 5 генераций — 99 ₽", url=f"https://donatepay.ru/don/{DONATE_LOGIN}?sum=99&comment=генерации")])
-        buttons.append([InlineKeyboardButton(text="💛 20 генераций — 249 ₽", url=f"https://donatepay.ru/don/{DONATE_LOGIN}?sum=249&comment=генерации")])
+        buttons.append([InlineKeyboardButton(text="💛 5 улучшений — 99 ₽", url=f"https://donatepay.ru/don/{DONATE_LOGIN}?sum=99&comment=генерации")])
+        buttons.append([InlineKeyboardButton(text="💛 20 улучшений — 249 ₽", url=f"https://donatepay.ru/don/{DONATE_LOGIN}?sum=249&comment=генерации")])
 
     if has_access(user_id) and user_mode.get(user_id) == "course":
         buttons.append([InlineKeyboardButton(text="📸 Продолжить курс", callback_data="mode_course")])
@@ -375,14 +379,17 @@ async def handle_gen_free(callback: CallbackQuery):
     if free_generations.get(user_id, 0) >= 1:
         await callback.answer("Ты уже использовал бесплатную генерацию. Купи пакет!")
         return
+    # Проверяем, есть ли фото для генерации
+    if user_id not in last_photo:
+        await callback.answer("Сначала пришли фото для анализа!")
+        return
     await callback.answer()
     await callback.message.answer(
-        "✨ <b>Бесплатная генерация</b>\n\n"
-        "Выбери формат и пришли фото:",
+        "✨ <b>Бесплатное улучшение</b>\n\n"
+        "Выбери формат:",
         parse_mode="HTML",
         reply_markup=format_keyboard("free"),
     )
-    user_mode[user_id] = "gen_wait_free"
 
 
 @dp.callback_query(F.data == "gen_paid")
@@ -391,64 +398,62 @@ async def handle_gen_paid(callback: CallbackQuery):
     if paid_generations.get(user_id, 0) <= 0:
         await callback.answer("У тебя нет оплаченных генераций. Купи пакет!")
         return
+    if user_id not in last_photo:
+        await callback.answer("Сначала пришли фото для анализа!")
+        return
     await callback.answer()
     await callback.message.answer(
-        "✨ <b>Платная генерация</b>\n\n"
-        "Выбери формат и пришли фото:",
+        "✨ <b>Улучшение фото</b>\n\n"
+        "Выбери формат:",
         parse_mode="HTML",
         reply_markup=format_keyboard("paid"),
     )
-    user_mode[user_id] = "gen_wait_paid"
 
 
 # Динамические обработчики для всех форматов
 for fmt, name in FORMATS:
     @dp.callback_query(F.data == f"gen_{fmt}_free")
-    async def choose_format_free(callback: CallbackQuery, fmt=fmt, name=name):
+    async def choose_format_free(callback: CallbackQuery, fmt=fmt):
         user_id = callback.from_user.id
-        user_mode[user_id] = f"gen_{fmt}_free"
         await callback.answer()
-        await callback.message.answer(f"Выбран формат: {name}. Пришли фото для генерации.")
+        await do_generation_for_user(user_id, callback.message.chat.id, "free", fmt)
 
     @dp.callback_query(F.data == f"gen_{fmt}_paid")
-    async def choose_format_paid(callback: CallbackQuery, fmt=fmt, name=name):
+    async def choose_format_paid(callback: CallbackQuery, fmt=fmt):
         user_id = callback.from_user.id
-        user_mode[user_id] = f"gen_{fmt}_paid"
         await callback.answer()
-        await callback.message.answer(f"Выбран формат: {name}. Пришли фото для генерации.")
+        await do_generation_for_user(user_id, callback.message.chat.id, "paid", fmt)
 
 
-async def do_generation(message: Message, gen_type: str, fmt: str):
-    user_id = message.from_user.id
-    await message.answer("🎨 Генерирую изображение... Обычно это 30-60 секунд.")
+async def do_generation_for_user(user_id: int, chat_id: int, gen_type: str, fmt: str):
+    if user_id not in last_photo:
+        await bot.send_message(chat_id, "Сначала пришли фото для анализа!")
+        return
+
+    await bot.send_message(chat_id, "🎨 Генерирую изображение... Обычно это 30-60 секунд.")
 
     try:
-        photo = message.photo[-1]
-        file = await bot.get_file(photo.file_id)
-        photo_url = f"https://api.telegram.org/file/bot{TELEGRAM_BOT_TOKEN}/{file.file_path}"
-
-        image = download_and_resize(photo_url, target_width=1024)
-        image_bytes = image_to_bytes(image)
-
+        image_bytes = last_photo[user_id]
         img_size = SIZE_MAP.get(fmt, "1024x1024")
 
-        prompt = f"Улучши это фото: исправь композицию, выровняй горизонт, дорисуй обрезанные края, убери отвлекающие объекты, улучши свет и цвета. Сохрани все важные детали и объекты. Сделай изображение профессиональным и красивым. Размер: {img_size}."
+        prompt = f"Улучши это фото: исправь композицию, выровняй горизонт, дорисуй обрезанные края, убери отвлекающие объекты, улучши свет и цвета. Сохрани все важные детали и объекты. Размер: {img_size}."
 
         result = generate_image(image_bytes, prompt)
 
         if result is None:
-            await message.answer("😕 Не удалось сгенерировать изображение. Попробуй другое фото.")
+            await bot.send_message(chat_id, "😕 Не удалось сгенерировать изображение. Попробуй другое фото.")
             return
 
         # Списываем генерацию
-        if "free" in gen_type:
+        if gen_type == "free":
             free_generations[user_id] = 1
             _save_gen()
         else:
             paid_generations[user_id] = max(0, paid_generations.get(user_id, 0) - 1)
             _save_gen()
 
-        await message.answer_photo(
+        await bot.send_photo(
+            chat_id,
             BufferedInputFile(result, filename="generated.jpg"),
             caption="✨ Вот твой улучшенный кадр!\n\n"
                     "Если хочешь ещё — купи пакет генераций.",
@@ -457,24 +462,12 @@ async def do_generation(message: Message, gen_type: str, fmt: str):
 
     except Exception as e:
         logging.exception("Ошибка генерации")
-        await message.answer("😕 Что-то пошло не так при генерации. Попробуй ещё раз.")
+        await bot.send_message(chat_id, "😕 Что-то пошло не так при генерации. Попробуй ещё раз.")
 
 
 @dp.message(F.photo)
 async def handle_photo(message: Message):
     user_id = message.from_user.id
-    mode = user_mode.get(user_id, "")
-
-    # Если режим генерации
-    if mode.startswith("gen_"):
-        parts = mode.split("_")
-        if len(parts) >= 3:
-            fmt = f"{parts[1]}:{parts[2]}"
-            gen_type = "free" if "free" in mode else "paid"
-            await do_generation(message, gen_type, fmt)
-            return
-
-    # Обычный анализ
     processing_msg = await message.answer("🔍 Анализирую кадр... Обычно до минуты, иногда быстрее.")
 
     try:
@@ -484,6 +477,9 @@ async def handle_photo(message: Message):
 
         image = download_and_resize(photo_url, target_width=1024)
         image_bytes = image_to_bytes(image)
+
+        # Сохраняем фото для генерации
+        last_photo[user_id] = image_bytes
 
         course_topic = None
         if has_access(user_id) and user_mode.get(user_id) == "course":
