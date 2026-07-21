@@ -40,8 +40,10 @@ user_mode = {}
 free_generations = {}
 paid_generations = {}
 GEN_FILE = "generations.json"
-# Храним последнее фото пользователя для генерации
 last_photo = {}
+# Храним выбранный формат и пожелание
+gen_format = {}
+gen_wish = {}
 
 def _load_gen():
     global free_generations, paid_generations
@@ -87,12 +89,10 @@ def donate_webhook():
         else:
             telegram_username = match.group(1)
 
-        # Активация курса
         if amount >= 490 and "курс" in comment.lower():
             from course import activate_by_username
             activate_by_username(telegram_username)
 
-        # Пакеты генераций
         if amount >= 99 and amount < 249 and "генерац" in comment.lower():
             paid_generations[telegram_username] = paid_generations.get(telegram_username, 0) + 5
             _save_gen()
@@ -111,7 +111,6 @@ def run_flask():
 
 DONATE_LOGIN = "1515230"
 
-# Карта размеров для генерации
 SIZE_MAP = {
     "1:1": "1024x1024",
     "3:4": "768x1024",
@@ -121,7 +120,6 @@ SIZE_MAP = {
     "9:16": "720x1280",
 }
 
-# Форматы для кнопок
 FORMATS = [
     ("1_1", "📱 1:1 (квадрат)"),
     ("3_4", "📱 3:4 (вертикаль)"),
@@ -143,7 +141,9 @@ def get_keyboard(user_id: int) -> InlineKeyboardMarkup:
     free_left = 1 - free_generations.get(user_id, 0)
     paid_left = paid_generations.get(user_id, 0)
 
-    if free_left > 0:
+    if user_id == 456504792:
+        buttons.append([InlineKeyboardButton(text="✨ Улучшить фото (автор)", callback_data="gen_free")])
+    elif free_left > 0:
         buttons.append([InlineKeyboardButton(text="✨ Улучшить фото (1 бесплатно)", callback_data="gen_free")])
     elif paid_left > 0:
         buttons.append([InlineKeyboardButton(text=f"✨ Улучшить фото (осталось {paid_left})", callback_data="gen_paid")])
@@ -376,16 +376,15 @@ async def handle_retry_button(callback: CallbackQuery):
 @dp.callback_query(F.data == "gen_free")
 async def handle_gen_free(callback: CallbackQuery):
     user_id = callback.from_user.id
-    if free_generations.get(user_id, 0) >= 1:
+    if user_id != 456504792 and free_generations.get(user_id, 0) >= 1:
         await callback.answer("Ты уже использовал бесплатную генерацию. Купи пакет!")
         return
-    # Проверяем, есть ли фото для генерации
     if user_id not in last_photo:
         await callback.answer("Сначала пришли фото для анализа!")
         return
     await callback.answer()
     await callback.message.answer(
-        "✨ <b>Бесплатное улучшение</b>\n\n"
+        "✨ <b>Улучшение фото</b>\n\n"
         "Выбери формат:",
         parse_mode="HTML",
         reply_markup=format_keyboard("free"),
@@ -410,33 +409,50 @@ async def handle_gen_paid(callback: CallbackQuery):
     )
 
 
-# Динамические обработчики для всех форматов
+# Обработчики форматов — запрашивают пожелание
 for fmt, name in FORMATS:
     @dp.callback_query(F.data == f"gen_{fmt}_free")
-    async def choose_format_free(callback: CallbackQuery, fmt=fmt):
+    async def choose_format_free(callback: CallbackQuery, fmt=fmt, name=name):
         user_id = callback.from_user.id
+        gen_format[user_id] = fmt
         await callback.answer()
-        await do_generation_for_user(user_id, callback.message.chat.id, "free", fmt)
+        await callback.message.answer(
+            f"Выбран формат: {name}.\n\n"
+            "Напиши одним сообщением, что улучшить (например: «дорисуй руку, сделай свет теплее»)\n"
+            "Или напиши «ок», чтобы просто улучшить."
+        )
+        user_mode[user_id] = "gen_wish_free"
 
     @dp.callback_query(F.data == f"gen_{fmt}_paid")
-    async def choose_format_paid(callback: CallbackQuery, fmt=fmt):
+    async def choose_format_paid(callback: CallbackQuery, fmt=fmt, name=name):
         user_id = callback.from_user.id
+        gen_format[user_id] = fmt
         await callback.answer()
-        await do_generation_for_user(user_id, callback.message.chat.id, "paid", fmt)
+        await callback.message.answer(
+            f"Выбран формат: {name}.\n\n"
+            "Напиши одним сообщением, что улучшить (например: «дорисуй руку, сделай свет теплее»)\n"
+            "Или напиши «ок», чтобы просто улучшить."
+        )
+        user_mode[user_id] = "gen_wish_paid"
 
 
-async def do_generation_for_user(user_id: int, chat_id: int, gen_type: str, fmt: str):
+async def do_generation(user_id: int, chat_id: int, gen_type: str):
     if user_id not in last_photo:
         await bot.send_message(chat_id, "Сначала пришли фото для анализа!")
         return
 
+    fmt = gen_format.get(user_id, "1:1")
+    wish = gen_wish.get(user_id, "")
     await bot.send_message(chat_id, "🎨 Генерирую изображение... Обычно это 30-60 секунд.")
 
     try:
         image_bytes = last_photo[user_id]
         img_size = SIZE_MAP.get(fmt, "1024x1024")
 
-        prompt = f"Улучши это фото: исправь композицию, выровняй горизонт, дорисуй обрезанные края, убери отвлекающие объекты, улучши свет и цвета. Сохрани все важные детали и объекты. Размер: {img_size}."
+        prompt = f"Улучши это фото: исправь композицию, выровняй горизонт, дорисуй обрезанные края, убери отвлекающие объекты, улучши свет и цвета. Сохрани все важные детали и объекты."
+        if wish and wish.lower() != "ок":
+            prompt += f" Дополнительное пожелание: {wish}"
+        prompt += f" Размер: {img_size}."
 
         result = generate_image(image_bytes, prompt)
 
@@ -444,11 +460,10 @@ async def do_generation_for_user(user_id: int, chat_id: int, gen_type: str, fmt:
             await bot.send_message(chat_id, "😕 Не удалось сгенерировать изображение. Попробуй другое фото.")
             return
 
-        # Списываем генерацию
-        if gen_type == "free":
+        if gen_type == "free" and user_id != 456504792:
             free_generations[user_id] = 1
             _save_gen()
-        else:
+        elif gen_type == "paid":
             paid_generations[user_id] = max(0, paid_generations.get(user_id, 0) - 1)
             _save_gen()
 
@@ -468,6 +483,8 @@ async def do_generation_for_user(user_id: int, chat_id: int, gen_type: str, fmt:
 @dp.message(F.photo)
 async def handle_photo(message: Message):
     user_id = message.from_user.id
+    mode = user_mode.get(user_id, "")
+
     processing_msg = await message.answer("🔍 Анализирую кадр... Обычно до минуты, иногда быстрее.")
 
     try:
@@ -535,6 +552,17 @@ async def handle_photo(message: Message):
 
 @dp.message(~F.photo)
 async def handle_non_photo(message: Message):
+    user_id = message.from_user.id
+    mode = user_mode.get(user_id, "")
+
+    # Если ждём пожелание для генерации
+    if mode in ("gen_wish_free", "gen_wish_paid"):
+        gen_wish[user_id] = message.text
+        gen_type = "free" if "free" in mode else "paid"
+        await do_generation(user_id, message.chat.id, gen_type)
+        user_mode[user_id] = "free"
+        return
+
     await message.answer(
         "Пришли мне, пожалуйста, фотографию 📷 — я умею разбирать только изображения."
     )
