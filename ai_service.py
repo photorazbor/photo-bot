@@ -105,7 +105,9 @@ def analyze_photo(image_bytes: bytes, course_topic: str = None) -> dict:
 - Если тема «Свет и тени»: свет не должен быть фронтальным (вспышка в лоб). Боковой, контровой или просто мягкий рассеянный свет — ВЫПОЛНЕНИЕ. Плоский передний свет — НЕВЫПОЛНЕНИЕ.
 - Если тема «Тень как приём»: тень должна быть заметной и работать на кадр (даже просто длинная тень от дерева). Случайная невыразительная тень — НЕВЫПОЛНЕНИЕ.
 - Если тема «Отражения»: отражение должно быть ЗАМЕТНО и участвовать в композиции. Небольшое отражение в луже или окне — уже ВЫПОЛНЕНИЕ. Нет отражения — НЕВЫПОЛНЕНИЕ.
-- Если тема «Фрейминг, ритм и слои»: достаточно ОДНОГО приёма из трёх (рамка ИЛИ ритм ИЛИ слои). Нет ни одного — НЕВЫПОЛНЕНИЕ.
+- Если тема «Фрейминг»: должна быть естественная рамка (арка, окно, ветки). Нет рамки — НЕВЫПОЛНЕНИЕ.
+- Если тема «Ритм и перспектива»: должны быть повторяющиеся элементы, уходящие вдаль. Нет повторов или перспективы — НЕВЫПОЛНЕНИЕ.
+- Если тема «Глубина кадра»: должны читаться три плана (передний, средний, задний). Плоский кадр без глубины — НЕВЫПОЛНЕНИЕ.
 
 Вердикт:
 - Задание ВЫПОЛНЕНО только если приём применён ПРАВИЛЬНО (по реалистичным критериям выше). Тогда error_type = "good_shot".
@@ -168,4 +170,49 @@ Drawings: line, dashed_line, circle, frame, arrow, grid_thirds, crop_frame.
         return _extract_json(raw_text)
     except (json.JSONDecodeError, AttributeError) as e:
         print(f"Не удалось распарсить JSON: {e}\nОтвет модели: {raw_text}")
+        return None
+
+
+def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
+    """Генерирует изображение через Gemini Image API на CheapAI."""
+    data_url = _image_bytes_to_data_url(image_bytes)
+
+    headers = {
+        "Authorization": f"Bearer {OPENAI_API_KEY}",
+        "Content-Type": "application/json",
+    }
+
+    payload = {
+        "model": "gemini-3.1-flash-image-preview",
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": data_url}},
+                ],
+            }
+        ],
+        "max_tokens": 2000,
+    }
+
+    response = requests.post(
+        f"{BASE_URL}/chat/completions",
+        headers=headers,
+        json=payload,
+        timeout=90,
+    )
+
+    if response.status_code != 200:
+        print(f"Ошибка генерации: {response.status_code} {response.text}")
+        return None
+
+    result = response.json()
+    try:
+        content = result["choices"][0]["message"]["content"]
+        if isinstance(content, str) and content.startswith("data:image"):
+            img_data = content.split(",", 1)[1]
+            return base64.b64decode(img_data)
+    except Exception as e:
+        print(f"Не удалось извлечь изображение: {e}")
         return None
