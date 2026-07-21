@@ -11,7 +11,6 @@ import hmac
 import re
 import json
 import io as io_module
-import requests
 from PIL import Image
 
 from aiogram import Bot, Dispatcher, F
@@ -27,7 +26,7 @@ from aiogram.types import (
 )
 
 from config import TELEGRAM_BOT_TOKEN
-from ai_service import analyze_photo, generate_image, transcribe_audio
+from ai_service import analyze_photo, generate_image
 from image_utils import download_and_resize, image_to_bytes, draw_hints
 from stats import add_analysis, get_stats
 from course import get_status, add_photo, check_day, has_access, get_day_photos
@@ -362,8 +361,8 @@ async def handle_gen_free(callback: CallbackQuery):
     await callback.answer()
     await callback.message.answer(
         "✨ <b>Улучшение фото</b>\n\n"
-        "Напиши пожелание, отправь голосовое сообщение 🎤 или просто напиши «ок».\n"
-        "Например: «дорисуй руку, сделай свет теплее».\n\n"
+        "Напиши одним сообщением, что улучшить (например: «дорисуй руку, сделай свет теплее»)\n"
+        "Или напиши «ок», чтобы просто улучшить.\n\n"
         "ℹ️ Фото будет в формате исходного изображения.",
         parse_mode="HTML",
     )
@@ -382,8 +381,8 @@ async def handle_gen_paid(callback: CallbackQuery):
     await callback.answer()
     await callback.message.answer(
         "✨ <b>Улучшение фото</b>\n\n"
-        "Напиши пожелание, отправь голосовое сообщение 🎤 или просто напиши «ок».\n"
-        "Например: «дорисуй руку, сделай свет теплее».\n\n"
+        "Напиши одним сообщением, что улучшить (например: «дорисуй руку, сделай свет теплее»)\n"
+        "Или напиши «ок», чтобы просто улучшить.\n\n"
         "ℹ️ Фото будет в формате исходного изображения.",
         parse_mode="HTML",
     )
@@ -439,42 +438,6 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str):
     except Exception as e:
         logging.exception("Ошибка генерации")
         await bot.send_message(chat_id, "😕 Что-то пошло не так при генерации. Попробуй ещё раз.")
-
-
-@dp.message(F.voice)
-async def handle_voice(message: Message):
-    user_id = message.from_user.id
-    mode = user_mode.get(user_id, "")
-
-    if mode not in ("gen_wish_free", "gen_wish_paid"):
-        await message.answer("Голосовые сообщения используются только для пожеланий к генерации.")
-        return
-
-    await message.answer("🎤 Распознаю речь...")
-
-    try:
-        voice = message.voice
-        file = await bot.get_file(voice.file_id)
-        file_url = f"https://api.telegram.org/file/bot{TELEGRAM_BOT_TOKEN}/{file.file_path}"
-
-        audio_response = requests.get(file_url)
-        audio_bytes = audio_response.content
-
-        text = transcribe_audio(audio_bytes)
-
-        if text is None or len(text.strip()) == 0:
-            await message.answer("😕 Не удалось распознать речь. Напиши пожелание текстом.")
-            return
-
-        gen_wish[user_id] = text
-        gen_type = "free" if "free" in mode else "paid"
-        await message.answer(f"🎤 Распознано: «{text}»")
-        await do_generation(user_id, message.chat.id, gen_type)
-        user_mode[user_id] = "free"
-
-    except Exception:
-        logging.exception("Ошибка распознавания")
-        await message.answer("😕 Не удалось распознать речь. Напиши пожелание текстом.")
 
 
 @dp.message(F.photo)
