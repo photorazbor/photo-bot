@@ -210,7 +210,6 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
     result = response.json()
     try:
         content = result["choices"][0]["message"]["content"]
-        # Пробуем распарсить JSON внутри content
         if isinstance(content, str):
             try:
                 inner = json.loads(content)
@@ -220,7 +219,6 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
                         return base64.b64decode(b64_str)
             except json.JSONDecodeError:
                 pass
-            # Пробуем найти base64 напрямую
             if content.startswith("iVBOR"):
                 return base64.b64decode(content)
         return None
