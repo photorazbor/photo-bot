@@ -41,8 +41,6 @@ free_generations = {}
 paid_generations = {}
 GEN_FILE = "generations.json"
 last_photo = {}
-# Храним выбранный формат и пожелание
-gen_format = {}
 gen_wish = {}
 
 def _load_gen():
@@ -110,30 +108,6 @@ def run_flask():
     flask_app.run(host='0.0.0.0', port=port)
 
 DONATE_LOGIN = "1515230"
-
-SIZE_MAP = {
-    "1:1": "1024x1024",
-    "3:4": "768x1024",
-    "4:3": "1024x768",
-    "4:5": "896x1080",
-    "16:9": "1280x720",
-    "9:16": "720x1280",
-}
-
-FORMATS = [
-    ("1_1", "📱 1:1 (квадрат)"),
-    ("3_4", "📱 3:4 (вертикаль)"),
-    ("4_3", "🖼️ 4:3 (горизонт)"),
-    ("4_5", "📱 4:5 (вертикаль, Instagram)"),
-    ("16_9", "🖼️ 16:9 (панорама)"),
-    ("9_16", "📱 9:16 (сториз)"),
-]
-
-def format_keyboard(gen_type: str) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=name, callback_data=f"gen_{fmt}_{gen_type}")]
-        for fmt, name in FORMATS
-    ])
 
 def get_keyboard(user_id: int) -> InlineKeyboardMarkup:
     buttons = []
@@ -371,7 +345,7 @@ async def handle_retry_button(callback: CallbackQuery):
     await callback.answer()
 
 
-# ===== ГЕНЕРАЦИЯ =====
+# ===== ГЕНЕРАЦИЯ (без форматов) =====
 
 @dp.callback_query(F.data == "gen_free")
 async def handle_gen_free(callback: CallbackQuery):
@@ -385,10 +359,12 @@ async def handle_gen_free(callback: CallbackQuery):
     await callback.answer()
     await callback.message.answer(
         "✨ <b>Улучшение фото</b>\n\n"
-        "Выбери формат:",
+        "Напиши одним сообщением, что улучшить (например: «дорисуй руку, сделай свет теплее»)\n"
+        "Или напиши «ок», чтобы просто улучшить.\n\n"
+        "ℹ️ Фото будет в формате исходного изображения.",
         parse_mode="HTML",
-        reply_markup=format_keyboard("free"),
     )
+    user_mode[user_id] = "gen_wish_free"
 
 
 @dp.callback_query(F.data == "gen_paid")
@@ -403,37 +379,12 @@ async def handle_gen_paid(callback: CallbackQuery):
     await callback.answer()
     await callback.message.answer(
         "✨ <b>Улучшение фото</b>\n\n"
-        "Выбери формат:",
+        "Напиши одним сообщением, что улучшить (например: «дорисуй руку, сделай свет теплее»)\n"
+        "Или напиши «ок», чтобы просто улучшить.\n\n"
+        "ℹ️ Фото будет в формате исходного изображения.",
         parse_mode="HTML",
-        reply_markup=format_keyboard("paid"),
     )
-
-
-# Обработчики форматов — запрашивают пожелание
-for fmt, name in FORMATS:
-    @dp.callback_query(F.data == f"gen_{fmt}_free")
-    async def choose_format_free(callback: CallbackQuery, fmt=fmt, name=name):
-        user_id = callback.from_user.id
-        gen_format[user_id] = fmt
-        await callback.answer()
-        await callback.message.answer(
-            f"Выбран формат: {name}.\n\n"
-            "Напиши одним сообщением, что улучшить (например: «дорисуй руку, сделай свет теплее»)\n"
-            "Или напиши «ок», чтобы просто улучшить."
-        )
-        user_mode[user_id] = "gen_wish_free"
-
-    @dp.callback_query(F.data == f"gen_{fmt}_paid")
-    async def choose_format_paid(callback: CallbackQuery, fmt=fmt, name=name):
-        user_id = callback.from_user.id
-        gen_format[user_id] = fmt
-        await callback.answer()
-        await callback.message.answer(
-            f"Выбран формат: {name}.\n\n"
-            "Напиши одним сообщением, что улучшить (например: «дорисуй руку, сделай свет теплее»)\n"
-            "Или напиши «ок», чтобы просто улучшить."
-        )
-        user_mode[user_id] = "gen_wish_paid"
+    user_mode[user_id] = "gen_wish_paid"
 
 
 async def do_generation(user_id: int, chat_id: int, gen_type: str):
@@ -441,13 +392,11 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str):
         await bot.send_message(chat_id, "Сначала пришли фото для анализа!")
         return
 
-    fmt = gen_format.get(user_id, "1:1")
     wish = gen_wish.get(user_id, "")
     await bot.send_message(chat_id, "🎨 Генерирую изображение... Обычно это 30-60 секунд.")
 
     try:
         image_bytes = last_photo[user_id]
-        img_size = SIZE_MAP.get(fmt, "1024x1024")
 
         prompt = f"Улучши это фото: исправь композицию, выровняй горизонт, дорисуй обрезанные края, убери отвлекающие объекты, улучши свет и цвета. Сохрани все важные детали и объекты."
         if wish and wish.lower() != "ок":
@@ -494,7 +443,6 @@ async def handle_photo(message: Message):
         image = download_and_resize(photo_url, target_width=1024)
         image_bytes = image_to_bytes(image)
 
-        # Сохраняем фото для генерации
         last_photo[user_id] = image_bytes
 
         course_topic = None
@@ -554,7 +502,6 @@ async def handle_non_photo(message: Message):
     user_id = message.from_user.id
     mode = user_mode.get(user_id, "")
 
-    # Если ждём пожелание для генерации
     if mode in ("gen_wish_free", "gen_wish_paid"):
         gen_wish[user_id] = message.text
         gen_type = "free" if "free" in mode else "paid"
