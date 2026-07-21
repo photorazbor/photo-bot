@@ -183,7 +183,7 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
     }
 
     payload = {
-        "model": "grok-imagine-image-pro",
+        "model": "gemini-3.1-flash-image-preview",
         "messages": [
             {
                 "role": "user",
