@@ -183,7 +183,7 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
     }
 
     payload = {
-        "model": "grok-imagine-image-pro",
+        "model": "grok-imagine-image",
         "messages": [
             {
                 "role": "user",
@@ -225,3 +225,32 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
     except Exception as e:
         print(f"Не удалось извлечь изображение: {e}")
         return None
+
+
+def transcribe_audio(audio_bytes: bytes) -> str | None:
+    """Распознаёт аудио через Whisper API на CheapAI."""
+    b64 = base64.b64encode(audio_bytes).decode("utf-8")
+
+    headers = {
+        "Authorization": f"Bearer {OPENAI_API_KEY}",
+        "Content-Type": "application/json",
+    }
+
+    payload = {
+        "model": "whisper-1",
+        "file": b64,
+        "response_format": "text",
+    }
+
+    response = requests.post(
+        f"{BASE_URL}/audio/transcriptions",
+        headers=headers,
+        json=payload,
+        timeout=30,
+    )
+
+    if response.status_code != 200:
+        print(f"Ошибка распознавания: {response.status_code} {response.text}")
+        return None
+
+    return response.text.strip()
