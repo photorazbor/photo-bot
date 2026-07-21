@@ -268,6 +268,7 @@ async def handle_force_start(message: Message):
 
 @dp.callback_query(F.data == "author_info")
 async def handle_author_info(callback: CallbackQuery):
+    await callback.answer()
     await callback.message.answer(
         "📸 <b>Автор бота — Евгений Севостьянов</b>\n"
         "Фотограф, преподаватель мобильной фотографии.\n\n"
@@ -278,14 +279,13 @@ async def handle_author_info(callback: CallbackQuery):
         parse_mode="HTML",
         disable_web_page_preview=True,
     )
-    await callback.answer()
 
 
 @dp.callback_query(F.data == "my_stats")
 async def handle_stats_button(callback: CallbackQuery):
+    await callback.answer()
     text = get_stats(callback.from_user.id)
     await callback.message.answer(text, parse_mode="HTML")
-    await callback.answer()
 
 
 @dp.callback_query(F.data == "course_status")
@@ -322,19 +322,19 @@ async def handle_course_status(callback: CallbackQuery):
 
 @dp.callback_query(F.data == "start_course_btn")
 async def handle_start_course_btn(callback: CallbackQuery):
+    await callback.answer()
     user_mode[callback.from_user.id] = "course"
     add_text = add_photo(callback.from_user.id)
     if add_text:
         await callback.message.answer(add_text, parse_mode="HTML")
         await send_photos(callback.message.chat.id, 1)
-    await callback.answer()
 
 
 @dp.callback_query(F.data == "mode_course")
 async def handle_mode_course(callback: CallbackQuery):
+    await callback.answer("✅ Режим курса. Присылай фото для задания.")
     user_id = callback.from_user.id
     user_mode[user_id] = "course"
-    await callback.answer("✅ Режим курса. Присылай фото для задания.")
     status = get_status(user_id)
     if status:
         await callback.message.answer(status, parse_mode="HTML")
@@ -348,28 +348,28 @@ async def handle_mode_course(callback: CallbackQuery):
 
 @dp.callback_query(F.data == "mode_free")
 async def handle_mode_free(callback: CallbackQuery):
-    user_mode[callback.from_user.id] = "free"
     await callback.answer("🔍 Обычный анализ. Фото не засчитается в курс.")
+    user_mode[callback.from_user.id] = "free"
 
 
 @dp.callback_query(F.data == "new_photo")
 async def handle_retry_button(callback: CallbackQuery):
-    await callback.message.answer("Присылай следующее фото — жду! 📷")
     await callback.answer()
+    await callback.message.answer("Присылай следующее фото — жду! 📷")
 
 
 # ===== ГЕНЕРАЦИЯ =====
 
 @dp.callback_query(F.data == "gen_free")
 async def handle_gen_free(callback: CallbackQuery):
+    await callback.answer()
     user_id = callback.from_user.id
     if user_id != 456504792 and free_generations.get(user_id, 0) >= 1:
-        await callback.answer("Ты уже использовал бесплатную генерацию. Купи пакет!")
+        await callback.message.answer("Ты уже использовал бесплатную генерацию. Купи пакет!")
         return
     if user_id not in last_photo:
-        await callback.answer("Сначала пришли фото для анализа!")
+        await callback.message.answer("Сначала пришли фото для анализа!")
         return
-    await callback.answer()
     await callback.message.answer(
         "✨ <b>Улучшение фото</b>\n\n"
         "Напиши одним сообщением, что улучшить (например: «дорисуй руку, сделай свет теплее»)\n"
@@ -382,14 +382,14 @@ async def handle_gen_free(callback: CallbackQuery):
 
 @dp.callback_query(F.data == "gen_paid")
 async def handle_gen_paid(callback: CallbackQuery):
+    await callback.answer()
     user_id = callback.from_user.id
     if paid_generations.get(user_id, 0) <= 0:
-        await callback.answer("У тебя нет оплаченных генераций. Купи пакет!")
+        await callback.message.answer("У тебя нет оплаченных генераций. Купи пакет!")
         return
     if user_id not in last_photo:
-        await callback.answer("Сначала пришли фото для анализа!")
+        await callback.message.answer("Сначала пришли фото для анализа!")
         return
-    await callback.answer()
     await callback.message.answer(
         "✨ <b>Улучшение фото</b>\n\n"
         "Напиши одним сообщением, что улучшить (например: «дорисуй руку, сделай свет теплее»)\n"
@@ -509,15 +509,12 @@ async def handle_photo(message: Message):
                 check_text = check_day(user_id, result)
                 if check_text:
                     await message.answer(check_text, parse_mode="HTML")
-                    print(f"CHECK_TEXT: {check_text[:80]}...")
                     if "✅ Задание выполнено" in check_text:
-                        print("SENDING PHOTOS FOR NEXT DAY")
                         from course import _load_users
                         users = _load_users()
                         uid = str(user_id)
                         if uid in users:
                             next_day = users[uid].get("day", 1)
-                            print(f"NEXT DAY: {next_day}")
                             await send_photos(message.chat.id, next_day)
 
         await processing_msg.delete()
