@@ -249,8 +249,10 @@ def transcribe_audio(audio_bytes: bytes) -> str | None:
         timeout=30,
     )
 
+    print(f"Whisper status: {response.status_code}")
+    print(f"Whisper response: {response.text}")
+
     if response.status_code != 200:
-        print(f"Ошибка распознавания: {response.status_code} {response.text}")
         return None
 
     return response.text.strip()
