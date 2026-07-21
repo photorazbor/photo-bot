@@ -122,8 +122,8 @@ def get_keyboard(user_id: int) -> InlineKeyboardMarkup:
     elif paid_left > 0:
         buttons.append([InlineKeyboardButton(text=f"✨ Улучшить фото (осталось {paid_left})", callback_data="gen_paid")])
     else:
-        buttons.append([InlineKeyboardButton(text="💛 5 улучшений — 99 ₽", url=f"https://donatepay.ru/don/{DONATE_LOGIN}?sum=99&comment=генерации")])
-        buttons.append([InlineKeyboardButton(text="💛 20 улучшений — 249 ₽", url=f"https://donatepay.ru/don/{DONATE_LOGIN}?sum=249&comment=генерации")])
+        buttons.append([InlineKeyboardButton(text="💛 5 улучшений — 99 ₽", url="https://donatepay.ru/don/1515230?goal=5%20Gen")])
+        buttons.append([InlineKeyboardButton(text="💛 20 улучшений — 249 ₽", url="https://donatepay.ru/don/1515230?goal=20%20Gen")])
 
     if has_access(user_id) and user_mode.get(user_id) == "course":
         buttons.append([InlineKeyboardButton(text="📸 Продолжить курс", callback_data="mode_course")])
@@ -231,7 +231,7 @@ async def handle_course(message: Message):
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(
                 inline_keyboard=[
-                    [InlineKeyboardButton(text="💛 Оплатить доступ (490 ₽)", url=f"https://donatepay.ru/don/{DONATE_LOGIN}?sum=490&comment=курс")],
+                    [InlineKeyboardButton(text="💛 Оплатить доступ (490 ₽)", url="https://donatepay.ru/don/1515230?goal=mini-course")],
                 ]
             ),
         )
