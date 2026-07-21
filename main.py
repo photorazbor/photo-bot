@@ -452,30 +452,12 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str):
         prompt = f"Улучши это фото: исправь композицию, выровняй горизонт, дорисуй обрезанные края, убери отвлекающие объекты, улучши свет и цвета. Сохрани все важные детали и объекты."
         if wish and wish.lower() != "ок":
             prompt += f" Дополнительное пожелание: {wish}"
-        prompt += f" Размер: {img_size}."
 
         result = generate_image(image_bytes, prompt)
 
         if result is None:
             await bot.send_message(chat_id, "😕 Не удалось сгенерировать изображение. Попробуй другое фото.")
             return
-
-        # Приводим к нужному формату с белыми полями
-        from PIL import Image
-        import io as io_module
-        img = Image.open(io_module.BytesIO(result))
-        target_w, target_h = map(int, img_size.split("x"))
-        # Создаём белый холст нужного размера
-        canvas = Image.new("RGB", (target_w, target_h), (255, 255, 255))
-        # Вписываем изображение с сохранением пропорций
-        img.thumbnail((target_w, target_h), Image.LANCZOS)
-        # Центрируем
-        x = (target_w - img.width) // 2
-        y = (target_h - img.height) // 2
-        canvas.paste(img, (x, y))
-        buf = io_module.BytesIO()
-        canvas.save(buf, format="JPEG", quality=95)
-        result = buf.getvalue()
 
         if gen_type == "free" and user_id != 456504792:
             free_generations[user_id] = 1
