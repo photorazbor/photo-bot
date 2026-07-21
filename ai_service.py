@@ -174,7 +174,7 @@ Drawings: line, dashed_line, circle, frame, arrow, grid_thirds, crop_frame.
 
 
 def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
-    """Генерирует изображение (отладка)."""
+    """Генерирует изображение через Grok Image API на CheapAI."""
     data_url = _image_bytes_to_data_url(image_bytes)
 
     headers = {
@@ -208,8 +208,22 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
         return None
 
     result = response.json()
-    # Выводим ВЕСЬ ответ в логи для анализа
-    print("=== ОТВЕТ МОДЕЛИ ===")
-    print(json.dumps(result, indent=2, ensure_ascii=False))
-    print("=== КОНЕЦ ОТВЕТА ===")
-    return None  # Пока возвращаем None, чтобы увидеть ответ
+    try:
+        content = result["choices"][0]["message"]["content"]
+        # Пробуем распарсить JSON внутри content
+        if isinstance(content, str):
+            try:
+                inner = json.loads(content)
+                if "data" in inner and len(inner["data"]) > 0:
+                    b64_str = inner["data"][0].get("b64_json", "")
+                    if b64_str:
+                        return base64.b64decode(b64_str)
+            except json.JSONDecodeError:
+                pass
+            # Пробуем найти base64 напрямую
+            if content.startswith("iVBOR"):
+                return base64.b64decode(content)
+        return None
+    except Exception as e:
+        print(f"Не удалось извлечь изображение: {e}")
+        return None
