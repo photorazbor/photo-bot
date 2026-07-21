@@ -11,6 +11,8 @@ import hmac
 import re
 import json
 import requests
+import io as io_module
+from PIL import Image
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import CommandStart, Command
@@ -400,3 +402,175 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str):
         image_bytes = last_photo[user_id]
 
         prompt = f"Улучши это фото: исправь композицию, выровняй горизонт, дорисуй обрезанные края, убери отвлекающие объекты, улучши свет и цвета. Сохрани все важные детали и объекты."
+        if wish and wish.lower() != "ок":
+            prompt += f" Дополнительное пожелание: {wish}"
+
+        result = generate_image(image_bytes, prompt)
+
+        if result is None:
+            await bot.send_message(chat_id, "😕 Не удалось сгенерировать изображение. Попробуй другое фото.")
+            return
+
+        # Умеренное сжатие для Telegram
+        try:
+            img = Image.open(io_module.BytesIO(result))
+            if max(img.size) > 1920:
+                img.thumbnail((1920, 1920), Image.LANCZOS)
+            buf = io_module.BytesIO()
+            img.save(buf, format="JPEG", quality=92)
+            result = buf.getvalue()
+        except Exception:
+            pass  # Если сжатие не удалось — отправляем как есть
+
+        if gen_type == "free" and user_id != 456504792:
+            free_generations[user_id] = 1
+            _save_gen()
+        elif gen_type == "paid":
+            paid_generations[user_id] = max(0, paid_generations.get(user_id, 0) - 1)
+            _save_gen()
+
+        await bot.send_photo(
+            chat_id,
+            BufferedInputFile(result, filename="generated.jpg"),
+            caption="✨ Вот твой улучшенный кадр!\n\n"
+                    "Если хочешь ещё — купи пакет генераций.",
+            reply_markup=get_keyboard(user_id),
+        )
+
+    except Exception as e:
+        logging.exception("Ошибка генерации")
+        await bot.send_message(chat_id, "😕 Что-то пошло не так при генерации. Попробуй ещё раз.")
+
+
+@dp.message(F.photo)
+async def handle_photo(message: Message):
+    user_id = message.from_user.id
+    mode = user_mode.get(user_id, "")
+
+    processing_msg = await message.answer("🔍 Анализирую кадр... Обычно до минуты, иногда быстрее.")
+
+    try:
+        photo = message.photo[-1]
+        file = await bot.get_file(photo.file_id)
+        photo_url = f"https://api.telegram.org/file/bot{TELEGRAM_BOT_TOKEN}/{file.file_path}"
+
+        image = download_and_resize(photo_url, target_width=1024)
+        image_bytes = image_to_bytes(image)
+
+        last_photo[user_id] = image_bytes
+
+        course_topic = None
+        if has_access(user_id) and user_mode.get(user_id) == "course":
+            from course import get_current_topic
+            course_topic = get_current_topic(user_id)
+
+        result = analyze_photo(image_bytes, course_topic=course_topic)
+
+        if result is not None:
+            error_type = result.get("error_type", "unknown")
+            add_analysis(user_id, error_type)
+
+        if result is None:
+            await processing_msg.edit_text("😕 Не смог разобрать, попробуй другое фото.")
+            return
+
+        drawings = result.get("drawings", [])
+        annotated_image = draw_hints(image, drawings)
+        annotated_bytes = image_to_bytes(annotated_image)
+
+        await message.answer_photo(
+            BufferedInputFile(annotated_bytes, filename="analysis.jpg")
+        )
+
+        caption = (
+            f"📸 {result.get('title', 'Разбор кадра')}\n\n"
+            f"❌ Что не так: {result.get('what_is_wrong', '—')}\n\n"
+            f"🔄 Как исправить: {result.get('how_to_fix', '—')}\n\n"
+            f"✨ Совет от профи: {result.get('pro_tip', '—')}\n\n"
+            f"👍 Что хорошо: {result.get('praise', '—')}\n\n"
+            f"🔴 красный — проблема\n"
+            f"🟢 зелёный — правильно\n"
+            f"🟡 жёлтый — внимание"
+        )
+        await message.answer(caption, reply_markup=get_keyboard(user_id))
+
+        if has_access(user_id) and user_mode.get(user_id) == "course":
+            status = get_status(user_id)
+            if status is not None and "День" in status:
+                add_photo(user_id)
+                check_text = check_day(user_id, result)
+                if check_text:
+                    await message.answer(check_text, parse_mode="HTML")
+
+        await processing_msg.delete()
+
+    except Exception:
+        logging.exception("Ошибка при обработке фото")
+        await processing_msg.edit_text(
+            "😕 Что-то пошло не так при анализе фото. Попробуй ещё раз."
+        )
+
+
+@dp.message(F.voice)
+async def handle_voice(message: Message):
+    user_id = message.from_user.id
+    mode = user_mode.get(user_id, "")
+
+    if mode not in ("gen_wish_free", "gen_wish_paid"):
+        await message.answer("Голосовые сообщения используются только для пожеланий к генерации.")
+        return
+
+    await message.answer("🎤 Распознаю речь...")
+
+    try:
+        voice = message.voice
+        file = await bot.get_file(voice.file_id)
+        file_path = file.file_path
+        file_url = f"https://api.telegram.org/file/bot{TELEGRAM_BOT_TOKEN}/{file_path}"
+
+        audio_response = requests.get(file_url)
+        audio_bytes = audio_response.content
+
+        text = transcribe_audio(audio_bytes)
+
+        if text is None or len(text.strip()) == 0:
+            await message.answer("😕 Не удалось распознать речь. Напиши пожелание текстом.")
+            return
+
+        gen_wish[user_id] = text
+        gen_type = "free" if "free" in mode else "paid"
+        await message.answer(f"🎤 Распознано: «{text}»")
+        await do_generation(user_id, message.chat.id, gen_type)
+        user_mode[user_id] = "free"
+
+    except Exception as e:
+        logging.exception("Ошибка распознавания")
+        await message.answer("😕 Не удалось распознать речь. Напиши пожелание текстом.")
+
+
+@dp.message(~F.photo)
+async def handle_non_photo(message: Message):
+    user_id = message.from_user.id
+    mode = user_mode.get(user_id, "")
+
+    if mode in ("gen_wish_free", "gen_wish_paid"):
+        gen_wish[user_id] = message.text
+        gen_type = "free" if "free" in mode else "paid"
+        await do_generation(user_id, message.chat.id, gen_type)
+        user_mode[user_id] = "free"
+        return
+
+    await message.answer(
+        "Пришли мне, пожалуйста, фотографию 📷 — я умею разбирать только изображения."
+    )
+
+
+async def main():
+    flask_thread = Thread(target=run_flask)
+    flask_thread.daemon = True
+    flask_thread.start()
+    await dp.start_polling(bot)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
