@@ -328,11 +328,19 @@ async def handle_start_course_btn(callback: CallbackQuery):
 
 @dp.callback_query(F.data == "mode_course")
 async def handle_mode_course(callback: CallbackQuery):
-    user_mode[callback.from_user.id] = "course"
+    user_id = callback.from_user.id
+    user_mode[user_id] = "course"
     await callback.answer("✅ Режим курса. Присылай фото для задания.")
-    status = get_status(callback.from_user.id)
+    status = get_status(user_id)
     if status:
         await callback.message.answer(status, parse_mode="HTML")
+        # Отправляем фото для текущего дня
+        from course import _load_users
+        users = _load_users()
+        uid = str(user_id)
+        if uid in users:
+            day = users[uid].get("day", 1)
+            await send_photos(callback.message.chat.id, day)
 
 
 @dp.callback_query(F.data == "mode_free")
