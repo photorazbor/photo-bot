@@ -195,6 +195,10 @@ async def handle_stats(message: Message):
     text = get_stats(message.from_user.id)
     await message.answer(text, parse_mode="HTML")
 
+@dp.message(Command("free"))
+async def handle_free_mode(message: Message):
+    user_mode[message.from_user.id] = "free"
+    await message.answer("🔍 Режим обычного анализа. Присылай фото — я разберу их без привязки к курсу.")
 
 @dp.message(Command("course"))
 async def handle_course(message: Message):
