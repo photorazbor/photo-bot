@@ -183,7 +183,7 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
     }
 
     payload = {
-        "model": "grok-imagine-image-pro",
+        "model": "grok-imagine-image",
         "messages": [
             {
                 "role": "user",
