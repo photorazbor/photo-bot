@@ -509,7 +509,6 @@ async def handle_photo(message: Message):
                 check_text = check_day(user_id, result)
                 if check_text:
                     await message.answer(check_text, parse_mode="HTML")
-                # Всегда отправляем фото для текущего дня
                 from course import _load_users
                 users = _load_users()
                 uid = str(user_id)
