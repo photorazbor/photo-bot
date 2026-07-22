@@ -114,13 +114,13 @@ DONATE_LOGIN = "1515230"
 def get_keyboard(user_id: int) -> InlineKeyboardMarkup:
     buttons = []
 
-    free_left = 1 - free_generations.get(user_id, 0)
+    free_left = 5 - free_generations.get(user_id, 0)
     paid_left = paid_generations.get(user_id, 0)
 
     if user_id == 456504792:
         buttons.append([InlineKeyboardButton(text="✨ Улучшить фото (автор)", callback_data="gen_free")])
     elif free_left > 0:
-        buttons.append([InlineKeyboardButton(text="✨ Улучшить фото (1 бесплатно)", callback_data="gen_free")])
+        buttons.append([InlineKeyboardButton(text=f"✨ Улучшить фото (бесплатно: {free_left})", callback_data="gen_free")])
     elif paid_left > 0:
         buttons.append([InlineKeyboardButton(text=f"✨ Улучшить фото (осталось {paid_left})", callback_data="gen_paid")])
     else:
@@ -364,7 +364,7 @@ async def handle_retry_button(callback: CallbackQuery):
 async def handle_gen_free(callback: CallbackQuery):
     await callback.answer()
     user_id = callback.from_user.id
-    if user_id != 456504792 and free_generations.get(user_id, 0) >= 1:
+    if user_id != 456504792 and free_generations.get(user_id, 0) >= 5:
         await callback.message.answer("Ты уже использовал бесплатную генерацию. Купи пакет!")
         return
     if user_id not in last_photo:
@@ -432,7 +432,7 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str):
             pass
 
         if gen_type == "free" and user_id != 456504792:
-            free_generations[user_id] = 1
+            free_generations[user_id] = free_generations.get(user_id, 0) + 1
             _save_gen()
         elif gen_type == "paid":
             paid_generations[user_id] = max(0, paid_generations.get(user_id, 0) - 1)
