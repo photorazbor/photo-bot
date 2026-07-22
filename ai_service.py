@@ -174,74 +174,45 @@ Drawings: line, dashed_line, circle, frame, arrow, grid_thirds, crop_frame.
 
 
 def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
-    """Генерирует изображение через GigaChat API (Сбер)."""
-    import requests as rq
+    """Генерирует изображение через Gemini Flash Image (CheapAI)."""
+    # Base64 без префикса data:image/...
+    b64_image = base64.b64encode(image_bytes).decode("utf-8")
 
-    GIGACHAT_KEY = "MDE5Zjg4OTItNGRlMi03NjIzLWFkNjEtYTYyYjFmMGZjNDk5OmYyNTNhMTM5LWQxY2QtNDEyNS04YWI0LTE4MzFiMGU4YWE4Yw=="
-
-    import urllib3
-    urllib3.disable_warnings()
-
-    # Получаем токен
-    auth_response = rq.post(
-        "https://ngw.devices.sberbank.ru:9443/api/v2/oauth",
-        headers={
-            "Authorization": f"Bearer {GIGACHAT_KEY}",
-            "RqUID": "f0b0c0d0-0000-0000-0000-000000000000",
-            "Content-Type": "application/x-www-form-urlencoded",
-        },
-        data="scope=GIGACHAT_API_PERS",
-        timeout=30,
-        verify=False,
-    )
-
-    if auth_response.status_code != 200:
-        print(f"Ошибка токена: {auth_response.status_code} {auth_response.text}")
-        return None
-
-    token = auth_response.json().get("access_token", "")
-    if not token:
-        print("Не удалось получить токен GigaChat")
-        return None
-
-    # Пробуем простой формат без изображения — только текст
-    payload = {
-        "model": "GigaChat",
-        "messages": [
-            {
-                "role": "user",
-                "content": prompt,
-            }
-        ],
-        "function_call": "auto",
+    headers = {
+        "Authorization": f"Bearer {OPENAI_API_KEY}",
+        "Content-Type": "application/json",
     }
 
-    gen_response = rq.post(
-        "https://gigachat.devices.sberbank.ru/api/v1/chat/completions",
-        headers={
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
-        },
+    payload = {
+        "contents": [{
+            "role": "user",
+            "parts": [
+                {"text": prompt},
+                {"inline_data": {"mime_type": "image/jpeg", "data": b64_image}},
+            ]
+        }],
+        "generationConfig": {"responseModalities": ["IMAGE", "TEXT"]},
+    }
+
+    response = requests.post(
+        f"{BASE_URL}/v1beta/models/gemini-3.1-flash-image-preview:generateContent",
+        headers=headers,
         json=payload,
         timeout=90,
-        verify=False,
     )
 
-    if gen_response.status_code != 200:
-        print(f"Ошибка генерации GigaChat: {gen_response.status_code} {gen_response.text}")
+    if response.status_code != 200:
+        print(f"Ошибка генерации Gemini: {response.status_code} {response.text}")
         return None
 
-    result = gen_response.json()
-    print(f"GigaChat response: {json.dumps(result, ensure_ascii=False)[:500]}")
-
+    result = response.json()
     try:
-        content = result["choices"][0]["message"]["content"]
-        if isinstance(content, str) and "data:image" in content:
-            img_data = content.split("data:image", 1)[1]
-            img_data = img_data.split(",", 1)[1] if "," in img_data else img_data
-            return base64.b64decode(img_data)
-        print(f"Content preview: {content[:300]}")
+        parts = result["candidates"][0]["content"]["parts"]
+        for part in parts:
+            if "inline_data" in part and part["inline_data"].get("mime_type") == "image/jpeg":
+                return base64.b64decode(part["inline_data"]["data"])
+        print("Изображение не найдено в ответе")
         return None
     except Exception as e:
-        print(f"Не удалось извлечь изображение GigaChat: {e}")
+        print(f"Не удалось извлечь изображение Gemini: {e}")
         return None
