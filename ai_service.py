@@ -195,7 +195,7 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
     }
 
     response = requests.post(
-        f"{BASE_URL}/v1beta/models/gemini-3.1-flash-image-preview:generateContent",
+    f"https://cheapai.io/v1beta/models/gemini-3.1-flash-image-preview:generateContent",
         headers=headers,
         json=payload,
         timeout=90,
