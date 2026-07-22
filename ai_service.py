@@ -174,9 +174,8 @@ Drawings: line, dashed_line, circle, frame, arrow, grid_thirds, crop_frame.
 
 
 def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
-    """Генерирует изображение через Gemini Flash Image (CheapAI)."""
-    # Base64 без префикса data:image/...
-    b64_image = base64.b64encode(image_bytes).decode("utf-8")
+    """Генерирует изображение через Gemini Flash Image (CheapAI) — Формат 1."""
+    data_url = _image_bytes_to_data_url(image_bytes)
 
     headers = {
         "Authorization": f"Bearer {OPENAI_API_KEY}",
@@ -184,35 +183,38 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
     }
 
     payload = {
-        "contents": [{
-            "role": "user",
-            "parts": [
-                {"text": prompt},
-                {"inline_data": {"mime_type": "image/jpeg", "data": b64_image}},
-            ]
-        }],
-        "generationConfig": {"responseModalities": ["IMAGE", "TEXT"]},
+        "model": "gemini-3.1-flash-image-preview",
+        "modalities": ["image", "text"],
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": data_url}},
+                ],
+            }
+        ],
     }
 
     response = requests.post(
-    f"https://cheapai.io/v1beta/models/gemini-3.1-flash-image-preview:generateContent",
+        f"{BASE_URL}/chat/completions",
         headers=headers,
         json=payload,
         timeout=90,
     )
 
     if response.status_code != 200:
-        print(f"Ошибка генерации Gemini: {response.status_code} {response.text}")
+        print(f"Ошибка генерации: {response.status_code} {response.text}")
         return None
 
     result = response.json()
-    try:
-        parts = result["candidates"][0]["content"]["parts"]
-        for part in parts:
-            if "inline_data" in part and part["inline_data"].get("mime_type") == "image/jpeg":
-                return base64.b64decode(part["inline_data"]["data"])
-        print("Изображение не найдено в ответе")
-        return None
-    except Exception as e:
-        print(f"Не удалось извлечь изображение Gemini: {e}")
-        return None
+    content = result["choices"][0]["message"]["content"]
+
+    # Извлекаем base64 из markdown: ![image](data:image/jpeg;base64,XXXX)
+    import re
+    match = re.search(r"data:image/[^;]+;base64,([A-Za-z0-9+/=]+)", content)
+    if match:
+        return base64.b64decode(match.group(1))
+
+    print(f"Не удалось извлечь изображение. Content: {content[:200]}")
+    return None
