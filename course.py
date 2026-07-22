@@ -284,17 +284,18 @@ def check_day(user_id: int, result: dict) -> str:
 
     good = users[uid]["good_photos"]
     bad = users[uid]["bad_photos"]
-    total = good + bad
     _save_users(users)
 
-    if bad >= 2:
+    # Сброс только при 3 плохих подряд
+    if bad >= 3:
         users[uid]["photos_today"] = []
         users[uid]["good_photos"] = 0
         users[uid]["bad_photos"] = 0
         users[uid]["attempts"] = users[uid].get("attempts", 0) + 1
         _save_users(users)
-        return f"❌ <b>День не засчитан.</b>\n\n2 из 3 фото не прошли проверку.\n{check_text}\n\nПришли 3 новых фото для пересдачи."
+        return f"❌ <b>Слишком много ошибок.</b>\n\n3 фото не прошли проверку.\n{check_text}\n\nПрисылай новые фото — нужно набрать 2 правильных."
 
+    # День выполнен — 2 хороших
     if good >= 2:
         users[uid]["completed"].append(day)
         users[uid]["day"] += 1
@@ -307,11 +308,11 @@ def check_day(user_id: int, result: dict) -> str:
             return "✅ Задание выполнено!\n\n" + _course_result(uid)
         return f"✅ <b>Задание выполнено!</b>\n\n{check_text}\n\n" + _day_text(users[uid]["day"])
 
-    remaining = 3 - total
+    # Ещё можно присылать
     if is_good:
-        return f"✅ <b>Фото {total} из 3 принято.</b>\n\nХороших фото: {good}. Присылай ещё {remaining} (по одному)."
+        return f"✅ <b>Принято!</b> Хороших фото: {good} из 2 нужных. Присылай ещё!"
     else:
-        return f"❌ <b>Фото {total} из 3 не принято.</b>\n\nХороших фото: {good}, плохих: {bad}. Нужно 2 хороших из 3. Присылай ещё {remaining} (по одному)."
+        return f"❌ Не принято. Хороших: {good}, плохих: {bad}. Нужно 2 хороших. Присылай ещё!"
 
 
 def get_current_topic(user_id: int) -> str | None:
@@ -333,7 +334,6 @@ def get_current_topic(user_id: int) -> str | None:
 
 
 def get_day_photos(day: int) -> list:
-    """Возвращает список URL фото для указанного дня."""
     return DAYS.get(day, {}).get("photos", [])
 
 
@@ -349,7 +349,7 @@ def _day_text(day: int) -> str:
         f"📚 <b>День {day} из 9: {d['title']}</b>\n\n"
         f"<b>Теория:</b>\n{d['theory']}\n\n"
         f"<b>Задание:</b> {d['task']}\n\n"
-        f"📸 Присылай <b>по одной фотографии</b> (всего 3). Дождись ответа перед следующей."
+        f"📸 Присылай <b>по одной фотографии</b>. Нужно набрать 2 правильных."
     )
 
 
