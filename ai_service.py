@@ -174,54 +174,76 @@ Drawings: line, dashed_line, circle, frame, arrow, grid_thirds, crop_frame.
 
 
 def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
-    """Генерирует изображение через Grok Image API на CheapAI."""
-    data_url = _image_bytes_to_data_url(image_bytes)
+    """Генерирует изображение через GigaChat API (Сбер)."""
+    import requests as rq
 
-    headers = {
-        "Authorization": f"Bearer {OPENAI_API_KEY}",
-        "Content-Type": "application/json",
-    }
+    GIGACHAT_KEY = "MDE5Zjg4OTItNGRlMi03NjIzLWFkNjEtYTYyYjFmMGZjNDk5OmYyNTNhMTM5LWQxY2QtNDEyNS04YWI0LTE4MzFiMGU4YWE4Yw=="
+
+    # Отключаем предупреждения SSL
+    import urllib3
+    urllib3.disable_warnings()
+
+    # Получаем токен
+    auth_response = rq.post(
+        "https://ngw.devices.sberbank.ru:9443/api/v2/oauth",
+        headers={
+            "Authorization": f"Bearer {GIGACHAT_KEY}",
+            "RqUID": "f0b0c0d0-0000-0000-0000-000000000000",
+            "Content-Type": "application/x-www-form-urlencoded",
+        },
+        data="scope=GIGACHAT_API_PERS",
+        timeout=30,
+        verify=False,
+    )
+
+    if auth_response.status_code != 200:
+        print(f"Ошибка токена: {auth_response.status_code} {auth_response.text}")
+        return None
+
+    token = auth_response.json().get("access_token", "")
+    if not token:
+        print("Не удалось получить токен GigaChat")
+        return None
+
+    # Отправляем запрос на генерацию
+    b64_image = base64.b64encode(image_bytes).decode("utf-8")
 
     payload = {
-        "model": "grok-imagine-image",
+        "model": "GigaChat",
         "messages": [
             {
                 "role": "user",
                 "content": [
                     {"type": "text", "text": prompt},
-                    {"type": "image_url", "image_url": {"url": data_url}},
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64_image}"}},
                 ],
             }
         ],
-        "max_tokens": 2000,
     }
 
-    response = requests.post(
-        f"{BASE_URL}/chat/completions",
-        headers=headers,
+    gen_response = rq.post(
+        "https://gigachat.devices.sberbank.ru/api/v1/chat/completions",
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        },
         json=payload,
         timeout=90,
+        verify=False,
     )
 
-    if response.status_code != 200:
-        print(f"Ошибка генерации: {response.status_code} {response.text}")
+    if gen_response.status_code != 200:
+        print(f"Ошибка генерации GigaChat: {gen_response.status_code} {gen_response.text}")
         return None
 
-    result = response.json()
+    result = gen_response.json()
     try:
         content = result["choices"][0]["message"]["content"]
-        if isinstance(content, str):
-            try:
-                inner = json.loads(content)
-                if "data" in inner and len(inner["data"]) > 0:
-                    b64_str = inner["data"][0].get("b64_json", "")
-                    if b64_str:
-                        return base64.b64decode(b64_str)
-            except json.JSONDecodeError:
-                pass
-            if content.startswith("iVBOR"):
-                return base64.b64decode(content)
+        if isinstance(content, str) and "data:image" in content:
+            img_data = content.split("data:image", 1)[1]
+            img_data = img_data.split(",", 1)[1] if "," in img_data else img_data
+            return base64.b64decode(img_data)
         return None
     except Exception as e:
-        print(f"Не удалось извлечь изображение: {e}")
+        print(f"Не удалось извлечь изображение GigaChat: {e}")
         return None
