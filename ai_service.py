@@ -204,23 +204,16 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
         print("Не удалось получить токен GigaChat")
         return None
 
-    # GigaChat использует формат attachments
-    b64_image = base64.b64encode(image_bytes).decode("utf-8")
-
+    # Пробуем простой формат без изображения — только текст
     payload = {
         "model": "GigaChat",
         "messages": [
             {
                 "role": "user",
                 "content": prompt,
-                "attachments": [
-                    {
-                        "type": "image",
-                        "data": b64_image,
-                    }
-                ],
             }
         ],
+        "function_call": "auto",
     }
 
     gen_response = rq.post(
@@ -239,13 +232,15 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
         return None
 
     result = gen_response.json()
+    print(f"GigaChat response: {json.dumps(result, ensure_ascii=False)[:500]}")
+
     try:
         content = result["choices"][0]["message"]["content"]
         if isinstance(content, str) and "data:image" in content:
             img_data = content.split("data:image", 1)[1]
             img_data = img_data.split(",", 1)[1] if "," in img_data else img_data
             return base64.b64decode(img_data)
-        print("No image in response")
+        print(f"Content preview: {content[:300]}")
         return None
     except Exception as e:
         print(f"Не удалось извлечь изображение GigaChat: {e}")
