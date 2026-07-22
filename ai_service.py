@@ -175,11 +175,11 @@ Drawings: line, dashed_line, circle, frame, arrow, grid_thirds, crop_frame.
 
 def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
     """Генерирует изображение через GigaChat API (Сбер)."""
+    print("=== GIGACHAT GENERATION STARTED ===")
     import requests as rq
 
     GIGACHAT_KEY = "MDE5Zjg4OTItNGRlMi03NjIzLWFkNjEtYTYyYjFmMGZjNDk5OmYyNTNhMTM5LWQxY2QtNDEyNS04YWI0LTE4MzFiMGU4YWE4Yw=="
 
-    # Отключаем предупреждения SSL
     import urllib3
     urllib3.disable_warnings()
 
@@ -198,11 +198,13 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
 
     if auth_response.status_code != 200:
         print(f"Ошибка токена: {auth_response.status_code} {auth_response.text}")
+        print("=== GIGACHAT FAILED AT TOKEN ===")
         return None
 
     token = auth_response.json().get("access_token", "")
     if not token:
         print("Не удалось получить токен GigaChat")
+        print("=== GIGACHAT FAILED AT TOKEN (empty) ===")
         return None
 
     # Отправляем запрос на генерацию
@@ -234,6 +236,7 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
 
     if gen_response.status_code != 200:
         print(f"Ошибка генерации GigaChat: {gen_response.status_code} {gen_response.text}")
+        print("=== GIGACHAT FAILED AT GENERATION ===")
         return None
 
     result = gen_response.json()
@@ -243,7 +246,10 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
             img_data = content.split("data:image", 1)[1]
             img_data = img_data.split(",", 1)[1] if "," in img_data else img_data
             return base64.b64decode(img_data)
+        print("=== GIGACHAT FAILED AT EXTRACTION (no image in response) ===")
+        print(f"Content preview: {content[:200]}...")
         return None
     except Exception as e:
         print(f"Не удалось извлечь изображение GigaChat: {e}")
+        print("=== GIGACHAT FAILED AT EXTRACTION ===")
         return None
