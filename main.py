@@ -563,19 +563,21 @@ async def handle_photo(message: Message):
         await message.answer(caption, reply_markup=get_keyboard(user_id))
 
         if has_access(user_id) and user_mode.get(user_id) == "course":
-            status = get_status(user_id)
-            if status is not None and "День" in status:
-                add_photo(user_id)
-                check_text = check_day(user_id, result)
-                if check_text:
-                    await message.answer(check_text, parse_mode="HTML")
-                    if "✅ Задание выполнено" in check_text:
-                        from course import _load_users
-                        users = _load_users()
-                        uid = str(user_id)
-                        if uid in users:
-                            next_day = users[uid].get("day", 1)
-                            await send_photos(message.chat.id, next_day)
+    status = get_status(user_id)
+    if status is not None and "День" in status:
+        add_photo(user_id)
+        check_text = check_day(user_id, result)
+        if check_text:
+            await message.answer(check_text, parse_mode="HTML")
+            # Отправляем фото-примеры для следующего дня, если задание выполнено
+            if "выполнено" in check_text.lower() or "Задание выполнено" in check_text:
+                from course import _load_users
+                users = _load_users()
+                uid = str(user_id)
+                if uid in users:
+                    next_day = users[uid].get("day", 1)
+                    if next_day > 0 and next_day <= 9:
+                        await send_photos(message.chat.id, next_day)
 
         await processing_msg.delete()
 
