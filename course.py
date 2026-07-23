@@ -286,7 +286,7 @@ def check_day(user_id: int, result: dict) -> str:
     bad = users[uid]["bad_photos"]
     _save_users(users)
 
-    # Сброс только при 3 плохих подряд
+    # Сброс при 3 плохих подряд
     if bad >= 3:
         users[uid]["photos_today"] = []
         users[uid]["good_photos"] = 0
@@ -304,9 +304,7 @@ def check_day(user_id: int, result: dict) -> str:
         users[uid]["bad_photos"] = 0
         users[uid]["attempts"] = 0
         _save_users(users)
-        if users[uid]["day"] > 9:
-            return "✅ Задание выполнено!\n\n" + _course_result(uid)
-        return f"✅ <b>Задание выполнено!</b>\n\n{check_text}\n\n" + _day_text(users[uid]["day"])
+        return "DAY_COMPLETE"
 
     # Ещё можно присылать
     if is_good:
@@ -335,6 +333,22 @@ def get_current_topic(user_id: int) -> str | None:
 
 def get_day_photos(day: int) -> list:
     return DAYS.get(day, {}).get("photos", [])
+
+
+def get_next_day(user_id: int) -> int:
+    """Возвращает текущий день пользователя (следующий для изучения)"""
+    if not has_access(user_id):
+        return 0
+    users = _load_users()
+    uid = str(user_id)
+    if uid not in users:
+        for key, data in users.items():
+            if isinstance(data, dict) and data.get("username") == uid:
+                uid = key
+                break
+        else:
+            return 0
+    return users[uid].get("day", 1)
 
 
 def _day_text(day: int) -> str:
