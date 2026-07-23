@@ -242,6 +242,20 @@ async def handle_stats(message: Message):
     text = get_stats(message.from_user.id)
     await message.answer(text, parse_mode="HTML")
 
+@dp.message(Command("free"))   # <--- ВСТАВЬТЕ ЭТОТ БЛОК СЮДА
+async def handle_free_mode(message: Message):
+    user_id = message.from_user.id
+    user_mode[user_id] = "free"
+    _save_mode()
+    await message.answer(
+        "🔍 Режим обычного пользователя.\n\n"
+        "Теперь ты видишь бота как обычный пользователь:\n"
+        "• Кнопка «🎓 Мини-курс» — покажет оплату 490 ₽\n"
+        "• Кнопка «✨ Улучшить фото» — покажет бесплатные/платные варианты\n"
+        "• Нет авторской кнопки «✨ Улучшить фото (автор)»\n\n"
+        "Чтобы вернуться в авторский режим — нажми «📸 Продолжить курс» или напиши /course"
+        )
+
 @dp.message(Command("course"))
 async def handle_course(message: Message):
     if has_access(message.from_user.id):
