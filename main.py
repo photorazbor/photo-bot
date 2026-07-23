@@ -167,7 +167,10 @@ def get_keyboard(user_id: int) -> InlineKeyboardMarkup:
     free_left = 5 - free_generations.get(user_id, 0)
     paid_left = paid_generations.get(user_id, 0)
 
-    if user_id == 456504792:
+    # Если пользователь в режиме "free" — НЕ показываем авторскую кнопку
+    is_author_mode = (user_id == 456504792 and user_mode.get(user_id) != "free")
+
+    if is_author_mode:
         buttons.append([InlineKeyboardButton(text="✨ Улучшить фото (автор)", callback_data="gen_free")])
     elif free_left > 0:
         buttons.append([InlineKeyboardButton(text=f"✨ Улучшить фото (бесплатно: {free_left})", callback_data="gen_free")])
