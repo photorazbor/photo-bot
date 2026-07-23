@@ -260,4 +260,369 @@ async def handle_course(message: Message):
                 await send_photos(message.chat.id, 0)
             else:
                 await message.answer(status, parse_mode="HTML")
-                from course
+                from course import _load_users
+                users = _load_users()
+                uid = str(message.from_user.id)
+                if uid in users:
+                    day = users[uid].get("day", 1)
+                    await send_photos(message.chat.id, day)
+    else:
+        await message.answer(
+            "🎓 <b>Мини-курс по композиции</b>\n\n"
+            "9-дневный челлендж: подготовка, горизонт, правило третей, поза, свет, тень, отражения, фрейминг, ритм и перспектива, глубина кадра.\n\n"
+            "Стоимость: 490 ₽.\n\n"
+            "<b>Как оплатить и получить доступ:</b>\n"
+            "1. Нажми кнопку «Оплатить доступ».\n"
+            "2. В комментарии к платежу напиши свой Telegram: <b>@твойник</b> и слово <b>курс</b>\n"
+            "3. После оплаты доступ откроется автоматически!\n\n"
+            "Напиши /course после оплаты.",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [InlineKeyboardButton(text="💛 Оплатить доступ (490 ₽)", url=f"https://donatepay.ru/don/{DONATE_LOGIN}?sum=490&comment=курс")],
+                ]
+            ),
+        )
+
+@dp.message(Command("reset"))
+async def handle_reset(message: Message):
+    if message.from_user.id != 456504792:
+        await message.answer("Только автор может сбрасывать курс.")
+        return
+    if os.path.exists("course_users.json"):
+        os.remove("course_users.json")
+        await message.answer("✅ Данные курса сброшены. Можешь начинать заново.")
+    else:
+        await message.answer("Файл уже отсутствует.")
+
+@dp.message(Command("start_course"))
+async def handle_force_start(message: Message):
+    if message.from_user.id != 456504792:
+        await message.answer("Только автор.")
+        return
+    from course import activate_by_username
+    activate_by_username("sevosphoto")
+    user_mode[message.from_user.id] = "course"
+    _save_mode()
+    await message.answer("✅ Курс активирован. Напиши /course или нажми кнопку Мини-курс.")
+
+# ===== CALLBACK-ЗАПРОСЫ =====
+@dp.callback_query(F.data == "author_info")
+async def handle_author_info(callback: CallbackQuery):
+    await callback.answer()
+    await callback.message.answer(
+        "📸 <b>Автор бота — Евгений Севостьянов</b>\n"
+        "Фотограф, преподаватель мобильной фотографии.\n\n"
+        "📷 Instagram: <a href='https://instagram.com/sevosphoto'>@sevosphoto</a>\n"
+        "💬 Telegram: <a href='https://t.me/sevosphoto'>@sevosphoto</a>\n"
+        "🌐 VK: <a href='https://vk.com/cevoc'>@cevoc</a>\n\n"
+        "По вопросам сотрудничества и обучения — пишите в личные сообщения!",
+        parse_mode="HTML",
+        disable_web_page_preview=True,
+    )
+
+@dp.callback_query(F.data == "my_stats")
+async def handle_stats_button(callback: CallbackQuery):
+    await callback.answer()
+    text = get_stats(callback.from_user.id)
+    await callback.message.answer(text, parse_mode="HTML")
+
+@dp.callback_query(F.data == "course_status")
+async def handle_course_status(callback: CallbackQuery):
+    await callback.answer()
+    if not has_access(callback.from_user.id):
+        await callback.message.answer("У тебя нет доступа. Напиши /course чтобы узнать, как оплатить.")
+    else:
+        user_mode[callback.from_user.id] = "course"
+        _save_mode()
+        status = get_status(callback.from_user.id)
+        if status is not None:
+            if "День 0" in status or "Подготовка" in status:
+                await callback.message.answer(
+                    status,
+                    parse_mode="HTML",
+                    reply_markup=InlineKeyboardMarkup(
+                        inline_keyboard=[
+                            [InlineKeyboardButton(text="🚀 Начать курс", callback_data="start_course_btn")],
+                        ]
+                    ),
+                )
+                await send_photos(callback.message.chat.id, 0)
+            else:
+                await callback.message.answer(status, parse_mode="HTML")
+                from course import _load_users
+                users = _load_users()
+                uid = str(callback.from_user.id)
+                if uid in users:
+                    day = users[uid].get("day", 1)
+                    await send_photos(callback.message.chat.id, day)
+        else:
+            await callback.message.answer("Произошла ошибка. Напиши /reset для сброса курса.")
+
+@dp.callback_query(F.data == "start_course_btn")
+async def handle_start_course_btn(callback: CallbackQuery):
+    await callback.answer()
+    user_mode[callback.from_user.id] = "course"
+    _save_mode()
+    add_text = add_photo(callback.from_user.id)
+    if add_text:
+        await callback.message.answer(add_text, parse_mode="HTML")
+        await send_photos(callback.message.chat.id, 1)
+
+@dp.callback_query(F.data == "mode_course")
+async def handle_mode_course(callback: CallbackQuery):
+    await callback.answer("✅ Режим курса. Присылай фото для задания.")
+    user_id = callback.from_user.id
+    user_mode[user_id] = "course"
+    _save_mode()
+    status = get_status(user_id)
+    if status:
+        await callback.message.answer(status, parse_mode="HTML")
+
+@dp.callback_query(F.data == "mode_free")
+async def handle_mode_free(callback: CallbackQuery):
+    await callback.answer("🔍 Обычный анализ. Фото не засчитается в курс.")
+    user_mode[callback.from_user.id] = "free"
+    _save_mode()
+
+@dp.callback_query(F.data == "new_photo")
+async def handle_retry_button(callback: CallbackQuery):
+    await callback.answer()
+    await callback.message.answer("Присылай следующее фото — жду! 📷")
+
+# ===== ГЕНЕРАЦИЯ =====
+@dp.callback_query(F.data == "gen_free")
+async def handle_gen_free(callback: CallbackQuery):
+    await callback.answer()
+    user_id = callback.from_user.id
+    if user_id != 456504792 and free_generations.get(user_id, 0) >= 5:
+        await callback.message.answer("Ты уже использовал бесплатную генерацию. Купи пакет!")
+        return
+    if user_id not in last_photo:
+        await callback.message.answer("Сначала пришли фото для анализа!")
+        return
+    await callback.message.answer(
+        "✨ <b>Улучшение фото</b>\n\n"
+        "Выбери формат, затем напиши пожелание (или просто «ок»).",
+        parse_mode="HTML",
+        reply_markup=format_keyboard("free"),
+    )
+
+@dp.callback_query(F.data == "gen_paid")
+async def handle_gen_paid(callback: CallbackQuery):
+    await callback.answer()
+    user_id = callback.from_user.id
+    if paid_generations.get(user_id, 0) <= 0:
+        await callback.message.answer("У тебя нет оплаченных генераций. Купи пакет!")
+        return
+    if user_id not in last_photo:
+        await callback.message.answer("Сначала пришли фото для анализа!")
+        return
+    await callback.message.answer(
+        "✨ <b>Улучшение фото</b>\n\n"
+        "Выбери формат, затем напиши пожелание (или просто «ок»).",
+        parse_mode="HTML",
+        reply_markup=format_keyboard("paid"),
+    )
+
+# Обработчики выбора формата
+for fmt, name in FORMATS:
+    @dp.callback_query(F.data == f"gen_{fmt}_free")
+    async def choose_format_free(callback: CallbackQuery, fmt=fmt, name=name):
+        user_id = callback.from_user.id
+        gen_format[user_id] = fmt
+        await callback.answer()
+        await callback.message.answer(
+            f"✅ Выбран формат: {name}\n\n"
+            "Напиши одним сообщением, что улучшить (например: «дорисуй руку, сделай свет теплее»)\n"
+            "Или напиши «ок», чтобы просто улучшить.",
+        )
+        user_mode[user_id] = "gen_wish_free"
+
+    @dp.callback_query(F.data == f"gen_{fmt}_paid")
+    async def choose_format_paid(callback: CallbackQuery, fmt=fmt, name=name):
+        user_id = callback.from_user.id
+        gen_format[user_id] = fmt
+        await callback.answer()
+        await callback.message.answer(
+            f"✅ Выбран формат: {name}\n\n"
+            "Напиши одним сообщением, что улучшить (например: «дорисуй руку, сделай свет теплее»)\n"
+            "Или напиши «ок», чтобы просто улучшить.",
+        )
+        user_mode[user_id] = "gen_wish_paid"
+
+async def do_generation(user_id: int, chat_id: int, gen_type: str):
+    if user_id not in last_photo:
+        await bot.send_message(chat_id, "Сначала пришли фото для анализа!")
+        return
+
+    wish = gen_wish.get(user_id, "")
+    fmt = gen_format.get(user_id, "original")
+
+    await bot.send_message(chat_id, "🎨 Генерирую изображение... Обычно это 30-60 секунд.")
+
+    try:
+        image_bytes = last_photo[user_id]
+
+        # Определяем размер для генерации
+        if fmt == "original":
+            img = Image.open(io_module.BytesIO(image_bytes))
+            w, h = img.size
+            max_size = 1920
+            if max(w, h) > max_size:
+                scale = max_size / max(w, h)
+                w, h = int(w * scale), int(h * scale)
+            size_str = f"{w}x{h}"
+        else:
+            fmt_key = fmt.replace("_", ":")
+            size_str = SIZE_MAP.get(fmt_key, "1024x1024")
+
+        prompt = f"Улучши это фото: исправь композицию, выровняй горизонт, дорисуй обрезанные края, убери отвлекающие объекты, улучши свет и цвета. Сохрани все важные детали и объекты. Размер: {size_str}."
+        if wish and wish.lower() != "ок":
+            prompt += f" Дополнительное пожелание: {wish}"
+
+        result = generate_image(image_bytes, prompt)
+
+        if result is None:
+            await bot.send_message(chat_id, "😕 Не удалось сгенерировать изображение. Попробуй другое фото.")
+            return
+
+        try:
+            img = Image.open(io_module.BytesIO(result))
+            if max(img.size) > 1920:
+                img.thumbnail((1920, 1920), Image.LANCZOS)
+            buf = io_module.BytesIO()
+            img.save(buf, format="JPEG", quality=92)
+            result = buf.getvalue()
+        except Exception:
+            pass
+
+        if gen_type == "free" and user_id != 456504792:
+            free_generations[user_id] = free_generations.get(user_id, 0) + 1
+            _save_gen()
+        elif gen_type == "paid":
+            paid_generations[user_id] = max(0, paid_generations.get(user_id, 0) - 1)
+            _save_gen()
+
+        await bot.send_photo(
+            chat_id,
+            BufferedInputFile(result, filename="generated.jpg"),
+            caption="✨ Вот твой улучшенный кадр!\n\n"
+                    "Если хочешь ещё — купи пакет генераций.",
+            reply_markup=get_keyboard(user_id),
+        )
+
+    except Exception as e:
+        logging.exception("Ошибка генерации")
+        await bot.send_message(chat_id, "😕 Что-то пошло не так при генерации. Попробуй ещё раз.")
+
+# ===== ОБРАБОТЧИКИ СООБЩЕНИЙ =====
+@dp.message(F.photo)
+async def handle_photo(message: Message):
+    user_id = message.from_user.id
+
+    processing_msg = await message.answer("🔍 Анализирую кадр... Обычно до минуты, иногда быстрее.")
+
+    try:
+        photo = message.photo[-1]
+        file = await bot.get_file(photo.file_id)
+        photo_url = f"https://api.telegram.org/file/bot{TELEGRAM_BOT_TOKEN}/{file.file_path}"
+
+        image = download_and_resize(photo_url, target_width=1024)
+        image_bytes = image_to_bytes(image)
+
+        last_photo[user_id] = image_bytes
+
+        course_topic = None
+        if has_access(user_id) and user_mode.get(user_id) == "course":
+            from course import get_current_topic
+            course_topic = get_current_topic(user_id)
+
+        result = analyze_photo(image_bytes, course_topic=course_topic)
+
+        if result is not None:
+            error_type = result.get("error_type", "unknown")
+            add_analysis(user_id, error_type)
+
+        if result is None:
+            await processing_msg.edit_text("😕 Не смог разобрать, попробуй другое фото.")
+            return
+
+        drawings = result.get("drawings", [])
+        annotated_image = draw_hints(image, drawings)
+        annotated_bytes = image_to_bytes(annotated_image)
+
+        await message.answer_photo(
+            BufferedInputFile(annotated_bytes, filename="analysis.jpg")
+        )
+
+        caption = (
+            f"📸 {result.get('title', 'Разбор кадра')}\n\n"
+            f"❌ Что не так: {result.get('what_is_wrong', '—')}\n\n"
+            f"🔄 Как исправить: {result.get('how_to_fix', '—')}\n\n"
+            f"✨ Совет от профи: {result.get('pro_tip', '—')}\n\n"
+            f"👍 Что хорошо: {result.get('praise', '—')}\n\n"
+            f"🔴 красный — проблема\n"
+            f"🟢 зелёный — правильно\n"
+            f"🟡 жёлтый — внимание"
+        )
+        await message.answer(caption, reply_markup=get_keyboard(user_id))
+
+        # ===== ПРОВЕРКА КУРСА =====
+        if has_access(user_id) and user_mode.get(user_id) == "course":
+            status = get_status(user_id)
+            if status is not None and "День" in status:
+                add_photo(user_id)
+                check_text = check_day(user_id, result)
+                if check_text:
+                    await message.answer(check_text, parse_mode="HTML")
+
+                    # Если задание выполнено — отправляем фото для следующего дня
+                    if "✅" in check_text and "Задание выполнено" in check_text:
+                        next_day = get_next_day(user_id)
+                        if next_day > 0 and next_day <= 9:
+                            await send_photos(message.chat.id, next_day)
+                            # Отправляем текст нового дня
+                            new_status = get_status(user_id)
+                            if new_status:
+                                await message.answer(new_status, parse_mode="HTML")
+                    elif "прошёл весь курс" in check_text:
+                        await message.answer(check_text, parse_mode="HTML")
+
+        await processing_msg.delete()
+
+    except Exception:
+        logging.exception("Ошибка при обработке фото")
+        await processing_msg.edit_text(
+            "😕 Что-то пошло не так при анализе фото. Попробуй ещё раз."
+        )
+
+
+@dp.message(~F.photo)
+async def handle_non_photo(message: Message):
+    user_id = message.from_user.id
+    mode = user_mode.get(user_id, "")
+
+    if mode in ("gen_wish_free", "gen_wish_paid"):
+        gen_wish[user_id] = message.text
+        gen_type = "free" if "free" in mode else "paid"
+        await do_generation(user_id, message.chat.id, gen_type)
+        # После генерации возвращаем режим
+        user_mode[user_id] = "course" if has_access(user_id) else "free"
+        _save_mode()
+        return
+
+    await message.answer(
+        "Пришли мне, пожалуйста, фотографию 📷 — я умею разбирать только изображения."
+    )
+
+
+async def main():
+    flask_thread = Thread(target=run_flask)
+    flask_thread.daemon = True
+    flask_thread.start()
+    await dp.start_polling(bot)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
