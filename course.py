@@ -304,7 +304,10 @@ def check_day(user_id: int, result: dict) -> str:
         users[uid]["bad_photos"] = 0
         users[uid]["attempts"] = 0
         _save_users(users)
-        return "DAY_COMPLETE"
+        next_day = users[uid]["day"]
+        if next_day > 9:
+            return "🎉 <b>Ты прошёл весь курс!</b>"
+        return f"✅ <b>Задание выполнено!</b>\n\n{check_text}"
 
     # Ещё можно присылать
     if is_good:
