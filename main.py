@@ -12,6 +12,7 @@ import re
 import json
 import io as io_module
 from PIL import Image
+from datetime import datetime
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import CommandStart, Command
@@ -29,7 +30,7 @@ from config import TELEGRAM_BOT_TOKEN
 from ai_service import analyze_photo, generate_image, create_payment_link
 from image_utils import download_and_resize, image_to_bytes, draw_hints
 from stats import add_analysis, get_stats
-from course import get_status, add_photo, check_day, has_access, get_day_photos
+from course import get_status, add_photo, check_day, has_access, get_day_photos, _load_users
 
 logging.basicConfig(level=logging.INFO)
 
@@ -38,6 +39,7 @@ dp = Dispatcher()
 
 flask_app = Flask(__name__)
 
+# ===== ХРАНИЛИЩА ДАННЫХ =====
 user_mode = {}
 free_generations = {}
 paid_generations = {}
@@ -46,6 +48,34 @@ last_photo = {}
 gen_wish = {}
 gen_format = {}
 
+# Хранилище для истории действий (для админа)
+HISTORY_FILE = "history.json"
+
+def _load_history() -> dict:
+    if not os.path.exists(HISTORY_FILE):
+        return {}
+    with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+def _save_history(history: dict):
+    with open(HISTORY_FILE, "w", encoding="utf-8") as f:
+        json.dump(history, f, ensure_ascii=False, indent=2)
+
+def _add_history(user_id: int, action: str, details: str = ""):
+    history = _load_history()
+    uid = str(user_id)
+    if uid not in history:
+        history[uid] = []
+    history[uid].append({
+        "time": datetime.now().strftime("%d.%m.%Y %H:%M"),
+        "action": action,
+        "details": details
+    })
+    if len(history[uid]) > 100:
+        history[uid] = history[uid][-100:]
+    _save_history(history)
+
+# ===== ГЕНЕРАЦИИ =====
 SIZE_MAP = {
     "1:1": "1024x1024",
     "3:4": "768x1024",
@@ -64,12 +94,6 @@ FORMATS = [
     ("9_16", "📱 9:16 (сториз)"),
 ]
 
-def format_keyboard(gen_type: str) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=name, callback_data=f"gen_{fmt}_{gen_type}")]
-        for fmt, name in FORMATS
-    ])
-
 def _load_gen():
     global free_generations, paid_generations
     if os.path.exists(GEN_FILE):
@@ -87,6 +111,7 @@ def _save_gen():
 
 _load_gen()
 
+# ===== FLASK =====
 @flask_app.route('/')
 def home():
     return "Bot is running"
@@ -94,6 +119,13 @@ def home():
 def run_flask():
     port = int(os.environ.get("PORT", 10000))
     flask_app.run(host='0.0.0.0', port=port)
+
+# ===== КЛАВИАТУРЫ =====
+def format_keyboard(gen_type: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=name, callback_data=f"gen_{fmt}_{gen_type}")]
+        for fmt, name in FORMATS
+    ])
 
 def get_keyboard(user_id: int) -> InlineKeyboardMarkup:
     buttons = []
@@ -130,6 +162,7 @@ AUTHOR_KEYBOARD = InlineKeyboardMarkup(
     ]
 )
 
+# ===== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =====
 async def send_photos(chat_id: int, day: int):
     photos = get_day_photos(day)
     if not photos:
@@ -145,8 +178,10 @@ async def send_photos(chat_id: int, day: int):
     except Exception as e:
         logging.error(f"Ошибка отправки фото: {e}")
 
+# ===== ОБРАБОТЧИКИ КОМАНД =====
 @dp.message(CommandStart())
 async def handle_start(message: Message):
+    _add_history(message.from_user.id, "start", "Запустил бота")
     await message.answer(
         "👋 Привет! Я --- бот-наставник по мобильной фотографии.\n\n"
         "Пришли мне фото, и я найду композиционные ошибки: "
@@ -193,7 +228,6 @@ async def handle_course(message: Message):
                 await send_photos(message.chat.id, 0)
             else:
                 await message.answer(status, parse_mode="HTML")
-                from course import _load_users
                 users = _load_users()
                 uid = str(message.from_user.id)
                 if uid in users:
@@ -238,6 +272,90 @@ async def handle_force_start(message: Message):
     user_mode[message.from_user.id] = "course"
     await message.answer("✅ Курс активирован. Напиши /course или нажми кнопку Мини-курс.")
 
+# ===== АДМИН-ПАНЕЛЬ =====
+@dp.message(Command("admin"))
+async def handle_admin(message: Message):
+    if message.from_user.id != 456504792:
+        await message.answer("⛔ У тебя нет доступа к админ-панели.")
+        return
+
+    args = message.text.split()
+    if len(args) == 1:
+        await message.answer(
+            "📊 <b>Админ-панель</b>\n\n"
+            "/admin stats — общая статистика\n"
+            "/admin users — список пользователей\n"
+            "/admin history — последние действия\n"
+            "/admin gen — генерации\n"
+            "/admin course — курс",
+            parse_mode="HTML"
+        )
+        return
+
+    command = args[1].lower()
+
+    if command == "stats":
+        users = _load_users()
+        history = _load_history()
+        total_users = len(users)
+        total_photos = sum(data.get("total", 0) for data in users.values())
+        total_actions = sum(len(entries) for entries in history.values())
+        await message.answer(
+            f"📊 <b>Общая статистика</b>\n\n"
+            f"👤 Пользователей: {total_users}\n"
+            f"📸 Всего анализов: {total_photos}\n"
+            f"📝 Всего действий: {total_actions}",
+            parse_mode="HTML"
+        )
+
+    elif command == "users":
+        users = _load_users()
+        text = "👤 <b>Пользователи</b>\n\n"
+        for uid, data in users.items():
+            username = data.get("username", uid)
+            total = data.get("total", 0)
+            text += f"• {username} — {total} фото\n"
+        await message.answer(text, parse_mode="HTML")
+
+    elif command == "history":
+        history = _load_history()
+        text = "📝 <b>Последние действия</b>\n\n"
+        count = 0
+        for uid, entries in reversed(history.items()):
+            for entry in reversed(entries[-3:]):
+                text += f"• {uid}: {entry['time']} — {entry['action']} {entry['details']}\n"
+                count += 1
+                if count >= 30:
+                    text += "\n... (показаны последние 30 записей)"
+                    await message.answer(text, parse_mode="HTML")
+                    return
+        await message.answer(text, parse_mode="HTML")
+
+    elif command == "gen":
+        text = "💎 <b>Генерации пользователей</b>\n\n"
+        for uid, count in paid_generations.items():
+            if count > 0:
+                text += f"• ID {uid}: {count} шт\n"
+        if text == "💎 <b>Генерации пользователей</b>\n\n":
+            text += "Нет оплаченных генераций."
+        await message.answer(text, parse_mode="HTML")
+
+    elif command == "course":
+        users = _load_users()
+        text = "🎓 <b>Курс пользователей</b>\n\n"
+        for uid, data in users.items():
+            day = data.get("day", 0)
+            if day > 0:
+                username = data.get("username", uid)
+                text += f"• {username}: день {day}/9\n"
+        if text == "🎓 <b>Курс пользователей</b>\n\n":
+            text += "Никто не начал курс."
+        await message.answer(text, parse_mode="HTML")
+
+    else:
+        await message.answer("❌ Неизвестная команда. Используй /admin stats, users, history, gen, course")
+
+# ===== КНОПКИ (донаты, оплата, генерации) =====
 @dp.callback_query(F.data == "author_info")
 async def handle_author_info(callback: CallbackQuery):
     await callback.message.answer(
@@ -294,7 +412,6 @@ async def handle_course_status(callback: CallbackQuery):
                 await send_photos(callback.message.chat.id, 0)
             else:
                 await callback.message.answer(status, parse_mode="HTML")
-                from course import _load_users
                 users = _load_users()
                 uid = str(callback.from_user.id)
                 if uid in users:
@@ -400,7 +517,6 @@ async def handle_buy_20_gen(callback: CallbackQuery):
     )
 
 # ===== ГЕНЕРАЦИЯ С ФОРМАТАМИ =====
-
 @dp.callback_query(F.data == "gen_free")
 async def handle_gen_free(callback: CallbackQuery):
     user_id = callback.from_user.id
@@ -436,7 +552,6 @@ async def handle_gen_paid(callback: CallbackQuery):
         reply_markup=format_keyboard("paid"),
     )
 
-# Обработчики выбора формата
 for fmt, name in FORMATS:
     @dp.callback_query(F.data == f"gen_{fmt}_free")
     async def choose_format_free(callback: CallbackQuery, fmt=fmt):
@@ -487,7 +602,6 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str):
             await bot.send_message(chat_id, "😕 Не удалось сгенерировать изображение. Попробуй другое фото.")
             return
 
-        # Умеренное сжатие для Telegram
         try:
             img = Image.open(io_module.BytesIO(result))
             if max(img.size) > 1920:
@@ -516,6 +630,7 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str):
         logging.exception("Ошибка генерации")
         await bot.send_message(chat_id, "😕 Что-то пошло не так при генерации. Попробуй ещё раз.")
 
+# ===== ОБРАБОТЧИКИ СООБЩЕНИЙ =====
 @dp.message(F.photo)
 async def handle_photo(message: Message):
     user_id = message.from_user.id
@@ -550,6 +665,7 @@ async def handle_photo(message: Message):
         if result is not None:
             error_type = result.get("error_type", "unknown")
             add_analysis(user_id, error_type)
+            _add_history(user_id, "analysis", f"Ошибки: {error_type}")
 
         if result is None:
             await processing_msg.edit_text("😕 Не смог разобрать, попробуй другое фото.")
@@ -607,6 +723,7 @@ async def handle_non_photo(message: Message):
         "Пришли мне, пожалуйста, фотографию 📷 --- я умею разбирать только изображения."
     )
 
+# ===== ЗАПУСК =====
 async def main():
     flask_thread = Thread(target=run_flask)
     flask_thread.daemon = True
