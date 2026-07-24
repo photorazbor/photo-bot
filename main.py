@@ -30,7 +30,7 @@ from config import TELEGRAM_BOT_TOKEN
 from ai_service import analyze_photo, generate_image, create_payment_link
 from image_utils import download_and_resize, image_to_bytes, draw_hints
 from stats import add_analysis, get_stats
-from course import get_status, add_photo, check_day, has_access, get_day_photos, _load_users
+from course import get_status, add_photo, check_day, has_access, get_day_photos, _load_users, activate_free_trial
 
 logging.basicConfig(level=logging.INFO)
 
@@ -143,6 +143,16 @@ def run_flask():
     flask_app.run(host='0.0.0.0', port=port)
 
 # ===== КЛАВИАТУРЫ =====
+def donate_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="💛 100 ₽", callback_data="donate_100"),
+            InlineKeyboardButton(text="💛 300 ₽", callback_data="donate_300"),
+            InlineKeyboardButton(text="💛 500 ₽", callback_data="donate_500"),
+        ],
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="new_photo")],
+    ])
+
 def get_keyboard(user_id: int) -> InlineKeyboardMarkup:
     buttons = []
 
@@ -156,19 +166,15 @@ def get_keyboard(user_id: int) -> InlineKeyboardMarkup:
     elif paid_left > 0:
         buttons.append([InlineKeyboardButton(text=f"✨ Улучшить фото (осталось {paid_left})", callback_data="gen_paid")])
     else:
-        buttons.append([InlineKeyboardButton(text="💛 5 улучшений --- 99 ₽", callback_data="buy_5_gen")])
-        buttons.append([InlineKeyboardButton(text="💛 20 улучшений --- 249 ₽", callback_data="buy_20_gen")])
+        buttons.append([InlineKeyboardButton(text="💛 5 улучшений — 99 ₽", callback_data="buy_5_gen")])
+        buttons.append([InlineKeyboardButton(text="💛 20 улучшений — 249 ₽", callback_data="buy_20_gen")])
 
     if has_access(user_id) and user_mode.get(user_id) == "course" and not test_mode:
         buttons.append([InlineKeyboardButton(text="📸 Продолжить курс", callback_data="mode_course")])
         buttons.append([InlineKeyboardButton(text="🔍 Просто анализ", callback_data="mode_free")])
     else:
-        buttons.append([
-            InlineKeyboardButton(text="💛 Поддержать 100 ₽", callback_data="donate_100"),
-            InlineKeyboardButton(text="💛 300 ₽", callback_data="donate_300"),
-            InlineKeyboardButton(text="💛 500 ₽", callback_data="donate_500"),
-        ])
-        buttons.append([InlineKeyboardButton(text="🎓 Мини-курс", callback_data="course_status")])
+        buttons.append([InlineKeyboardButton(text="💛 Поддержать проект", callback_data="donate_menu")])
+        buttons.append([InlineKeyboardButton(text="🎓 Мини-курс по композиции (490 ₽)", callback_data="course_status")])
 
     buttons.append([InlineKeyboardButton(text="📊 Моя статистика", callback_data="my_stats")])
     buttons.append([InlineKeyboardButton(text="📷 Разобрать другое фото", callback_data="new_photo")])
@@ -242,7 +248,7 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str):
         await bot.send_photo(
             chat_id,
             BufferedInputFile(result, filename="generated.jpg"),
-            caption=f"✨ Вот твой улучшенный кадр!\nФормат: {format_name}\n\nЕсли хочешь ещё --- купи пакет генераций.",
+            caption=f"✨ Вот твой улучшенный кадр!\nФормат: {format_name}\n\nЕсли хочешь ещё — купи пакет генераций.",
             reply_markup=get_keyboard(user_id),
         )
 
@@ -255,11 +261,12 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str):
 async def handle_start(message: Message):
     _add_history(message.from_user.id, "start", "Запустил бота")
     await message.answer(
-        "👋 Привет! Я --- бот-наставник по мобильной фотографии.\n\n"
-        "Пришли мне фото, и я найду композиционные ошибки: "
-        "заваленный горизонт, мусор в кадре, неудачную позу и другое. "
-        "Ты получишь фото с подсказками прямо на нём и короткий разбор от профи. 📸\n\n"
-        "✨ <b>Новинка:</b> теперь можно сгенерировать исправленную версию фото с помощью ИИ!",
+        "👋 <b>Привет! Я — бот-наставник по мобильной фотографии.</b>\n\n"
+        "📸 <b>Бесплатный анализ:</b> пришли фото — я найду ошибки композиции и покажу их прямо на снимке.\n\n"
+        "✨ <b>Улучшение фото:</b> ИИ исправит композицию, свет, уберёт лишнее и дорисует края.\n\n"
+        "🎓 <b>Мини-курс по композиции (9 дней):</b> с проверкой каждого задания. Первый день — бесплатно, чтобы попробовать.\n\n"
+        "💛 <b>Поддержать проект:</b> если бот оказался полезным — можно поддержать разработку.\n\n"
+        "Присылай фото и начнём разбор! 👇",
         reply_markup=AUTHOR_KEYBOARD,
         parse_mode="HTML",
     )
@@ -267,12 +274,12 @@ async def handle_start(message: Message):
 @dp.message(Command("author"))
 async def handle_author(message: Message):
     await message.answer(
-        "📸 <b>Автор бота --- Евгений Севостьянов</b>\n"
+        "📸 <b>Автор бота — Евгений Севостьянов</b>\n"
         "Фотограф, преподаватель мобильной фотографии.\n\n"
         "📷 Instagram: <a href='https://instagram.com/sevosphoto'>@sevosphoto</a>\n"
         "💬 Telegram: <a href='https://t.me/sevosphoto'>@sevosphoto</a>\n"
         "🌐 VK: <a href='https://vk.com/cevoc'>@cevoc</a>\n\n"
-        "По вопросам сотрудничества и обучения --- пишите в личные сообщения!",
+        "По вопросам сотрудничества и обучения — пишите в личные сообщения!",
         parse_mode="HTML",
         disable_web_page_preview=True,
     )
@@ -284,44 +291,7 @@ async def handle_stats(message: Message):
 
 @dp.message(Command("course"))
 async def handle_course(message: Message):
-    if has_access(message.from_user.id):
-        status = get_status(message.from_user.id)
-        if status is not None:
-            if "День 0" in status or "Подготовка" in status:
-                await message.answer(
-                    status,
-                    parse_mode="HTML",
-                    reply_markup=InlineKeyboardMarkup(
-                        inline_keyboard=[
-                            [InlineKeyboardButton(text="🚀 Начать курс", callback_data="start_course_btn")],
-                        ]
-                    ),
-                )
-                await send_photos(message.chat.id, 0)
-            else:
-                await message.answer(status, parse_mode="HTML")
-                users = _load_users()
-                uid = str(message.from_user.id)
-                if uid in users:
-                    day = users[uid].get("day", 1)
-                    await send_photos(message.chat.id, day)
-    else:
-        link = create_payment_link(490, "Оплата за мини-курс по фотографии")
-        if not link:
-            link = "https://t.me/moy_razbor_bot"
-        await message.answer(
-            "🎓 <b>Мини-курс по композиции</b>\n\n"
-            "9-дневный челлендж: горизонт, правило третей, поза, свет, тень, отражения, фрейминг, ритм, глубина.\n\n"
-            "💰 Стоимость: 490 ₽\n\n"
-            "Нажми кнопку ниже, чтобы оплатить и получить доступ.",
-            parse_mode="HTML",
-            reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [InlineKeyboardButton(text="💳 Оплатить курс (490 ₽)", url=link)],
-                    [InlineKeyboardButton(text="📷 Разобрать другое фото", callback_data="new_photo")],
-                ]
-            ),
-        )
+    await handle_course_status_logic(message.from_user.id, message.chat.id, is_command=True)
 
 @dp.message(Command("reset"))
 async def handle_reset(message: Message):
@@ -398,7 +368,8 @@ async def handle_admin(message: Message):
         for uid, data in users.items():
             username = data.get("username", uid)
             total = data.get("total", 0)
-            text += f"• {username} — {total} фото\n"
+            trial = "🆓" if data.get("trial", False) else "💳"
+            text += f"• {trial} {username} — {total} фото\n"
         await message.answer(text, parse_mode="HTML")
 
     elif command == "history":
@@ -431,7 +402,8 @@ async def handle_admin(message: Message):
             day = data.get("day", 0)
             if day > 0:
                 username = data.get("username", uid)
-                text += f"• {username}: день {day}/9\n"
+                trial = "🆓" if data.get("trial", False) else "💳"
+                text += f"• {trial} {username}: день {day}/9\n"
         if text == "🎓 <b>Курс пользователей</b>\n\n":
             text += "Никто не начал курс."
         await message.answer(text, parse_mode="HTML")
@@ -439,16 +411,174 @@ async def handle_admin(message: Message):
     else:
         await message.answer("❌ Неизвестная команда. Используй /admin stats, users, history, gen, course")
 
-# ===== КНОПКИ (донаты, оплата, генерации) =====
+# ===== ЛОГИКА КУРСА (бесплатный старт + платное продолжение) =====
+async def handle_course_status_logic(user_id: int, chat_id: int, is_command: bool = False):
+    """Общая логика для кнопки и команды /course."""
+    # Если уже есть полный доступ — показываем статус
+    if has_access(user_id):
+        user_mode[user_id] = "course"
+        status = get_status(user_id)
+        if status is not None:
+            if "День 0" in status or "Подготовка" in status:
+                await bot.send_message(
+                    chat_id,
+                    status,
+                    parse_mode="HTML",
+                    reply_markup=InlineKeyboardMarkup(
+                        inline_keyboard=[
+                            [InlineKeyboardButton(text="🚀 Начать курс", callback_data="start_course_btn")],
+                        ]
+                    ),
+                )
+                await send_photos(chat_id, 0)
+            elif "День 1" in status and _is_trial(user_id):
+                # Пользователь на триале, прошёл день 1 — предлагаем оплатить
+                await bot.send_message(
+                    chat_id,
+                    status + "\n\n🎉 <b>Ты прошёл бесплатный пробный день!</b>\n\n"
+                    "Осталось 8 дней: правило третей, поза, свет, тень, отражения, фрейминг, ритм, глубина.\n"
+                    "Оплати полный доступ и продолжай учиться!",
+                    parse_mode="HTML",
+                    reply_markup=_payment_keyboard(),
+                )
+            else:
+                await bot.send_message(chat_id, status, parse_mode="HTML")
+                users = _load_users()
+                uid = str(user_id)
+                if uid in users:
+                    day = users[uid].get("day", 1)
+                    await send_photos(chat_id, day)
+        return
+
+    # Нет доступа — показываем описание и предлагаем бесплатный старт
+    await bot.send_message(
+        chat_id,
+        "🎓 <b>Мини-курс по композиции (9 дней)</b>\n\n"
+        "9-дневный челлендж с проверкой каждого задания:\n"
+        "• День 0: Подготовка телефона\n"
+        "• День 1: Горизонт и геометрия\n"
+        "• День 2: Правило третей\n"
+        "• День 3: Поза человека\n"
+        "• День 4: Свет и тени\n"
+        "• День 5: Тень как приём\n"
+        "• День 6: Отражения\n"
+        "• День 7: Фрейминг\n"
+        "• День 8: Ритм и перспектива\n"
+        "• День 9: Глубина кадра\n\n"
+        "🆓 <b>День 0 и День 1 — бесплатно!</b> Попробуй, как проходит обучение.\n\n"
+        "💰 Полный доступ: 490 ₽\n\n"
+        "Начни бесплатно прямо сейчас!",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text="🆓 Начать бесплатно", callback_data="start_trial")],
+                [InlineKeyboardButton(text="💳 Оплатить полный доступ (490 ₽)", callback_data="pay_course")],
+            ]
+        ),
+    )
+
+
+def _is_trial(user_id: int) -> bool:
+    """Проверяет, находится ли пользователь на пробном периоде."""
+    users = _load_users()
+    uid = str(user_id)
+    if uid not in users:
+        for key, data in users.items():
+            if isinstance(data, dict) and data.get("username") == str(user_id):
+                uid = key
+                break
+        else:
+            return False
+    return users[uid].get("trial", False)
+
+
+def _payment_keyboard() -> InlineKeyboardMarkup:
+    """Клавиатура с кнопкой оплаты курса."""
+    link = create_payment_link(490, "Оплата за мини-курс по композиции")
+    if not link:
+        link = "https://t.me/moy_razbor_bot"
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="💳 Оплатить курс (490 ₽)", url=link)],
+        ]
+    )
+
+
+# ===== КНОПКИ КУРСА =====
+@dp.callback_query(F.data == "start_trial")
+async def handle_start_trial(callback: CallbackQuery):
+    """Активирует бесплатный пробный период."""
+    await callback.answer()
+    user_id = callback.from_user.id
+    activate_free_trial(user_id)
+    user_mode[user_id] = "course"
+    status = get_status(user_id)
+    if status:
+        await callback.message.answer(status, parse_mode="HTML")
+        await send_photos(callback.message.chat.id, 0)
+
+
+@dp.callback_query(F.data == "pay_course")
+async def handle_pay_course(callback: CallbackQuery):
+    """Оплата полного доступа к курсу."""
+    await callback.answer()
+    link = create_payment_link(490, "Оплата за мини-курс по композиции")
+    if not link:
+        link = "https://t.me/moy_razbor_bot"
+    await callback.message.answer(
+        "💳 <b>Оплата мини-курса по композиции</b>\n\n"
+        "Полный доступ ко всем 9 дням: 490 ₽\n\n"
+        "Нажми кнопку ниже, чтобы оплатить. После оплаты доступ откроется автоматически.",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text="💳 Оплатить 490 ₽", url=link)],
+            ]
+        ),
+    )
+
+
+@dp.callback_query(F.data == "course_status")
+async def handle_course_status(callback: CallbackQuery):
+    await callback.answer()
+    await handle_course_status_logic(callback.from_user.id, callback.message.chat.id)
+
+
+@dp.callback_query(F.data == "start_course_btn")
+async def handle_start_course_btn(callback: CallbackQuery):
+    user_mode[callback.from_user.id] = "course"
+    add_text = add_photo(callback.from_user.id)
+    if add_text:
+        await callback.message.answer(add_text, parse_mode="HTML")
+        await send_photos(callback.message.chat.id, 1)
+    await callback.answer()
+
+
+@dp.callback_query(F.data == "mode_course")
+async def handle_mode_course(callback: CallbackQuery):
+    user_mode[callback.from_user.id] = "course"
+    await callback.answer("✅ Режим курса. Присылай фото для задания.")
+    status = get_status(callback.from_user.id)
+    if status:
+        await callback.message.answer(status, parse_mode="HTML")
+
+
+@dp.callback_query(F.data == "mode_free")
+async def handle_mode_free(callback: CallbackQuery):
+    user_mode[callback.from_user.id] = "free"
+    await callback.answer("🔍 Обычный анализ. Фото не засчитается в курс.")
+
+
+# ===== КНОПКИ (поддержка, покупки) =====
 @dp.callback_query(F.data == "author_info")
 async def handle_author_info(callback: CallbackQuery):
     await callback.message.answer(
-        "📸 <b>Автор бота --- Евгений Севостьянов</b>\n"
+        "📸 <b>Автор бота — Евгений Севостьянов</b>\n"
         "Фотограф, преподаватель мобильной фотографии.\n\n"
         "📷 Instagram: <a href='https://instagram.com/sevosphoto'>@sevosphoto</a>\n"
         "💬 Telegram: <a href='https://t.me/sevosphoto'>@sevosphoto</a>\n"
         "🌐 VK: <a href='https://vk.com/cevoc'>@cevoc</a>\n\n"
-        "По вопросам сотрудничества и обучения --- пишите в личные сообщения!",
+        "По вопросам сотрудничества и обучения — пишите в личные сообщения!",
         parse_mode="HTML",
         disable_web_page_preview=True,
     )
@@ -460,78 +590,22 @@ async def handle_stats_button(callback: CallbackQuery):
     await callback.message.answer(text, parse_mode="HTML")
     await callback.answer()
 
-@dp.callback_query(F.data == "course_status")
-async def handle_course_status(callback: CallbackQuery):
-    await callback.answer()
-    if not has_access(callback.from_user.id):
-        link = create_payment_link(490, "Оплата за мини-курс по фотографии")
-        if not link:
-            link = "https://t.me/moy_razbor_bot"
-        await callback.message.answer(
-            "🎓 <b>Мини-курс по композиции</b>\n\n"
-            "9-дневный челлендж: горизонт, правило третей, поза, свет, тень, отражения, фрейминг, ритм, глубина.\n\n"
-            "💰 Стоимость: 490 ₽\n\n"
-            "Нажми кнопку ниже, чтобы оплатить и получить доступ.",
-            parse_mode="HTML",
-            reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [InlineKeyboardButton(text="💳 Оплатить курс (490 ₽)", url=link)],
-                ]
-            ),
-        )
-    else:
-        user_mode[callback.from_user.id] = "course"
-        status = get_status(callback.from_user.id)
-        if status is not None:
-            if "День 0" in status or "Подготовка" in status:
-                await callback.message.answer(
-                    status,
-                    parse_mode="HTML",
-                    reply_markup=InlineKeyboardMarkup(
-                        inline_keyboard=[
-                            [InlineKeyboardButton(text="🚀 Начать курс", callback_data="start_course_btn")],
-                        ]
-                    ),
-                )
-                await send_photos(callback.message.chat.id, 0)
-            else:
-                await callback.message.answer(status, parse_mode="HTML")
-                users = _load_users()
-                uid = str(callback.from_user.id)
-                if uid in users:
-                    day = users[uid].get("day", 1)
-                    await send_photos(callback.message.chat.id, day)
-        else:
-            await callback.message.answer("Произошла ошибка. Напиши /reset для сброса курса.")
-
-@dp.callback_query(F.data == "start_course_btn")
-async def handle_start_course_btn(callback: CallbackQuery):
-    user_mode[callback.from_user.id] = "course"
-    add_text = add_photo(callback.from_user.id)
-    if add_text:
-        await callback.message.answer(add_text, parse_mode="HTML")
-        await send_photos(callback.message.chat.id, 1)
-    await callback.answer()
-
-@dp.callback_query(F.data == "mode_course")
-async def handle_mode_course(callback: CallbackQuery):
-    user_mode[callback.from_user.id] = "course"
-    await callback.answer("✅ Режим курса. Присылай фото для задания.")
-    status = get_status(callback.from_user.id)
-    if status:
-        await callback.message.answer(status, parse_mode="HTML")
-
-@dp.callback_query(F.data == "mode_free")
-async def handle_mode_free(callback: CallbackQuery):
-    user_mode[callback.from_user.id] = "free"
-    await callback.answer("🔍 Обычный анализ. Фото не засчитается в курс.")
-
 @dp.callback_query(F.data == "new_photo")
 async def handle_retry_button(callback: CallbackQuery):
-    await callback.message.answer("Присылай следующее фото --- жду! 📷")
+    await callback.message.answer("Присылай следующее фото — жду! 📷")
     await callback.answer()
 
-# ===== КНОПКИ ПОДДЕРЖКИ =====
+# ===== МЕНЮ ПОДДЕРЖКИ =====
+@dp.callback_query(F.data == "donate_menu")
+async def handle_donate_menu(callback: CallbackQuery):
+    await callback.answer()
+    await callback.message.answer(
+        "💛 <b>Поддержать проект</b>\n\n"
+        "Выбери сумму. Любая поддержка помогает боту развиваться! 🙏",
+        parse_mode="HTML",
+        reply_markup=donate_keyboard(),
+    )
+
 async def _handle_donate(callback: CallbackQuery, amount: int):
     await callback.answer()
     link = create_payment_link(amount, f"Поддержка проекта ({amount} ₽)")
@@ -576,7 +650,7 @@ async def handle_buy_5_gen(callback: CallbackQuery):
         )
         return
     await callback.message.answer(
-        "✨ <b>Пакет 5 генераций --- 99 ₽</b>\n\n"
+        "✨ <b>Пакет 5 генераций — 99 ₽</b>\n\n"
         "Нажми кнопку ниже, чтобы оплатить. После оплаты генерации зачислятся автоматически.",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(
@@ -597,7 +671,7 @@ async def handle_buy_20_gen(callback: CallbackQuery):
         )
         return
     await callback.message.answer(
-        "✨ <b>Пакет 20 генераций --- 249 ₽</b>\n\n"
+        "✨ <b>Пакет 20 генераций — 249 ₽</b>\n\n"
         "Нажми кнопку ниже, чтобы оплатить. После оплаты генерации зачислятся автоматически.",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(
@@ -739,9 +813,9 @@ async def handle_photo(message: Message):
             f"🔄 Как исправить: {result.get('how_to_fix', '---')}\n\n"
             f"✨ Совет от профи: {result.get('pro_tip', '---')}\n\n"
             f"👍 Что хорошо: {result.get('praise', '---')}\n\n"
-            f"🔴 красный --- проблема\n"
-            f"🟢 зелёный --- правильно\n"
-            f"🟡 жёлтый --- внимание"
+            f"🔴 красный — проблема\n"
+            f"🟢 зелёный — правильно\n"
+            f"🟡 жёлтый — внимание"
         )
         await message.answer(caption, reply_markup=get_keyboard(user_id))
 
@@ -751,7 +825,27 @@ async def handle_photo(message: Message):
                 add_photo(user_id)
                 check_text = check_day(user_id, result)
                 if check_text:
-                    await message.answer(check_text, parse_mode="HTML")
+                    # Если пользователь на триале и завершил день 1 — предлагаем оплатить
+                    if _is_trial(user_id) and "задание выполнено" in check_text.lower():
+                        link = create_payment_link(490, "Оплата за мини-курс по композиции")
+                        if not link:
+                            link = "https://t.me/moy_razbor_bot"
+                        check_text += (
+                            "\n\n🎉 <b>Ты прошёл бесплатный пробный день!</b>\n\n"
+                            "Осталось 8 дней: правило третей, поза, свет, тень, отражения, фрейминг, ритм, глубина.\n"
+                            "Оплати полный доступ и продолжай учиться!"
+                        )
+                        await message.answer(
+                            check_text,
+                            parse_mode="HTML",
+                            reply_markup=InlineKeyboardMarkup(
+                                inline_keyboard=[
+                                    [InlineKeyboardButton(text="💳 Оплатить курс (490 ₽)", url=link)],
+                                ]
+                            ),
+                        )
+                    else:
+                        await message.answer(check_text, parse_mode="HTML")
 
         await processing_msg.delete()
 
@@ -774,7 +868,7 @@ async def handle_non_photo(message: Message):
         return
 
     await message.answer(
-        "Пришли мне, пожалуйста, фотографию 📷 --- я умею разбирать только изображения."
+        "Пришли мне, пожалуйста, фотографию 📷 — я умею разбирать только изображения."
     )
 
 # ===== ЗАПУСК =====
