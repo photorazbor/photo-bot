@@ -781,3 +781,26 @@ async def handle_photo(message: Message):
 
 @dp.message(~F.photo)
 async def handle_non_photo(message: Message):
+    user_id = message.from_user.id
+    mode = user_mode.get(user_id, "")
+
+    if mode in ("gen_wish_free", "gen_wish_paid"):
+        gen_wish[user_id] = message.text
+        gen_type = "free" if "free" in mode else "paid"
+        await do_generation(user_id, message.chat.id, gen_type)
+        user_mode[user_id] = "free"
+        return
+
+    await message.answer(
+        "Пришли мне, пожалуйста, фотографию 📷 --- я умею разбирать только изображения."
+    )
+
+# ===== ЗАПУСК =====
+async def main():
+    flask_thread = Thread(target=run_flask)
+    flask_thread.daemon = True
+    flask_thread.start()
+    await dp.start_polling(bot)
+
+if __name__ == "__main__":
+    asyncio.run(main())
