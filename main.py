@@ -47,9 +47,8 @@ GEN_FILE = "generations.json"
 last_photo = {}
 gen_wish = {}
 gen_format = {}
-test_mode = False  # Режим обычного пользователя для автора
+test_mode = False
 
-# Хранилище для истории действий (для админа)
 HISTORY_FILE = "history.json"
 
 def _load_history() -> dict:
@@ -97,10 +96,6 @@ FORMATS = [
 ]
 
 def get_size_for_format(fmt: str, image_bytes: bytes = None) -> str:
-    """
-    Возвращает размер для генерации.
-    Если fmt == "original" — вычисляет размер по исходному фото (с округлением до 64).
-    """
     if fmt == "original" and image_bytes:
         try:
             img = Image.open(io_module.BytesIO(image_bytes))
@@ -115,7 +110,6 @@ def get_size_for_format(fmt: str, image_bytes: bytes = None) -> str:
 
 
 def format_keyboard(gen_type: str) -> InlineKeyboardMarkup:
-    """Создаёт клавиатуру выбора формата."""
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=name, callback_data=f"gen_{fmt}_{gen_type}")]
         for fmt, name in FORMATS
@@ -155,7 +149,6 @@ def get_keyboard(user_id: int) -> InlineKeyboardMarkup:
     free_left = 1 - free_generations.get(user_id, 0)
     paid_left = paid_generations.get(user_id, 0)
 
-    # Автор в обычном режиме видит авторскую кнопку
     if user_id == 456504792 and not test_mode:
         buttons.append([InlineKeyboardButton(text="✨ Улучшить фото (автор)", callback_data="gen_free")])
     elif free_left > 0:
@@ -166,13 +159,15 @@ def get_keyboard(user_id: int) -> InlineKeyboardMarkup:
         buttons.append([InlineKeyboardButton(text="💛 5 улучшений --- 99 ₽", callback_data="buy_5_gen")])
         buttons.append([InlineKeyboardButton(text="💛 20 улучшений --- 249 ₽", callback_data="buy_20_gen")])
 
-    # Автор в тестовом режиме видит кнопки как обычный пользователь
     if has_access(user_id) and user_mode.get(user_id) == "course" and not test_mode:
         buttons.append([InlineKeyboardButton(text="📸 Продолжить курс", callback_data="mode_course")])
         buttons.append([InlineKeyboardButton(text="🔍 Просто анализ", callback_data="mode_free")])
     else:
-        buttons.append([InlineKeyboardButton(text="💛 Поддержать на 100 ₽", callback_data="donate_100")])
-        buttons.append([InlineKeyboardButton(text="💛 Поддержать (любая сумма)", callback_data="donate_any")])
+        buttons.append([
+            InlineKeyboardButton(text="💛 Поддержать 100 ₽", callback_data="donate_100"),
+            InlineKeyboardButton(text="💛 300 ₽", callback_data="donate_300"),
+            InlineKeyboardButton(text="💛 500 ₽", callback_data="donate_500"),
+        ])
         buttons.append([InlineKeyboardButton(text="🎓 Мини-курс", callback_data="course_status")])
 
     buttons.append([InlineKeyboardButton(text="📊 Моя статистика", callback_data="my_stats")])
@@ -203,7 +198,6 @@ async def send_photos(chat_id: int, day: int):
         logging.error(f"Ошибка отправки фото: {e}")
 
 async def do_generation(user_id: int, chat_id: int, gen_type: str):
-    """Выполняет генерацию изображения."""
     if user_id not in last_photo:
         await bot.send_message(chat_id, "Сначала пришли фото для анализа!")
         return
@@ -537,49 +531,39 @@ async def handle_retry_button(callback: CallbackQuery):
     await callback.message.answer("Присылай следующее фото --- жду! 📷")
     await callback.answer()
 
-@dp.callback_query(F.data == "donate_100")
-async def handle_donate_100(callback: CallbackQuery):
+# ===== КНОПКИ ПОДДЕРЖКИ =====
+async def _handle_donate(callback: CallbackQuery, amount: int):
     await callback.answer()
-    link = create_payment_link(100, "Поддержка проекта (100 ₽)")
+    link = create_payment_link(amount, f"Поддержка проекта ({amount} ₽)")
     if not link:
         await callback.message.answer(
-            "⚠️ Не удалось создать платёжную ссылку. Попробуй позже или используй реквизиты.",
+            "⚠️ Не удалось создать платёжную ссылку. Попробуй позже.",
             parse_mode="HTML",
         )
         return
     await callback.message.answer(
-        "💛 <b>Поддержать проект</b>\n\n"
-        "Спасибо, что хочешь поддержать бота! 🙏\n\n"
-        "Нажми кнопку ниже, чтобы оплатить 100 ₽.",
+        f"💛 <b>Поддержать проект на {amount} ₽</b>\n\n"
+        "Спасибо, что помогаешь боту развиваться! 🙏\n\n"
+        "Нажми кнопку ниже, чтобы оплатить.",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
-                [InlineKeyboardButton(text="💳 Оплатить 100 ₽", url=link)],
+                [InlineKeyboardButton(text=f"💳 Оплатить {amount} ₽", url=link)],
             ]
         ),
     )
 
-@dp.callback_query(F.data == "donate_any")
-async def handle_donate_any(callback: CallbackQuery):
-    await callback.answer()
-    link = create_payment_link(100, "Поддержка проекта (произвольная сумма)")
-    if not link:
-        await callback.message.answer(
-            "⚠️ Не удалось создать платёжную ссылку. Попробуй позже или используй реквизиты.",
-            parse_mode="HTML",
-        )
-        return
-    await callback.message.answer(
-        "💛 <b>Поддержать проект</b>\n\n"
-        "Спасибо, что хочешь поддержать бота! 🙏\n\n"
-        "Нажми кнопку ниже для оплаты. Сумму можно изменить на странице оплаты.",
-        parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup(
-            inline_keyboard=[
-                [InlineKeyboardButton(text="💳 Перейти к оплате", url=link)],
-            ]
-        ),
-    )
+@dp.callback_query(F.data == "donate_100")
+async def handle_donate_100(callback: CallbackQuery):
+    await _handle_donate(callback, 100)
+
+@dp.callback_query(F.data == "donate_300")
+async def handle_donate_300(callback: CallbackQuery):
+    await _handle_donate(callback, 300)
+
+@dp.callback_query(F.data == "donate_500")
+async def handle_donate_500(callback: CallbackQuery):
+    await _handle_donate(callback, 500)
 
 @dp.callback_query(F.data == "buy_5_gen")
 async def handle_buy_5_gen(callback: CallbackQuery):
@@ -626,7 +610,6 @@ async def handle_buy_20_gen(callback: CallbackQuery):
 # ===== ГЕНЕРАЦИЯ С ФОРМАТАМИ =====
 
 def register_format_handlers():
-    """Создаёт обработчики для каждого формата с правильным захватом переменных."""
     for fmt, name in FORMATS:
 
         def make_free_handler(fmt=fmt, name=name):
@@ -669,7 +652,6 @@ register_format_handlers()
 @dp.callback_query(F.data == "gen_free")
 async def handle_gen_free(callback: CallbackQuery):
     user_id = callback.from_user.id
-    # Автор в обычном режиме может генерировать бесплатно без ограничений
     if user_id != 456504792 and free_generations.get(user_id, 0) >= 1:
         await callback.answer("Ты уже использовал бесплатную генерацию. Купи пакет!")
         return
