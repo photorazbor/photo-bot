@@ -1,5 +1,3 @@
-Вот полный код `bot.py` со всеми исправлениями:
-
 ```python
 """
 Точка входа: Telegram-бот на aiogram 3 + заглушка для Render + webhook DonatePay
