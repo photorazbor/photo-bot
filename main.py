@@ -1,3 +1,6 @@
+Вот полный код `bot.py` со всеми исправлениями:
+
+```python
 """
 Точка входа: Telegram-бот на aiogram 3 + заглушка для Render + webhook DonatePay
 """
@@ -86,13 +89,42 @@ SIZE_MAP = {
 }
 
 FORMATS = [
+    ("original", "📐 Исходный формат"),
     ("1_1", "📱 1:1 (квадрат)"),
     ("3_4", "📱 3:4 (вертикаль)"),
     ("4_3", "🖼️ 4:3 (горизонт)"),
-    ("4_5", "📱 4:5 (вертикаль, Instagram)"),
+    ("4_5", "📱 4:5 (Instagram)"),
     ("16_9", "🖼️ 16:9 (панорама)"),
     ("9_16", "📱 9:16 (сториз)"),
 ]
+
+def get_size_for_format(fmt: str, image_bytes: bytes = None) -> str:
+    """
+    Возвращает размер для генерации.
+    Если fmt == "original" — вычисляет размер по исходному фото (с округлением до 64).
+    """
+    if fmt == "original" and image_bytes:
+        try:
+            img = Image.open(io_module.BytesIO(image_bytes))
+            w, h = img.size
+            # Округляем до ближайших 64 (требование многих API)
+            w = max(512, (w // 64) * 64)
+            h = max(512, (h // 64) * 64)
+            return f"{w}x{h}"
+        except Exception:
+            pass
+    # Преобразуем "1_1" → "1:1" для поиска в SIZE_MAP
+    key = fmt.replace("_", ":")
+    return SIZE_MAP.get(key, "1024x1024")
+
+
+def format_keyboard(gen_type: str) -> InlineKeyboardMarkup:
+    """Создаёт клавиатуру выбора формата."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=name, callback_data=f"gen_{fmt}_{gen_type}")]
+        for fmt, name in FORMATS
+    ])
+
 
 def _load_gen():
     global free_generations, paid_generations
@@ -121,12 +153,6 @@ def run_flask():
     flask_app.run(host='0.0.0.0', port=port)
 
 # ===== КЛАВИАТУРЫ =====
-def format_keyboard(gen_type: str) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=name, callback_data=f"gen_{fmt}_{gen_type}")]
-        for fmt, name in FORMATS
-    ])
-
 def get_keyboard(user_id: int) -> InlineKeyboardMarkup:
     buttons = []
 
@@ -177,6 +203,64 @@ async def send_photos(chat_id: int, day: int):
             await bot.send_media_group(chat_id, media)
     except Exception as e:
         logging.error(f"Ошибка отправки фото: {e}")
+
+async def do_generation(user_id: int, chat_id: int, gen_type: str):
+    """Выполняет генерацию изображения."""
+    if user_id not in last_photo:
+        await bot.send_message(chat_id, "Сначала пришли фото для анализа!")
+        return
+
+    fmt = gen_format.get(user_id, "1_1")
+    wish = gen_wish.get(user_id, "")
+    image_bytes = last_photo[user_id]
+
+    await bot.send_message(chat_id, "🎨 Генерирую изображение... Обычно это 30-60 секунд.")
+
+    try:
+        img_size = get_size_for_format(fmt, image_bytes)
+
+        # Формируем промпт с учётом формата
+        prompt = f"Улучши это фото: исправь композицию, выровняй горизонт, дорисуй обрезанные края, убери отвлекающие объекты, улучши свет и цвета. Сохрани все важные детали и объекты. Размер: {img_size}."
+        if wish and wish.lower() != "ок":
+            prompt += f" Дополнительное пожелание: {wish}"
+
+        result = generate_image(image_bytes, prompt)
+
+        if result is None:
+            await bot.send_message(chat_id, "😕 Не удалось сгенерировать изображение. Попробуй другое фото.")
+            return
+
+        # Сжатие результата, если слишком большой
+        try:
+            img = Image.open(io_module.BytesIO(result))
+            if max(img.size) > 1920:
+                img.thumbnail((1920, 1920), Image.LANCZOS)
+            buf = io_module.BytesIO()
+            img.save(buf, format="JPEG", quality=92)
+            result = buf.getvalue()
+        except Exception:
+            pass
+
+        # Списываем генерацию
+        if gen_type == "free" and user_id != 456504792:
+            free_generations[user_id] = 1
+            _save_gen()
+        elif gen_type == "paid":
+            paid_generations[user_id] = max(0, paid_generations.get(user_id, 0) - 1)
+            _save_gen()
+
+        # Показываем результат
+        format_name = dict(FORMATS).get(fmt, fmt)
+        await bot.send_photo(
+            chat_id,
+            BufferedInputFile(result, filename="generated.jpg"),
+            caption=f"✨ Вот твой улучшенный кадр!\nФормат: {format_name}\n\nЕсли хочешь ещё --- купи пакет генераций.",
+            reply_markup=get_keyboard(user_id),
+        )
+
+    except Exception as e:
+        logging.exception("Ошибка генерации")
+        await bot.send_message(chat_id, "😕 Что-то пошло не так при генерации. Попробуй ещё раз.")
 
 # ===== ОБРАБОТЧИКИ КОМАНД =====
 @dp.message(CommandStart())
@@ -452,7 +536,11 @@ async def handle_donate_100(callback: CallbackQuery):
     await callback.answer()
     link = create_payment_link(100, "Поддержка проекта (100 ₽)")
     if not link:
-        link = "https://t.me/moy_razbor_bot"
+        await callback.message.answer(
+            "⚠️ Не удалось создать платёжную ссылку. Попробуй позже или используй реквизиты.",
+            parse_mode="HTML",
+        )
+        return
     await callback.message.answer(
         "💛 <b>Поддержать проект</b>\n\n"
         "Спасибо, что хочешь поддержать бота! 🙏\n\n"
@@ -468,18 +556,23 @@ async def handle_donate_100(callback: CallbackQuery):
 @dp.callback_query(F.data == "donate_any")
 async def handle_donate_any(callback: CallbackQuery):
     await callback.answer()
+    link = create_payment_link(100, "Поддержка проекта (произвольная сумма)")
+    if not link:
+        await callback.message.answer(
+            "⚠️ Не удалось создать платёжную ссылку. Попробуй позже или используй реквизиты.",
+            parse_mode="HTML",
+        )
+        return
     await callback.message.answer(
         "💛 <b>Поддержать проект</b>\n\n"
         "Спасибо, что хочешь поддержать бота! 🙏\n\n"
-        "Переведите любую сумму по реквизитам:\n\n"
-        "ИП Севостьянов Евгений Александрович\n"
-        "ИНН: 701741776350\n"
-        "Счёт: 40802810102500039491\n"
-        "Банк: ООО \"Банк Точка\"\n"
-        "БИК: 044525104\n"
-        "К/С: 30101810745374525104\n\n"
-        "📌 В назначении платежа укажите: «Поддержка проекта»",
+        "Нажми кнопку ниже для оплаты. Сумму можно изменить на странице оплаты.",
         parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text="💳 Перейти к оплате", url=link)],
+            ]
+        ),
     )
 
 @dp.callback_query(F.data == "buy_5_gen")
@@ -487,7 +580,11 @@ async def handle_buy_5_gen(callback: CallbackQuery):
     await callback.answer()
     link = create_payment_link(99, "Пакет 5 генераций")
     if not link:
-        link = "https://t.me/moy_razbor_bot"
+        await callback.message.answer(
+            "⚠️ Не удалось создать платёжную ссылку. Попробуй позже.",
+            parse_mode="HTML",
+        )
+        return
     await callback.message.answer(
         "✨ <b>Пакет 5 генераций --- 99 ₽</b>\n\n"
         "Нажми кнопку ниже, чтобы оплатить. После оплаты генерации зачислятся автоматически.",
@@ -504,7 +601,11 @@ async def handle_buy_20_gen(callback: CallbackQuery):
     await callback.answer()
     link = create_payment_link(249, "Пакет 20 генераций")
     if not link:
-        link = "https://t.me/moy_razbor_bot"
+        await callback.message.answer(
+            "⚠️ Не удалось создать платёжную ссылку. Попробуй позже.",
+            parse_mode="HTML",
+        )
+        return
     await callback.message.answer(
         "✨ <b>Пакет 20 генераций --- 249 ₽</b>\n\n"
         "Нажми кнопку ниже, чтобы оплатить. После оплаты генерации зачислятся автоматически.",
@@ -517,6 +618,50 @@ async def handle_buy_20_gen(callback: CallbackQuery):
     )
 
 # ===== ГЕНЕРАЦИЯ С ФОРМАТАМИ =====
+
+def register_format_handlers():
+    """Создаёт обработчики для каждого формата с правильным захватом переменных."""
+    for fmt, name in FORMATS:
+
+        def make_free_handler(fmt=fmt, name=name):
+            @dp.callback_query(F.data == f"gen_{fmt}_free")
+            async def handler(callback: CallbackQuery):
+                user_id = callback.from_user.id
+                gen_format[user_id] = fmt
+                await callback.answer(f"Выбран: {name}")
+                await callback.message.answer(
+                    f"✨ Выбран формат: <b>{name}</b>\n\n"
+                    "Напиши пожелание (например: «дорисуй руку, сделай свет теплее»)\n"
+                    "Или напиши «ок» для стандартного улучшения.",
+                    parse_mode="HTML",
+                )
+                user_mode[user_id] = "gen_wish_free"
+            return handler
+
+        def make_paid_handler(fmt=fmt, name=name):
+            @dp.callback_query(F.data == f"gen_{fmt}_paid")
+            async def handler(callback: CallbackQuery):
+                user_id = callback.from_user.id
+                gen_format[user_id] = fmt
+                await callback.answer(f"Выбран: {name}")
+                await callback.message.answer(
+                    f"✨ Выбран формат: <b>{name}</b>\n\n"
+                    "Напиши пожелание (например: «дорисуй руку, сделай свет теплее»)\n"
+                    "Или напиши «ок» для стандартного улучшения.",
+                    parse_mode="HTML",
+                )
+                user_mode[user_id] = "gen_wish_paid"
+            return handler
+
+        # Регистрируем оба обработчика
+        make_free_handler()
+        make_paid_handler()
+
+
+# Вызываем фабрику при загрузке модуля
+register_format_handlers()
+
+
 @dp.callback_query(F.data == "gen_free")
 async def handle_gen_free(callback: CallbackQuery):
     user_id = callback.from_user.id
@@ -533,6 +678,7 @@ async def handle_gen_free(callback: CallbackQuery):
         parse_mode="HTML",
         reply_markup=format_keyboard("free"),
     )
+
 
 @dp.callback_query(F.data == "gen_paid")
 async def handle_gen_paid(callback: CallbackQuery):
@@ -552,84 +698,6 @@ async def handle_gen_paid(callback: CallbackQuery):
         reply_markup=format_keyboard("paid"),
     )
 
-for fmt, name in FORMATS:
-    @dp.callback_query(F.data == f"gen_{fmt}_free")
-    async def choose_format_free(callback: CallbackQuery, fmt=fmt):
-        user_id = callback.from_user.id
-        gen_format[user_id] = fmt
-        await callback.answer()
-        await callback.message.answer(
-            f"Выбран формат: {name}\n\n"
-            "Напиши пожелание (например: «дорисуй руку, сделай свет теплее»)\n"
-            "Или напиши «ок» для стандартного улучшения.",
-            parse_mode="HTML",
-        )
-        user_mode[user_id] = "gen_wish_free"
-
-    @dp.callback_query(F.data == f"gen_{fmt}_paid")
-    async def choose_format_paid(callback: CallbackQuery, fmt=fmt):
-        user_id = callback.from_user.id
-        gen_format[user_id] = fmt
-        await callback.answer()
-        await callback.message.answer(
-            f"Выбран формат: {name}\n\n"
-            "Напиши пожелание (например: «дорисуй руку, сделай свет теплее»)\n"
-            "Или напиши «ок» для стандартного улучшения.",
-            parse_mode="HTML",
-        )
-        user_mode[user_id] = "gen_wish_paid"
-
-async def do_generation(user_id: int, chat_id: int, gen_type: str):
-    if user_id not in last_photo:
-        await bot.send_message(chat_id, "Сначала пришли фото для анализа!")
-        return
-
-    fmt = gen_format.get(user_id, "1:1")
-    wish = gen_wish.get(user_id, "")
-    await bot.send_message(chat_id, "🎨 Генерирую изображение... Обычно это 30-60 секунд.")
-
-    try:
-        image_bytes = last_photo[user_id]
-        img_size = SIZE_MAP.get(fmt, "1024x1024")
-
-        prompt = f"Улучши это фото: исправь композицию, выровняй горизонт, дорисуй обрезанные края, убери отвлекающие объекты, улучши свет и цвета. Сохрани все важные детали и объекты. Размер: {img_size}."
-        if wish and wish.lower() != "ок":
-            prompt += f" Дополнительное пожелание: {wish}"
-
-        result = generate_image(image_bytes, prompt)
-
-        if result is None:
-            await bot.send_message(chat_id, "😕 Не удалось сгенерировать изображение. Попробуй другое фото.")
-            return
-
-        try:
-            img = Image.open(io_module.BytesIO(result))
-            if max(img.size) > 1920:
-                img.thumbnail((1920, 1920), Image.LANCZOS)
-            buf = io_module.BytesIO()
-            img.save(buf, format="JPEG", quality=92)
-            result = buf.getvalue()
-        except Exception:
-            pass
-
-        if gen_type == "free" and user_id != 456504792:
-            free_generations[user_id] = 1
-            _save_gen()
-        elif gen_type == "paid":
-            paid_generations[user_id] = max(0, paid_generations.get(user_id, 0) - 1)
-            _save_gen()
-
-        await bot.send_photo(
-            chat_id,
-            BufferedInputFile(result, filename="generated.jpg"),
-            caption="✨ Вот твой улучшенный кадр!\n\nЕсли хочешь ещё --- купи пакет генераций.",
-            reply_markup=get_keyboard(user_id),
-        )
-
-    except Exception as e:
-        logging.exception("Ошибка генерации")
-        await bot.send_message(chat_id, "😕 Что-то пошло не так при генерации. Попробуй ещё раз.")
-
 # ===== ОБРАБОТЧИКИ СООБЩЕНИЙ =====
 @dp.message(F.photo)
 async def handle_photo(message: Message):
@@ -637,7 +705,7 @@ async def handle_photo(message: Message):
     mode = user_mode.get(user_id, "")
 
     if mode in ("gen_wish_free", "gen_wish_paid"):
-        gen_wish[user_id] = message.text
+        # Пользователь прислал фото вместо текста — используем пожелание по умолчанию
         gen_type = "free" if "free" in mode else "paid"
         await do_generation(user_id, message.chat.id, gen_type)
         user_mode[user_id] = "free"
@@ -717,18 +785,3 @@ async def handle_non_photo(message: Message):
         gen_type = "free" if "free" in mode else "paid"
         await do_generation(user_id, message.chat.id, gen_type)
         user_mode[user_id] = "free"
-        return
-
-    await message.answer(
-        "Пришли мне, пожалуйста, фотографию 📷 --- я умею разбирать только изображения."
-    )
-
-# ===== ЗАПУСК =====
-async def main():
-    flask_thread = Thread(target=run_flask)
-    flask_thread.daemon = True
-    flask_thread.start()
-    await dp.start_polling(bot)
-
-if __name__ == "__main__":
-    asyncio.run(main())
