@@ -291,7 +291,7 @@ async def handle_stats(message: Message):
 
 @dp.message(Command("course"))
 async def handle_course(message: Message):
-    await handle_course_status_logic(message.from_user.id, message.chat.id, is_command=True)
+    await handle_course_status_logic(message.from_user.id, message.chat.id)
 
 @dp.message(Command("reset"))
 async def handle_reset(message: Message):
@@ -411,10 +411,35 @@ async def handle_admin(message: Message):
     else:
         await message.answer("❌ Неизвестная команда. Используй /admin stats, users, history, gen, course")
 
-# ===== ЛОГИКА КУРСА (бесплатный старт + платное продолжение) =====
-async def handle_course_status_logic(user_id: int, chat_id: int, is_command: bool = False):
+# ===== ЛОГИКА КУРСА =====
+def _is_trial(user_id: int) -> bool:
+    """Проверяет, находится ли пользователь на пробном периоде."""
+    users = _load_users()
+    uid = str(user_id)
+    if uid not in users:
+        for key, data in users.items():
+            if isinstance(data, dict) and data.get("username") == str(user_id):
+                uid = key
+                break
+        else:
+            return False
+    return users[uid].get("trial", False)
+
+
+def _payment_keyboard() -> InlineKeyboardMarkup:
+    """Клавиатура с кнопкой оплаты курса."""
+    link = create_payment_link(490, "Оплата за мини-курс по композиции")
+    if not link:
+        link = "https://t.me/moy_razbor_bot"
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="💳 Оплатить курс (490 ₽)", url=link)],
+        ]
+    )
+
+
+async def handle_course_status_logic(user_id: int, chat_id: int):
     """Общая логика для кнопки и команды /course."""
-    # Если уже есть доступ — показываем статус
     if has_access(user_id):
         user_mode[user_id] = "course"
         status = get_status(user_id)
@@ -433,7 +458,6 @@ async def handle_course_status_logic(user_id: int, chat_id: int, is_command: boo
                 await send_photos(chat_id, 0)
 
             elif "День 1" in status and _is_trial(user_id):
-                # Пользователь на триале, начинает День 1
                 await bot.send_message(
                     chat_id,
                     status + "\n\n🆓 <b>Это твой бесплатный пробный день!</b>\n"
@@ -481,36 +505,9 @@ async def handle_course_status_logic(user_id: int, chat_id: int, is_command: boo
     )
 
 
-def _is_trial(user_id: int) -> bool:
-    """Проверяет, находится ли пользователь на пробном периоде."""
-    users = _load_users()
-    uid = str(user_id)
-    if uid not in users:
-        for key, data in users.items():
-            if isinstance(data, dict) and data.get("username") == str(user_id):
-                uid = key
-                break
-        else:
-            return False
-    return users[uid].get("trial", False)
-
-
-def _payment_keyboard() -> InlineKeyboardMarkup:
-    """Клавиатура с кнопкой оплаты курса."""
-    link = create_payment_link(490, "Оплата за мини-курс по композиции")
-    if not link:
-        link = "https://t.me/moy_razbor_bot"
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="💳 Оплатить курс (490 ₽)", url=link)],
-        ]
-    )
-
-
 # ===== КНОПКИ КУРСА =====
 @dp.callback_query(F.data == "start_trial")
 async def handle_start_trial(callback: CallbackQuery):
-    """Активирует бесплатный пробный период."""
     await callback.answer()
     user_id = callback.from_user.id
     activate_free_trial(user_id)
@@ -523,7 +520,6 @@ async def handle_start_trial(callback: CallbackQuery):
 
 @dp.callback_query(F.data == "pay_course")
 async def handle_pay_course(callback: CallbackQuery):
-    """Оплата полного доступа к курсу."""
     await callback.answer()
     link = create_payment_link(490, "Оплата за мини-курс по композиции")
     if not link:
@@ -828,23 +824,22 @@ async def handle_photo(message: Message):
                 add_photo(user_id)
                 check_text = check_day(user_id, result)
                 if check_text:
-                    # Если пользователь на триале и завершил день 1 — предлагаем оплатить
                     if _is_trial(user_id) and "задание выполнено" in check_text.lower():
-    link = create_payment_link(490, "Оплата за мини-курс по композиции")
-    if not link:
-        link = "https://t.me/moy_razbor_bot"
-    check_text += (
-        "\n\n🎉 <b>Поздравляю! Ты прошёл бесплатный пробный день!</b>\n\n"
-        "Теперь ты знаешь, как проходит обучение.\n\n"
-        "📚 <b>Что дальше:</b>\n"
-        "• День 2: Правило третей\n"
-        "• День 3: Поза человека\n"
-        "• День 4: Свет и тени\n"
-        "• День 5: Тень как приём\n"
-        "• День 6: Отражения\n"
-        "• День 7: Фрейминг\n"
-        "• День 8: Ритм и перспектива\n"
-        "• День 9: Глубина кадра\n\n"
+                        link = create_payment_link(490, "Оплата за мини-курс по композиции")
+                        if not link:
+                            link = "https://t.me/moy_razbor_bot"
+                        check_text += (
+                            "\n\n🎉 <b>Поздравляю! Ты прошёл бесплатный пробный день!</b>\n\n"
+                            "Теперь ты знаешь, как проходит обучение.\n\n"
+                            "📚 <b>Что дальше:</b>\n"
+                            "• День 2: Правило третей\n"
+                            "• День 3: Поза человека\n"
+                            "• День 4: Свет и тени\n"
+                            "• День 5: Тень как приём\n"
+                            "• День 6: Отражения\n"
+                            "• День 7: Фрейминг\n"
+                            "• День 8: Ритм и перспектива\n"
+                            "• День 9: Глубина кадра\n\n"
                             "💳 <b>Оплати полный доступ за 490 ₽ и продолжай учиться!</b>"
                         )
                         await message.answer(
