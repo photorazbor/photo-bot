@@ -545,11 +545,22 @@ async def handle_course_status(callback: CallbackQuery):
 
 @dp.callback_query(F.data == "start_course_btn")
 async def handle_start_course_btn(callback: CallbackQuery):
-    user_mode[callback.from_user.id] = "course"
+    user_id = callback.from_user.id
+    user_mode[user_id] = "course"
     add_text = add_photo(callback.from_user.id)
     if add_text:
+        # Если пользователь на пробном периоде и переходит на День 1 — добавляем предупреждение
+        if _is_trial(user_id) and "День 1" in add_text:
+            add_text += (
+                "\n\n🆓 <b>Это твой бесплатный пробный день!</b>\n"
+                "День 0 и День 1 — бесплатно, чтобы ты мог попробовать формат обучения.\n"
+                "После выполнения задания откроется возможность оплатить полный доступ."
+            )
         await callback.message.answer(add_text, parse_mode="HTML")
-        await send_photos(callback.message.chat.id, 1)
+        from course import get_next_day
+        day = get_next_day(user_id)
+        if day == 1:
+            await send_photos(callback.message.chat.id, 1)
     await callback.answer()
 
 
