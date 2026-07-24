@@ -845,17 +845,17 @@ async def handle_photo(message: Message):
         "• День 7: Фрейминг\n"
         "• День 8: Ритм и перспектива\n"
         "• День 9: Глубина кадра\n\n"
-        "💳 <b>Оплати полный доступ за 490 ₽ и продолжай учиться!</b>"
-    )
-    await message.answer(
-        check_text,
-        parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup(
-            inline_keyboard=[
-                [InlineKeyboardButton(text="💳 Оплатить курс (490 ₽)", url=link)],
-            ]
-        ),
-    )
+                            "💳 <b>Оплати полный доступ за 490 ₽ и продолжай учиться!</b>"
+                        )
+                        await message.answer(
+                            check_text,
+                            parse_mode="HTML",
+                            reply_markup=InlineKeyboardMarkup(
+                                inline_keyboard=[
+                                    [InlineKeyboardButton(text="💳 Оплатить курс (490 ₽)", url=link)],
+                                ]
+                            ),
+                        )
                     else:
                         await message.answer(check_text, parse_mode="HTML")
 
