@@ -1,6 +1,5 @@
-```python
 """
-Точка входа: Telegram-бот на aiogram 3 + заглушка для Render + webhook DonatePay
+Точка входа: Telegram-бот на aiogram 3 + заглушка для Render
 """
 import asyncio
 import logging
@@ -49,7 +48,6 @@ last_photo = {}
 gen_wish = {}
 gen_format = {}
 
-# Хранилище для истории действий (для админа)
 HISTORY_FILE = "history.json"
 
 def _load_history() -> dict:
@@ -97,27 +95,20 @@ FORMATS = [
 ]
 
 def get_size_for_format(fmt: str, image_bytes: bytes = None) -> str:
-    """
-    Возвращает размер для генерации.
-    Если fmt == "original" — вычисляет размер по исходному фото (с округлением до 64).
-    """
     if fmt == "original" and image_bytes:
         try:
             img = Image.open(io_module.BytesIO(image_bytes))
             w, h = img.size
-            # Округляем до ближайших 64 (требование многих API)
             w = max(512, (w // 64) * 64)
             h = max(512, (h // 64) * 64)
             return f"{w}x{h}"
         except Exception:
             pass
-    # Преобразуем "1_1" → "1:1" для поиска в SIZE_MAP
     key = fmt.replace("_", ":")
     return SIZE_MAP.get(key, "1024x1024")
 
 
 def format_keyboard(gen_type: str) -> InlineKeyboardMarkup:
-    """Создаёт клавиатуру выбора формата."""
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=name, callback_data=f"gen_{fmt}_{gen_type}")]
         for fmt, name in FORMATS
@@ -203,7 +194,6 @@ async def send_photos(chat_id: int, day: int):
         logging.error(f"Ошибка отправки фото: {e}")
 
 async def do_generation(user_id: int, chat_id: int, gen_type: str):
-    """Выполняет генерацию изображения."""
     if user_id not in last_photo:
         await bot.send_message(chat_id, "Сначала пришли фото для анализа!")
         return
@@ -217,7 +207,6 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str):
     try:
         img_size = get_size_for_format(fmt, image_bytes)
 
-        # Формируем промпт с учётом формата
         prompt = f"Улучши это фото: исправь композицию, выровняй горизонт, дорисуй обрезанные края, убери отвлекающие объекты, улучши свет и цвета. Сохрани все важные детали и объекты. Размер: {img_size}."
         if wish and wish.lower() != "ок":
             prompt += f" Дополнительное пожелание: {wish}"
@@ -228,7 +217,6 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str):
             await bot.send_message(chat_id, "😕 Не удалось сгенерировать изображение. Попробуй другое фото.")
             return
 
-        # Сжатие результата, если слишком большой
         try:
             img = Image.open(io_module.BytesIO(result))
             if max(img.size) > 1920:
@@ -239,7 +227,6 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str):
         except Exception:
             pass
 
-        # Списываем генерацию
         if gen_type == "free" and user_id != 456504792:
             free_generations[user_id] = 1
             _save_gen()
@@ -247,7 +234,6 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str):
             paid_generations[user_id] = max(0, paid_generations.get(user_id, 0) - 1)
             _save_gen()
 
-        # Показываем результат
         format_name = dict(FORMATS).get(fmt, fmt)
         await bot.send_photo(
             chat_id,
@@ -651,12 +637,10 @@ def register_format_handlers():
                 user_mode[user_id] = "gen_wish_paid"
             return handler
 
-        # Регистрируем оба обработчика
         make_free_handler()
         make_paid_handler()
 
 
-# Вызываем фабрику при загрузке модуля
 register_format_handlers()
 
 
@@ -703,7 +687,6 @@ async def handle_photo(message: Message):
     mode = user_mode.get(user_id, "")
 
     if mode in ("gen_wish_free", "gen_wish_paid"):
-        # Пользователь прислал фото вместо текста — используем пожелание по умолчанию
         gen_type = "free" if "free" in mode else "paid"
         await do_generation(user_id, message.chat.id, gen_type)
         user_mode[user_id] = "free"
@@ -783,3 +766,18 @@ async def handle_non_photo(message: Message):
         gen_type = "free" if "free" in mode else "paid"
         await do_generation(user_id, message.chat.id, gen_type)
         user_mode[user_id] = "free"
+        return
+
+    await message.answer(
+        "Пришли мне, пожалуйста, фотографию 📷 --- я умею разбирать только изображения."
+    )
+
+# ===== ЗАПУСК =====
+async def main():
+    flask_thread = Thread(target=run_flask)
+    flask_thread.daemon = True
+    flask_thread.start()
+    await dp.start_polling(bot)
+
+if __name__ == "__main__":
+    asyncio.run(main())
