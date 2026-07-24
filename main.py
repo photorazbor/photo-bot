@@ -440,7 +440,9 @@ def _payment_keyboard() -> InlineKeyboardMarkup:
 
 async def handle_course_status_logic(user_id: int, chat_id: int):
     """Общая логика для кнопки и команды /course."""
-    if has_access(user_id):
+    # В тестовом режиме автор видит курс как обычный пользователь
+    effective_has_access = has_access(user_id) and not (user_id == 456504792 and test_mode)
+    if effective_has_access:
         user_mode[user_id] = "course"
         status = get_status(user_id)
         if status is not None:
@@ -794,7 +796,8 @@ async def handle_photo(message: Message):
         last_photo[user_id] = image_bytes
 
         course_topic = None
-        if has_access(user_id) and user_mode.get(user_id) == "course":
+        effective_has_access = has_access(user_id) and not (user_id == 456504792 and test_mode)
+        if effective_has_access and user_mode.get(user_id) == "course":
             from course import get_current_topic
             course_topic = get_current_topic(user_id)
 
