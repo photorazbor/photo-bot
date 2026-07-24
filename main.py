@@ -516,7 +516,15 @@ async def handle_start_trial(callback: CallbackQuery):
     user_mode[user_id] = "course"
     status = get_status(user_id)
     if status:
-        await callback.message.answer(status, parse_mode="HTML")
+        await callback.message.answer(
+            status,
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [InlineKeyboardButton(text="🚀 Начать курс", callback_data="start_course_btn")],
+                ]
+            ),
+        )
         await send_photos(callback.message.chat.id, 0)
 
 
