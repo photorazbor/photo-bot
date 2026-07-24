@@ -47,7 +47,9 @@ GEN_FILE = "generations.json"
 last_photo = {}
 gen_wish = {}
 gen_format = {}
+test_mode = False  # Режим обычного пользователя для автора
 
+# Хранилище для истории действий (для админа)
 HISTORY_FILE = "history.json"
 
 def _load_history() -> dict:
@@ -95,6 +97,10 @@ FORMATS = [
 ]
 
 def get_size_for_format(fmt: str, image_bytes: bytes = None) -> str:
+    """
+    Возвращает размер для генерации.
+    Если fmt == "original" — вычисляет размер по исходному фото (с округлением до 64).
+    """
     if fmt == "original" and image_bytes:
         try:
             img = Image.open(io_module.BytesIO(image_bytes))
@@ -109,6 +115,7 @@ def get_size_for_format(fmt: str, image_bytes: bytes = None) -> str:
 
 
 def format_keyboard(gen_type: str) -> InlineKeyboardMarkup:
+    """Создаёт клавиатуру выбора формата."""
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=name, callback_data=f"gen_{fmt}_{gen_type}")]
         for fmt, name in FORMATS
@@ -148,7 +155,8 @@ def get_keyboard(user_id: int) -> InlineKeyboardMarkup:
     free_left = 1 - free_generations.get(user_id, 0)
     paid_left = paid_generations.get(user_id, 0)
 
-    if user_id == 456504792:
+    # Автор в обычном режиме видит авторскую кнопку
+    if user_id == 456504792 and not test_mode:
         buttons.append([InlineKeyboardButton(text="✨ Улучшить фото (автор)", callback_data="gen_free")])
     elif free_left > 0:
         buttons.append([InlineKeyboardButton(text="✨ Улучшить фото (1 бесплатно)", callback_data="gen_free")])
@@ -158,7 +166,8 @@ def get_keyboard(user_id: int) -> InlineKeyboardMarkup:
         buttons.append([InlineKeyboardButton(text="💛 5 улучшений --- 99 ₽", callback_data="buy_5_gen")])
         buttons.append([InlineKeyboardButton(text="💛 20 улучшений --- 249 ₽", callback_data="buy_20_gen")])
 
-    if has_access(user_id) and user_mode.get(user_id) == "course":
+    # Автор в тестовом режиме видит кнопки как обычный пользователь
+    if has_access(user_id) and user_mode.get(user_id) == "course" and not test_mode:
         buttons.append([InlineKeyboardButton(text="📸 Продолжить курс", callback_data="mode_course")])
         buttons.append([InlineKeyboardButton(text="🔍 Просто анализ", callback_data="mode_free")])
     else:
@@ -194,6 +203,7 @@ async def send_photos(chat_id: int, day: int):
         logging.error(f"Ошибка отправки фото: {e}")
 
 async def do_generation(user_id: int, chat_id: int, gen_type: str):
+    """Выполняет генерацию изображения."""
     if user_id not in last_photo:
         await bot.send_message(chat_id, "Сначала пришли фото для анализа!")
         return
@@ -227,7 +237,7 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str):
         except Exception:
             pass
 
-        if gen_type == "free" and user_id != 456504792:
+        if gen_type == "free" and not (user_id == 456504792 and not test_mode):
             free_generations[user_id] = 1
             _save_gen()
         elif gen_type == "paid":
@@ -339,6 +349,18 @@ async def handle_force_start(message: Message):
     activate_by_username("sevosphoto")
     user_mode[message.from_user.id] = "course"
     await message.answer("✅ Курс активирован. Напиши /course или нажми кнопку Мини-курс.")
+
+@dp.message(Command("test"))
+async def handle_test(message: Message):
+    global test_mode
+    if message.from_user.id != 456504792:
+        await message.answer("Только автор может переключать режим.")
+        return
+    test_mode = not test_mode
+    if test_mode:
+        await message.answer("🧪 <b>Тестовый режим ВКЛ</b>\nТы видишь бота как обычный пользователь.", parse_mode="HTML")
+    else:
+        await message.answer("👑 <b>Режим автора ВКЛ</b>\nБесплатные генерации без ограничений.", parse_mode="HTML")
 
 # ===== АДМИН-ПАНЕЛЬ =====
 @dp.message(Command("admin"))
@@ -647,6 +669,7 @@ register_format_handlers()
 @dp.callback_query(F.data == "gen_free")
 async def handle_gen_free(callback: CallbackQuery):
     user_id = callback.from_user.id
+    # Автор в обычном режиме может генерировать бесплатно без ограничений
     if user_id != 456504792 and free_generations.get(user_id, 0) >= 1:
         await callback.answer("Ты уже использовал бесплатную генерацию. Купи пакет!")
         return
@@ -758,26 +781,3 @@ async def handle_photo(message: Message):
 
 @dp.message(~F.photo)
 async def handle_non_photo(message: Message):
-    user_id = message.from_user.id
-    mode = user_mode.get(user_id, "")
-
-    if mode in ("gen_wish_free", "gen_wish_paid"):
-        gen_wish[user_id] = message.text
-        gen_type = "free" if "free" in mode else "paid"
-        await do_generation(user_id, message.chat.id, gen_type)
-        user_mode[user_id] = "free"
-        return
-
-    await message.answer(
-        "Пришли мне, пожалуйста, фотографию 📷 --- я умею разбирать только изображения."
-    )
-
-# ===== ЗАПУСК =====
-async def main():
-    flask_thread = Thread(target=run_flask)
-    flask_thread.daemon = True
-    flask_thread.start()
-    await dp.start_polling(bot)
-
-if __name__ == "__main__":
-    asyncio.run(main())
