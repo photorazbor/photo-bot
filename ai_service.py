@@ -169,7 +169,7 @@ Drawings: line, dashed_line, circle, frame, arrow, grid_thirds, crop_frame.
 
 
 def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
-    """Генерирует изображение через Gemini Image API на CheapAI."""
+    """Генерирует изображение через Gemini Image API на CheapAI (Формат 1)."""
     data_url = _image_bytes_to_data_url(image_bytes)
 
     headers = {
@@ -179,6 +179,7 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
 
     payload = {
         "model": "gemini-3.1-flash-image-preview",
+        "modalities": ["image", "text"],
         "messages": [
             {
                 "role": "user",
@@ -200,18 +201,20 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
     result = response.json()
     try:
         content = result["choices"][0]["message"]["content"]
-        if isinstance(content, str):
-            try:
-                inner = json.loads(content)
-                if "data" in inner and len(inner["data"]) > 0:
-                    b64_str = inner["data"][0].get("b64_json", "")
-                    if b64_str:
-                        return base64.b64decode(b64_str)
-            except json.JSONDecodeError:
-                pass
-            if content.startswith("iVBOR"):
-                return base64.b64decode(content)
+
+        # Gemini возвращает картинку в markdown: ![image](data:image/jpeg;base64,XXXX)
+        match = re.search(r"data:image/[^;]+;base64,([A-Za-z0-9+/=]+)", content)
+        if match:
+            b64_str = match.group(1)
+            return base64.b64decode(b64_str)
+
+        # На случай, если вернулся чистый base64 (без data URL)
+        if content.startswith("iVBOR") or content.startswith("/9j/"):
+            return base64.b64decode(content)
+
+        print(f"Не удалось извлечь изображение из ответа: {content[:200]}...")
         return None
+
     except Exception as e:
         print(f"Не удалось извлечь изображение: {e}")
         return None
@@ -222,6 +225,10 @@ def create_payment_link(amount: float, purpose: str) -> str | None:
     Создаёт платёжную ссылку через API банка «Точка».
     Возвращает ссылку на оплату или None в случае ошибки.
     """
+    if not TOCHKA_API_TOKEN:
+        print("Ошибка: TOCHKA_API_TOKEN не задан в config.py")
+        return None
+
     url = "https://enter.tochka.com/uapi/acquiring/v1.0/payments"
 
     payload = {
@@ -255,6 +262,11 @@ def create_payment_link(amount: float, purpose: str) -> str | None:
         else:
             print(f"Ответ без ссылки: {data}")
             return None
+    except requests.exceptions.HTTPError as e:
+        print(f"Ошибка создания платежа (HTTP): {e}")
+        if e.response is not None:
+            print(f"Тело ответа: {e.response.text}")
+        return None
     except Exception as e:
         print(f"Ошибка создания платежа: {e}")
         return None
