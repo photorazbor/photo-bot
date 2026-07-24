@@ -252,21 +252,32 @@ def create_payment_link(amount: float, purpose: str) -> str | None:
         'Authorization': f'Bearer {TOCHKA_API_TOKEN}'
     }
 
+    print(f"🔍 Отправляю запрос в Точку: amount={amount}, purpose={purpose}")
+    print(f"🔍 URL: {url}")
+    print(f"🔍 customerCode: {payload['Data']['customerCode']}")
+    print(f"🔍 Токен (первые 50 символов): {TOCHKA_API_TOKEN[:50]}...")
+
     try:
         response = requests.post(url, json=payload, headers=headers, timeout=30)
-        response.raise_for_status()
+        print(f"🔍 Статус ответа: {response.status_code}")
+        print(f"🔍 Тело ответа: {response.text[:500]}")
+
+        if response.status_code != 200 and response.status_code != 201:
+            print(f"❌ Ошибка API Точки: {response.status_code}")
+            return None
+
         data = response.json()
         payment_link = data.get("Data", {}).get("paymentLink")
         if payment_link:
+            print(f"✅ Платёжная ссылка создана: {payment_link}")
             return payment_link
         else:
-            print(f"Ответ без ссылки: {data}")
+            print(f"❌ В ответе нет paymentLink. Ответ: {data}")
             return None
+
     except requests.exceptions.HTTPError as e:
-        print(f"Ошибка создания платежа (HTTP): {e}")
-        if e.response is not None:
-            print(f"Тело ответа: {e.response.text}")
+        print(f"❌ HTTP ошибка: {e}")
         return None
     except Exception as e:
-        print(f"Ошибка создания платежа: {e}")
+        print(f"❌ Ошибка: {e}")
         return None
