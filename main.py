@@ -162,19 +162,18 @@ def _setup_webhook():
         import requests as req
         from config import TOCHKA_API_TOKEN
         
-        url = "https://enter.tochka.com/uapi/acquiring/v1.0/webhooks"
+        client_id = "5e3f88c12690b3086faf7fa0daf46efa"
+        url = f"https://enter.tochka.com/uapi/webhook/v1.0/{client_id}"
         headers = {
             "Authorization": f"Bearer {TOCHKA_API_TOKEN}",
             "Content-Type": "application/json"
         }
         payload = {
-            "Data": {
-                "webhookUrl": "https://photo-bot-6koz.onrender.com/webhook/tochka",
-                "eventType": "acquiringInternetPayment"
-            }
+            "webhooksList": ["acquiringInternetPayment"],
+            "url": "https://photo-bot-6koz.onrender.com/webhook/tochka"
         }
         
-        response = req.post(url, json=payload, headers=headers, timeout=15)
+        response = req.put(url, json=payload, headers=headers, timeout=15)
         logging.info(f"🔧 Создание вебхука: статус {response.status_code}")
         logging.info(f"🔧 Ответ: {response.text[:300]}")
         
