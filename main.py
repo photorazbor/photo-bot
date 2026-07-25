@@ -133,41 +133,26 @@ def _save_gen():
 
 _load_gen()
 
-# ===== FLASK =====
-@flask_app.route('/')
-def home():
-    return "Bot is running"
-
 @flask_app.route('/webhook/tochka', methods=['POST'])
 def tochka_webhook():
-    """Принимает уведомления об оплате от банка Точка."""
+    """Принимает вебхуки от банка Точка."""
     try:
-        data = request.get_json()
-        logging.info(f"🔔 Вебхук Точки: {json.dumps(data, ensure_ascii=False)[:500]}")
+        raw_body = request.get_data(as_text=True)
+        logging.info(f"🔔 Вебхук Точки (первые 200 символов): {raw_body[:200]}")
 
-        # Проверяем статус платежа
-        payment_status = data.get("Data", {}).get("paymentStatus", "")
-        if payment_status != "SUCCESS":
-            logging.info(f"Платёж не успешный: {payment_status}")
-            return "OK", 200
-
-        # Получаем сумму и назначение
-        amount = float(data.get("Data", {}).get("amount", 0))
-        purpose = data.get("Data", {}).get("purpose", "")
-
-        # Пытаемся понять, кто оплатил (если есть customerCode или comment)
-        comment = data.get("Data", {}).get("comment", "")
-
-        logging.info(f"✅ Успешный платёж: {amount} ₽, назначение: {purpose}, комментарий: {comment}")
-
-        # Здесь будет логика начисления генераций/доступа к курсу
-        # (добавим в следующем шаге, когда убедимся что вебхук работает)
+        # Пробуем распарсить как JSON (старый формат)
+        try:
+            data = json.loads(raw_body)
+            logging.info(f"🔔 JSON: {json.dumps(data, ensure_ascii=False)[:300]}")
+        except json.JSONDecodeError:
+            # Новый формат — JWT строка, пока просто логируем
+            logging.info(f"🔔 JWT-строка, длина: {len(raw_body)}")
 
         return "OK", 200
 
     except Exception as e:
         logging.error(f"Ошибка обработки вебхука: {e}")
-        return "OK", 200  # Всё равно отвечаем OK, чтобы Точка не повторяла
+        return "OK", 200
 
 def run_flask():
     port = int(os.environ.get("PORT", 10000))
