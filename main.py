@@ -188,6 +188,11 @@ def tochka_webhook():
                     uid = info["user_id"]
                     purp = info["purpose"]
 
+                    # Уведомление автору в канал
+                    payer = webhook_data.get("payerName", "Неизвестный")
+                    notify_text = f"💰 <b>Новый платёж!</b>\nСумма: {amount} ₽\nНазначение: {purp}\nПлательщик: {payer}\nID пользователя: <code>{uid}</code>"
+                    _send_telegram_message(-1004468971541, notify_text)
+
                     if "Пакет 5 генераций" in purp:
                         paid_generations[uid] = paid_generations.get(uid, 0) + 5
                         _save_gen()
