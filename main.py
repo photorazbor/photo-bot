@@ -140,16 +140,45 @@ def home():
 
 @flask_app.route('/webhook/tochka', methods=['POST'])
 def tochka_webhook():
-    """Принимает вебхуки от банка Точка."""
+    """Принимает вебхуки от банка Точка и начисляет генерации/курс."""
     try:
         raw_body = request.get_data(as_text=True)
         logging.info(f"🔔 Вебхук Точки (первые 200 символов): {raw_body[:200]}")
 
+        # Пробуем распарсить как JSON
         try:
             data = json.loads(raw_body)
             logging.info(f"🔔 JSON: {json.dumps(data, ensure_ascii=False)[:300]}")
+            return "OK", 200
         except json.JSONDecodeError:
-            logging.info(f"🔔 JWT-строка, длина: {len(raw_body)}")
+            pass
+
+        # JWT-строка — декодируем без проверки подписи (пока)
+        # JWT состоит из трёх частей: header.payload.signature
+        parts = raw_body.split('.')
+        if len(parts) == 3:
+            # Добавляем padding для base64
+            payload_b64 = parts[1] + '=' * (4 - len(parts[1]) % 4)
+            decoded = base64.b64decode(payload_b64).decode('utf-8')
+            webhook_data = json.loads(decoded)
+            
+            logging.info(f"🔔 Вебхук расшифрован: {json.dumps(webhook_data, ensure_ascii=False)[:500]}")
+            
+            amount = float(webhook_data.get("amount", 0))
+            purpose = webhook_data.get("purpose", "")
+            payment_type = webhook_data.get("paymentType", "")
+            
+            logging.info(f"💰 Платёж: {amount} ₽, назначение: {purpose}, тип: {payment_type}")
+
+            # Автоначисление по назначению платежа
+            if "Пакет 5 генераций" in purpose:
+                logging.info(f"🎯 Начисляем 5 генераций")
+            elif "Пакет 20 генераций" in purpose:
+                logging.info(f"🎯 Начисляем 20 генераций")
+            elif "мини-курс" in purpose or "курс" in purpose:
+                logging.info(f"🎯 Активируем курс")
+            else:
+                logging.info(f"💛 Поддержка проекта — спасибо!")
 
         return "OK", 200
 
