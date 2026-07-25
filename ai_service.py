@@ -233,7 +233,7 @@ def create_payment_link(amount: float, purpose: str) -> str | None:
 
     payload = {
         "Data": {
-            "customerCode": "301280075",
+            "customerCode": "301511177",
             "amount": f"{amount:.2f}",
             "purpose": purpose,
             "redirectUrl": "https://t.me/moy_razbor_bot",
