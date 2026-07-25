@@ -28,7 +28,7 @@ from aiogram.types import (
 )
 
 from config import TELEGRAM_BOT_TOKEN
-from ai_service import analyze_photo, generate_image, create_payment_link
+from ai_service import analyze_photo, generate_image, create_payment_link, _load_pending_payments
 from image_utils import download_and_resize, image_to_bytes, draw_hints
 from stats import add_analysis, get_stats
 from course import get_status, add_photo, check_day, has_access, get_day_photos, _load_users, activate_free_trial
@@ -146,7 +146,6 @@ def tochka_webhook():
         raw_body = request.get_data(as_text=True)
         logging.info(f"🔔 Вебхук Точки (первые 200 символов): {raw_body[:200]}")
 
-        # Пробуем распарсить как JSON
         try:
             data = json.loads(raw_body)
             logging.info(f"🔔 JSON: {json.dumps(data, ensure_ascii=False)[:300]}")
@@ -154,44 +153,80 @@ def tochka_webhook():
         except json.JSONDecodeError:
             pass
 
-        # JWT-строка — декодируем без проверки подписи (пока)
-        # JWT состоит из трёх частей: header.payload.signature
         parts = raw_body.split('.')
         if len(parts) == 3:
-            # Добавляем padding для base64
             payload_b64 = parts[1] + '=' * (4 - len(parts[1]) % 4)
             decoded = base64.b64decode(payload_b64).decode('utf-8')
             webhook_data = json.loads(decoded)
-            
+
             logging.info(f"🔔 Вебхук расшифрован: {json.dumps(webhook_data, ensure_ascii=False)[:500]}")
-            
+
             amount = float(webhook_data.get("amount", 0))
             purpose = webhook_data.get("purpose", "")
-            payment_type = webhook_data.get("paymentType", "")
-            
-            logging.info(f"💰 Платёж: {amount} ₽, назначение: {purpose}, тип: {payment_type}")
+            payment_link_id = webhook_data.get("paymentLinkId", "")
 
-            # Автоначисление по назначению платежа
-            if "Пакет 5 генераций" in purpose:
-                logging.info(f"🎯 Начисляем 5 генераций")
-            elif "Пакет 20 генераций" in purpose:
-                logging.info(f"🎯 Начисляем 20 генераций")
-            elif "мини-курс" in purpose or "курс" in purpose:
-                logging.info(f"🎯 Активируем курс")
-            else:
-                logging.info(f"💛 Поддержка проекта — спасибо!")
+            logging.info(f"💰 Платёж: {amount} ₽, назначение: {purpose}")
+
+            # Автоначисление
+            if payment_link_id:
+                pending = _load_pending_payments()
+                if payment_link_id in pending:
+                    info = pending[payment_link_id]
+                    uid = info["user_id"]
+                    purp = info["purpose"]
+
+                    if "Пакет 5 генераций" in purp:
+                        paid_generations[uid] = paid_generations.get(uid, 0) + 5
+                        _save_gen()
+                        logging.info(f"🎯 Начислено 5 генераций пользователю {uid}")
+                        try:
+                            await bot.send_message(uid, "✅ Оплата получена! 5 генераций начислены. Присылай фото для улучшения!")
+                        except:
+                            pass
+
+                    elif "Пакет 20 генераций" in purp:
+                        paid_generations[uid] = paid_generations.get(uid, 0) + 20
+                        _save_gen()
+                        logging.info(f"🎯 Начислено 20 генераций пользователю {uid}")
+                        try:
+                            await bot.send_message(uid, "✅ Оплата получена! 20 генераций начислены. Присылай фото для улучшения!")
+                        except:
+                            pass
+
+                    elif "мини-курс" in purp or "курс" in purp:
+                        from course import activate_by_username
+                        activate_by_username(str(uid))
+                        user_mode[uid] = "course"
+                        logging.info(f"🎯 Курс активирован для пользователя {uid}")
+                        try:
+                            await bot.send_message(uid, "✅ Оплата получена! Мини-курс активирован. Напиши /course чтобы начать!")
+                        except:
+                            pass
+
+                    else:
+                        logging.info(f"💛 Поддержка от {uid} — спасибо!")
+                        try:
+                            await bot.send_message(uid, "💛 Спасибо за поддержку проекта! Твой вклад помогает боту развиваться.")
+                        except:
+                            pass
+
+                    # Удаляем обработанный платёж
+                    del pending[payment_link_id]
+                    with open("pending_payments.json", "w") as f:
+                        json.dump(pending, f, ensure_ascii=False, indent=2)
 
         return "OK", 200
 
     except Exception as e:
         logging.error(f"Ошибка обработки вебхука: {e}")
         return "OK", 200
+
 def _setup_webhook():
     """Создаёт вебхук в Точке при запуске бота."""
     try:
         import requests as req
         from config import TOCHKA_API_TOKEN
-        
+
         client_id = "5e3f88c12690b3086faf7fa0daf46efa"
         url = f"https://enter.tochka.com/uapi/webhook/v1.0/{client_id}"
         headers = {
@@ -202,21 +237,21 @@ def _setup_webhook():
             "webhooksList": ["acquiringInternetPayment"],
             "url": "https://photo-bot-6koz.onrender.com/webhook/tochka"
         }
-        
+
         response = req.put(url, json=payload, headers=headers, timeout=15)
         logging.info(f"🔧 Создание вебхука: статус {response.status_code}")
         logging.info(f"🔧 Ответ: {response.text[:300]}")
-        
+
         if response.status_code in (200, 201):
             logging.info("✅ Вебхук успешно создан!")
         else:
             logging.warning(f"⚠️ Вебхук не создан: {response.text[:200]}")
     except Exception as e:
         logging.error(f"❌ Ошибка создания вебхука: {e}")
-        
+
 def run_flask():
     port = int(os.environ.get("PORT", 10000))
-    _setup_webhook()  # ← добавь эту строку
+    _setup_webhook()
     flask_app.run(host='0.0.0.0', port=port)
 
 # ===== КЛАВИАТУРЫ =====
@@ -490,7 +525,6 @@ async def handle_admin(message: Message):
 
 # ===== ЛОГИКА КУРСА =====
 def _is_trial(user_id: int) -> bool:
-    """Проверяет, находится ли пользователь на пробном периоде."""
     users = _load_users()
     uid = str(user_id)
     if uid not in users:
@@ -504,7 +538,6 @@ def _is_trial(user_id: int) -> bool:
 
 
 def _payment_keyboard() -> InlineKeyboardMarkup:
-    """Клавиатура с кнопкой оплаты курса."""
     link = create_payment_link(490, "Оплата за мини-курс по композиции")
     if not link:
         link = "https://t.me/moy_razbor_bot"
@@ -516,8 +549,6 @@ def _payment_keyboard() -> InlineKeyboardMarkup:
 
 
 async def handle_course_status_logic(user_id: int, chat_id: int):
-    """Общая логика для кнопки и команды /course."""
-    # В тестовом режиме автор видит курс как обычный пользователь
     effective_has_access = has_access(user_id) and not (user_id == 456504792 and test_mode)
     if effective_has_access:
         user_mode[user_id] = "course"
@@ -555,7 +586,6 @@ async def handle_course_status_logic(user_id: int, chat_id: int):
                     await send_photos(chat_id, day)
         return
 
-    # Нет доступа — показываем описание и предлагаем бесплатный старт
     await bot.send_message(
         chat_id,
         "🎓 <b>Мини-курс по композиции (9 дней)</b>\n\n"
@@ -608,7 +638,7 @@ async def handle_start_trial(callback: CallbackQuery):
 @dp.callback_query(F.data == "pay_course")
 async def handle_pay_course(callback: CallbackQuery):
     await callback.answer()
-    link = create_payment_link(490, "Оплата за мини-курс по композиции")
+    link = create_payment_link(490, "Оплата за мини-курс по композиции", callback.from_user.id)
     if not link:
         link = "https://t.me/moy_razbor_bot"
     await callback.message.answer(
@@ -636,7 +666,6 @@ async def handle_start_course_btn(callback: CallbackQuery):
     user_mode[user_id] = "course"
     add_text = add_photo(callback.from_user.id)
     if add_text:
-        # Если пользователь на пробном периоде и переходит на День 1 — добавляем предупреждение
         if _is_trial(user_id) and "День 1" in add_text:
             add_text += (
                 "\n\n🆓 <b>Это твой бесплатный пробный день!</b>\n"
@@ -705,7 +734,7 @@ async def handle_donate_menu(callback: CallbackQuery):
 
 async def _handle_donate(callback: CallbackQuery, amount: int):
     await callback.answer()
-    link = create_payment_link(amount, f"Поддержка проекта ({amount} ₽)")
+    link = create_payment_link(amount, f"Поддержка проекта ({amount} ₽)", callback.from_user.id)
     if not link:
         await callback.message.answer(
             "⚠️ Не удалось создать платёжную ссылку. Попробуй позже.",
@@ -739,7 +768,7 @@ async def handle_donate_500(callback: CallbackQuery):
 @dp.callback_query(F.data == "buy_5_gen")
 async def handle_buy_5_gen(callback: CallbackQuery):
     await callback.answer()
-    link = create_payment_link(99, "Пакет 5 генераций")
+    link = create_payment_link(99, "Пакет 5 генераций", callback.from_user.id)
     if not link:
         await callback.message.answer(
             "⚠️ Не удалось создать платёжную ссылку. Попробуй позже.",
@@ -760,7 +789,7 @@ async def handle_buy_5_gen(callback: CallbackQuery):
 @dp.callback_query(F.data == "buy_20_gen")
 async def handle_buy_20_gen(callback: CallbackQuery):
     await callback.answer()
-    link = create_payment_link(249, "Пакет 20 генераций")
+    link = create_payment_link(249, "Пакет 20 генераций", callback.from_user.id)
     if not link:
         await callback.message.answer(
             "⚠️ Не удалось создать платёжную ссылку. Попробуй позже.",
@@ -924,7 +953,7 @@ async def handle_photo(message: Message):
                 check_text = check_day(user_id, result)
                 if check_text:
                     if _is_trial(user_id) and "задание выполнено" in check_text.lower():
-                        link = create_payment_link(490, "Оплата за мини-курс по композиции")
+                        link = create_payment_link(490, "Оплата за мини-курс по композиции", user_id)
                         if not link:
                             link = "https://t.me/moy_razbor_bot"
                         check_text += (
