@@ -684,6 +684,7 @@ async def handle_course_status(callback: CallbackQuery):
 
 @dp.callback_query(F.data == "start_course_btn")
 async def handle_start_course_btn(callback: CallbackQuery):
+    await callback.answer()  # ← сначала отвечаем на колбэк
     user_id = callback.from_user.id
     user_mode[user_id] = "course"
     add_text = add_photo(callback.from_user.id)
@@ -699,7 +700,6 @@ async def handle_start_course_btn(callback: CallbackQuery):
         day = get_next_day(user_id)
         if day == 1:
             await send_photos(callback.message.chat.id, 1)
-    await callback.answer()
 
 
 @dp.callback_query(F.data == "mode_course")
