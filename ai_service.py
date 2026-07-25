@@ -232,19 +232,20 @@ def create_payment_link(amount: float, purpose: str) -> str | None:
     url = "https://enter.tochka.com/uapi/acquiring/v1.0/payments"
 
     payload = {
-        "Data": {
-            "customerCode": "301511177",
-            "amount": f"{amount:.2f}",
-            "purpose": purpose,
-            "redirectUrl": "https://t.me/moy_razbor_bot",
-            "failRedirectUrl": "https://t.me/moy_razbor_bot",
-            "paymentMode": ["sbp", "card"],
-            "saveCard": False,
-            "preAuthorization": False,
-            "ttl": 10080,
-            "paymentLinkId": "string"
-        }
+    "Data": {
+        "customerCode": "301511177",
+        "merchantId": "200000000041437",
+        "amount": f"{amount:.2f}",
+        "purpose": purpose,
+        "redirectUrl": "https://t.me/moy_razbor_bot",
+        "failRedirectUrl": "https://t.me/moy_razbor_bot",
+        "paymentMode": ["sbp", "card"],
+        "saveCard": False,
+        "preAuthorization": False,
+        "ttl": 10080,
+        "paymentLinkId": "string"
     }
+}
 
     headers = {
         'Content-Type': 'application/json',
