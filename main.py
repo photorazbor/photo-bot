@@ -10,6 +10,7 @@ import hashlib
 import hmac
 import re
 import json
+import base64
 import io as io_module
 from PIL import Image
 from datetime import datetime
