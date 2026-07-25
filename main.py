@@ -310,16 +310,19 @@ async def send_photos(chat_id: int, day: int):
     photos = get_day_photos(day)
     if not photos:
         return
+    
+    # Отправляем только первое фото — остальные опционально
     try:
-        if len(photos) == 1:
-            await bot.send_photo(chat_id, URLInputFile(photos[0]))
-        elif len(photos) >= 2:
-            media = [InputMediaPhoto(media=URLInputFile(photos[0]))]
-            for url in photos[1:]:
-                media.append(InputMediaPhoto(media=URLInputFile(url)))
-            await bot.send_media_group(chat_id, media)
+        await bot.send_photo(chat_id, URLInputFile(photos[0]))
     except Exception as e:
-        logging.error(f"Ошибка отправки фото: {e}")
+        logging.error(f"Ошибка отправки первого фото: {e}")
+    
+    # Остальные пытаемся отправить по одному
+    for url in photos[1:]:
+        try:
+            await bot.send_photo(chat_id, URLInputFile(url))
+        except Exception as e:
+            pass  # Фото не существует — пропускаем
 
 async def do_generation(user_id: int, chat_id: int, gen_type: str):
     if user_id not in last_photo:
