@@ -6,10 +6,14 @@ import json
 import re
 import uuid
 import requests
+import os as _os
+from datetime import datetime
 
 from config import OPENAI_API_KEY, TOCHKA_API_TOKEN
 
 BASE_URL = "https://cheapai.io/v1"
+
+PENDING_PAYMENTS_FILE = "pending_payments.json"
 
 SYSTEM_PROMPT = """Ты --- наставник по мобильной фотографии. Живой стиль, лёгкий юмор, без сленга. Вдохновляешь снять круче.
 
@@ -89,6 +93,25 @@ def _extract_json(raw_text: str) -> dict:
         if brace_match:
             text = brace_match.group(0)
     return json.loads(text)
+
+
+def _load_pending_payments() -> dict:
+    if not _os.path.exists(PENDING_PAYMENTS_FILE):
+        return {}
+    with open(PENDING_PAYMENTS_FILE, "r") as f:
+        return json.load(f)
+
+
+def _save_payment_link(payment_link_id: str, user_id: int, purpose: str):
+    """Сохраняет информацию о платеже для последующего начисления."""
+    pending = _load_pending_payments()
+    pending[payment_link_id] = {
+        "user_id": user_id,
+        "purpose": purpose,
+        "created": datetime.now().isoformat()
+    }
+    with open(PENDING_PAYMENTS_FILE, "w") as f:
+        json.dump(pending, f, ensure_ascii=False, indent=2)
 
 
 def analyze_photo(image_bytes: bytes, course_topic: str = None) -> dict:
@@ -203,13 +226,11 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
     try:
         content = result["choices"][0]["message"]["content"]
 
-        # Gemini возвращает картинку в markdown: ![image](data:image/jpeg;base64,XXXX)
         match = re.search(r"data:image/[^;]+;base64,([A-Za-z0-9+/=]+)", content)
         if match:
             b64_str = match.group(1)
             return base64.b64decode(b64_str)
 
-        # На случай, если вернулся чистый base64 (без data URL)
         if content.startswith("iVBOR") or content.startswith("/9j/"):
             return base64.b64decode(content)
 
@@ -221,7 +242,7 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
         return None
 
 
-def create_payment_link(amount: float, purpose: str) -> str | None:
+def create_payment_link(amount: float, purpose: str, user_id: int = None) -> str | None:
     """
     Создаёт платёжную ссылку через API банка «Точка».
     Возвращает ссылку на оплату или None в случае ошибки.
@@ -231,6 +252,8 @@ def create_payment_link(amount: float, purpose: str) -> str | None:
         return None
 
     url = "https://enter.tochka.com/uapi/acquiring/v1.0/payments"
+
+    payment_link_id = str(uuid.uuid4())
 
     payload = {
         "Data": {
@@ -245,7 +268,7 @@ def create_payment_link(amount: float, purpose: str) -> str | None:
             "saveCard": False,
             "preAuthorization": False,
             "ttl": 10080,
-            "paymentLinkId": str(uuid.uuid4())
+            "paymentLinkId": payment_link_id
         }
     }
 
@@ -255,33 +278,25 @@ def create_payment_link(amount: float, purpose: str) -> str | None:
         'Authorization': f'Bearer {TOCHKA_API_TOKEN}'
     }
 
-    print(f"🔍 Отправляю запрос в Точку: amount={amount}, purpose={purpose}")
-    print(f"🔍 URL: {url}")
-    print(f"🔍 customerCode: {payload['Data']['customerCode']}")
-    print(f"🔍 merchantId: {payload['Data'].get('merchantId', 'НЕТ')}")
-    print(f"🔍 Токен (первые 50 символов): {TOCHKA_API_TOKEN[:50]}...")
-
     try:
         response = requests.post(url, json=payload, headers=headers, timeout=30)
-        print(f"🔍 Статус ответа: {response.status_code}")
-        print(f"🔍 Тело ответа: {response.text[:500]}")
 
-        if response.status_code != 200 and response.status_code != 201:
-            print(f"❌ Ошибка API Точки: {response.status_code}")
+        if response.status_code not in (200, 201):
+            print(f"Ошибка API Точки: {response.status_code} {response.text[:300]}")
             return None
 
         data = response.json()
         payment_link = data.get("Data", {}).get("paymentLink")
+
+        if payment_link and user_id:
+            _save_payment_link(payment_link_id, user_id, purpose)
+
         if payment_link:
-            print(f"✅ Платёжная ссылка создана: {payment_link}")
             return payment_link
         else:
-            print(f"❌ В ответе нет paymentLink. Ответ: {data}")
+            print(f"В ответе нет paymentLink: {data}")
             return None
 
-    except requests.exceptions.HTTPError as e:
-        print(f"❌ HTTP ошибка: {e}")
-        return None
     except Exception as e:
-        print(f"❌ Ошибка: {e}")
+        print(f"Ошибка создания платежа: {e}")
         return None
