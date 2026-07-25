@@ -1004,6 +1004,17 @@ async def handle_photo(message: Message):
                         )
                     else:
                         await message.answer(check_text, parse_mode="HTML")
+                        # Если задание выполнено — показываем следующий день
+                        if "задание выполнено" in check_text.lower():
+                            await asyncio.sleep(1)
+                            status = get_status(user_id)
+                            if status:
+                                await message.answer(status, parse_mode="HTML")
+                                users = _load_users()
+                                uid = str(user_id)
+                                if uid in users:
+                                    day = users[uid].get("day", 1)
+                                    await send_photos(message.chat.id, day)
 
         await processing_msg.delete()
 
