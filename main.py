@@ -156,9 +156,38 @@ def tochka_webhook():
     except Exception as e:
         logging.error(f"Ошибка обработки вебхука: {e}")
         return "OK", 200
-
+def _setup_webhook():
+    """Создаёт вебхук в Точке при запуске бота."""
+    try:
+        import requests as req
+        from config import TOCHKA_API_TOKEN
+        
+        url = "https://enter.tochka.com/uapi/acquiring/v1.0/webhooks"
+        headers = {
+            "Authorization": f"Bearer {TOCHKA_API_TOKEN}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "Data": {
+                "webhookUrl": "https://photo-bot-6koz.onrender.com/webhook/tochka",
+                "eventType": "acquiringInternetPayment"
+            }
+        }
+        
+        response = req.post(url, json=payload, headers=headers, timeout=15)
+        logging.info(f"🔧 Создание вебхука: статус {response.status_code}")
+        logging.info(f"🔧 Ответ: {response.text[:300]}")
+        
+        if response.status_code in (200, 201):
+            logging.info("✅ Вебхук успешно создан!")
+        else:
+            logging.warning(f"⚠️ Вебхук не создан: {response.text[:200]}")
+    except Exception as e:
+        logging.error(f"❌ Ошибка создания вебхука: {e}")
+        
 def run_flask():
     port = int(os.environ.get("PORT", 10000))
+    _setup_webhook()  # ← добавь эту строку
     flask_app.run(host='0.0.0.0', port=port)
 
 # ===== КЛАВИАТУРЫ =====
