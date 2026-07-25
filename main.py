@@ -133,6 +133,11 @@ def _save_gen():
 
 _load_gen()
 
+# ===== FLASK =====
+@flask_app.route('/')
+def home():
+    return "Bot is running"
+
 @flask_app.route('/webhook/tochka', methods=['POST'])
 def tochka_webhook():
     """Принимает вебхуки от банка Точка."""
@@ -140,12 +145,10 @@ def tochka_webhook():
         raw_body = request.get_data(as_text=True)
         logging.info(f"🔔 Вебхук Точки (первые 200 символов): {raw_body[:200]}")
 
-        # Пробуем распарсить как JSON (старый формат)
         try:
             data = json.loads(raw_body)
             logging.info(f"🔔 JSON: {json.dumps(data, ensure_ascii=False)[:300]}")
         except json.JSONDecodeError:
-            # Новый формат — JWT строка, пока просто логируем
             logging.info(f"🔔 JWT-строка, длина: {len(raw_body)}")
 
         return "OK", 200
