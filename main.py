@@ -139,6 +139,21 @@ _load_gen()
 def home():
     return "Bot is running"
 
+def _send_telegram_message(uid, text):
+    """Безопасно отправляет сообщение из любого потока."""
+    try:
+        loop = asyncio.get_event_loop()
+        asyncio.run_coroutine_threadsafe(bot.send_message(uid, text), loop)
+    except RuntimeError:
+        # Если нет event loop в текущем потоке — пробуем получить из главного
+        try:
+            loop = asyncio.get_running_loop()
+            asyncio.run_coroutine_threadsafe(bot.send_message(uid, text), loop)
+        except RuntimeError:
+            logging.error(f"Не удалось отправить сообщение: нет event loop")
+    except Exception as e:
+        logging.error(f"Не удалось отправить сообщение: {e}")
+
 @flask_app.route('/webhook/tochka', methods=['POST'])
 def tochka_webhook():
     """Принимает вебхуки от банка Точка и начисляет генерации/курс."""
@@ -178,37 +193,24 @@ def tochka_webhook():
                         paid_generations[uid] = paid_generations.get(uid, 0) + 5
                         _save_gen()
                         logging.info(f"🎯 Начислено 5 генераций пользователю {uid}")
-                        # Отправляем сообщение через asyncio.run_coroutine_threadsafe
-                        asyncio.run_coroutine_threadsafe(
-                            bot.send_message(uid, "✅ Оплата получена! 5 генераций начислены. Присылай фото для улучшения!"),
-                            asyncio.get_event_loop()
-                        )
+                        _send_telegram_message(uid, "✅ Оплата получена! 5 генераций начислены. Присылай фото для улучшения!")
 
                     elif "Пакет 20 генераций" in purp:
                         paid_generations[uid] = paid_generations.get(uid, 0) + 20
                         _save_gen()
                         logging.info(f"🎯 Начислено 20 генераций пользователю {uid}")
-                        asyncio.run_coroutine_threadsafe(
-                            bot.send_message(uid, "✅ Оплата получена! 20 генераций начислены. Присылай фото для улучшения!"),
-                            asyncio.get_event_loop()
-                        )
+                        _send_telegram_message(uid, "✅ Оплата получена! 20 генераций начислены. Присылай фото для улучшения!")
 
                     elif "мини-курс" in purp or "курс" in purp:
                         from course import activate_by_username
                         activate_by_username(str(uid))
                         user_mode[uid] = "course"
                         logging.info(f"🎯 Курс активирован для пользователя {uid}")
-                        asyncio.run_coroutine_threadsafe(
-                            bot.send_message(uid, "✅ Оплата получена! Мини-курс активирован. Напиши /course чтобы начать!"),
-                            asyncio.get_event_loop()
-                        )
+                        _send_telegram_message(uid, "✅ Оплата получена! Мини-курс активирован. Напиши /course чтобы начать!")
 
                     else:
                         logging.info(f"💛 Поддержка от {uid} — спасибо!")
-                        asyncio.run_coroutine_threadsafe(
-                            bot.send_message(uid, "💛 Спасибо за поддержку проекта! Твой вклад помогает боту развиваться."),
-                            asyncio.get_event_loop()
-                        )
+                        _send_telegram_message(uid, "💛 Спасибо за поддержку проекта! Твой вклад помогает боту развиваться.")
 
                     del pending[payment_link_id]
                     with open("pending_payments.json", "w") as f:
