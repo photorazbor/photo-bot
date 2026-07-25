@@ -167,7 +167,6 @@ def tochka_webhook():
 
             logging.info(f"💰 Платёж: {amount} ₽, назначение: {purpose}")
 
-            # Автоначисление
             if payment_link_id:
                 pending = _load_pending_payments()
                 if payment_link_id in pending:
@@ -179,38 +178,38 @@ def tochka_webhook():
                         paid_generations[uid] = paid_generations.get(uid, 0) + 5
                         _save_gen()
                         logging.info(f"🎯 Начислено 5 генераций пользователю {uid}")
-                        try:
-                            await bot.send_message(uid, "✅ Оплата получена! 5 генераций начислены. Присылай фото для улучшения!")
-                        except:
-                            pass
+                        # Отправляем сообщение через asyncio.run_coroutine_threadsafe
+                        asyncio.run_coroutine_threadsafe(
+                            bot.send_message(uid, "✅ Оплата получена! 5 генераций начислены. Присылай фото для улучшения!"),
+                            asyncio.get_event_loop()
+                        )
 
                     elif "Пакет 20 генераций" in purp:
                         paid_generations[uid] = paid_generations.get(uid, 0) + 20
                         _save_gen()
                         logging.info(f"🎯 Начислено 20 генераций пользователю {uid}")
-                        try:
-                            await bot.send_message(uid, "✅ Оплата получена! 20 генераций начислены. Присылай фото для улучшения!")
-                        except:
-                            pass
+                        asyncio.run_coroutine_threadsafe(
+                            bot.send_message(uid, "✅ Оплата получена! 20 генераций начислены. Присылай фото для улучшения!"),
+                            asyncio.get_event_loop()
+                        )
 
                     elif "мини-курс" in purp or "курс" in purp:
                         from course import activate_by_username
                         activate_by_username(str(uid))
                         user_mode[uid] = "course"
                         logging.info(f"🎯 Курс активирован для пользователя {uid}")
-                        try:
-                            await bot.send_message(uid, "✅ Оплата получена! Мини-курс активирован. Напиши /course чтобы начать!")
-                        except:
-                            pass
+                        asyncio.run_coroutine_threadsafe(
+                            bot.send_message(uid, "✅ Оплата получена! Мини-курс активирован. Напиши /course чтобы начать!"),
+                            asyncio.get_event_loop()
+                        )
 
                     else:
                         logging.info(f"💛 Поддержка от {uid} — спасибо!")
-                        try:
-                            await bot.send_message(uid, "💛 Спасибо за поддержку проекта! Твой вклад помогает боту развиваться.")
-                        except:
-                            pass
+                        asyncio.run_coroutine_threadsafe(
+                            bot.send_message(uid, "💛 Спасибо за поддержку проекта! Твой вклад помогает боту развиваться."),
+                            asyncio.get_event_loop()
+                        )
 
-                    # Удаляем обработанный платёж
                     del pending[payment_link_id]
                     with open("pending_payments.json", "w") as f:
                         json.dump(pending, f, ensure_ascii=False, indent=2)
