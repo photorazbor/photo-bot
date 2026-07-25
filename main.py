@@ -38,6 +38,9 @@ logging.basicConfig(level=logging.INFO)
 bot = Bot(token=TELEGRAM_BOT_TOKEN)
 dp = Dispatcher()
 
+# Сохраняем главный event loop для использования в потоках
+MAIN_LOOP = None
+
 flask_app = Flask(__name__)
 
 # ===== ХРАНИЛИЩА ДАННЫХ =====
@@ -141,16 +144,12 @@ def home():
 
 def _send_telegram_message(uid, text):
     """Безопасно отправляет сообщение из любого потока."""
+    global MAIN_LOOP
+    if MAIN_LOOP is None:
+        logging.error("MAIN_LOOP не инициализирован")
+        return
     try:
-        loop = asyncio.get_event_loop()
-        asyncio.run_coroutine_threadsafe(bot.send_message(uid, text), loop)
-    except RuntimeError:
-        # Если нет event loop в текущем потоке — пробуем получить из главного
-        try:
-            loop = asyncio.get_running_loop()
-            asyncio.run_coroutine_threadsafe(bot.send_message(uid, text), loop)
-        except RuntimeError:
-            logging.error(f"Не удалось отправить сообщение: нет event loop")
+        asyncio.run_coroutine_threadsafe(bot.send_message(uid, text), MAIN_LOOP)
     except Exception as e:
         logging.error(f"Не удалось отправить сообщение: {e}")
 
@@ -1009,6 +1008,8 @@ async def handle_non_photo(message: Message):
 
 # ===== ЗАПУСК =====
 async def main():
+    global MAIN_LOOP
+    MAIN_LOOP = asyncio.get_running_loop()
     flask_thread = Thread(target=run_flask)
     flask_thread.daemon = True
     flask_thread.start()
