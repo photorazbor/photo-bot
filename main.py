@@ -138,6 +138,37 @@ _load_gen()
 def home():
     return "Bot is running"
 
+@flask_app.route('/webhook/tochka', methods=['POST'])
+def tochka_webhook():
+    """Принимает уведомления об оплате от банка Точка."""
+    try:
+        data = request.get_json()
+        logging.info(f"🔔 Вебхук Точки: {json.dumps(data, ensure_ascii=False)[:500]}")
+
+        # Проверяем статус платежа
+        payment_status = data.get("Data", {}).get("paymentStatus", "")
+        if payment_status != "SUCCESS":
+            logging.info(f"Платёж не успешный: {payment_status}")
+            return "OK", 200
+
+        # Получаем сумму и назначение
+        amount = float(data.get("Data", {}).get("amount", 0))
+        purpose = data.get("Data", {}).get("purpose", "")
+
+        # Пытаемся понять, кто оплатил (если есть customerCode или comment)
+        comment = data.get("Data", {}).get("comment", "")
+
+        logging.info(f"✅ Успешный платёж: {amount} ₽, назначение: {purpose}, комментарий: {comment}")
+
+        # Здесь будет логика начисления генераций/доступа к курсу
+        # (добавим в следующем шаге, когда убедимся что вебхук работает)
+
+        return "OK", 200
+
+    except Exception as e:
+        logging.error(f"Ошибка обработки вебхука: {e}")
+        return "OK", 200  # Всё равно отвечаем OK, чтобы Точка не повторяла
+
 def run_flask():
     port = int(os.environ.get("PORT", 10000))
     flask_app.run(host='0.0.0.0', port=port)
