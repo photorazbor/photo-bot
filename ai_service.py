@@ -4,6 +4,7 @@
 import base64
 import json
 import re
+import uuid
 import requests
 
 from config import OPENAI_API_KEY, TOCHKA_API_TOKEN
@@ -243,7 +244,7 @@ def create_payment_link(amount: float, purpose: str) -> str | None:
             "saveCard": False,
             "preAuthorization": False,
             "ttl": 10080,
-            "paymentLinkId": "string"
+            "paymentLinkId": str(uuid.uuid4())
         }
     }
 
