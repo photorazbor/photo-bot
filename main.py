@@ -44,6 +44,7 @@ MAIN_LOOP = None
 flask_app = Flask(__name__)
 
 # ===== ХРАНИЛИЩА ДАННЫХ =====
+last_analysis = {}
 user_mode = {}
 free_generations = {}
 paid_generations = {}
@@ -329,12 +330,28 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str):
     wish = gen_wish.get(user_id, "")
     image_bytes = last_photo[user_id]
 
-    await bot.send_message(chat_id, "🎨 Генерирую изображение... Обычно это 30-60 секунд.")
+    if wish and wish.lower() != "ок":
+        await bot.send_message(chat_id, "🎨 Генерирую изображение по твоему пожеланию... Обычно 30-60 секунд.")
+    else:
+        await bot.send_message(chat_id, "🎨 Генерирую изображение на основе анализа... Обычно 30-60 секунд.")
 
     try:
         img_size = get_size_for_format(fmt, image_bytes)
 
-        prompt = f"Улучши это фото: исправь композицию, выровняй горизонт, дорисуй обрезанные края, убери отвлекающие объекты, улучши свет и цвета. Сохрани все важные детали и объекты. Размер: {img_size}."
+        analysis = last_analysis.get(user_id, {})
+        error_type = analysis.get("error_type", "")
+
+        prompt = f"Улучши это фото: дорисуй обрезанные края, убери отвлекающие объекты, улучши свет и цвета. Сохрани все важные детали и объекты. Размер: {img_size}."
+
+        if "horizon" in error_type:
+            prompt += " Выровняй горизонт."
+        if "distortion" in error_type:
+            prompt += " Исправь дисторсию и заваленные вертикали."
+        if "pose" in error_type:
+            prompt += " Улучши позу человека."
+        if "lighting" in error_type:
+            prompt += " Исправь освещение."
+            
         if wish and wish.lower() != "ок":
             prompt += f" Дополнительное пожелание: {wish}"
 
@@ -925,6 +942,7 @@ async def handle_photo(message: Message):
         if result is not None:
             error_type = result.get("error_type", "unknown")
             add_analysis(user_id, error_type)
+            last_analysis[user_id] = result
             _add_history(user_id, "analysis", f"Ошибки: {error_type}")
 
         if result is None:
