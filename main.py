@@ -1011,6 +1011,55 @@ async def handle_non_photo(message: Message):
         "Пришли мне, пожалуйста, фотографию 📷 — я умею разбирать только изображения."
     )
 
+# ===== ЕЖЕДНЕВНЫЙ ОТЧЁТ =====
+async def daily_report():
+    """Отправляет ежедневный отчёт в канал."""
+    await asyncio.sleep(5)
+    while True:
+        now = datetime.now()
+        target = now.replace(hour=23, minute=59, second=0, microsecond=0)
+        if now > target:
+            target = target.replace(day=now.day + 1)
+        wait_seconds = (target - now).total_seconds()
+        await asyncio.sleep(wait_seconds)
+
+        users = _load_users()
+        history = _load_history()
+        today = datetime.now().strftime("%d.%m.%Y")
+
+        new_users = 0
+        total_analyses = 0
+        for uid, entries in history.items():
+            for entry in entries:
+                if today in entry.get("time", ""):
+                    if entry.get("action") == "start":
+                        new_users += 1
+                    elif entry.get("action") == "analysis":
+                        total_analyses += 1
+
+        payments_count = 0
+        try:
+            from ai_service import _load_pending_payments
+            pending = _load_pending_payments()
+            for link_id, info in pending.items():
+                if today in info.get("created", ""):
+                    payments_count += 1
+        except:
+            pass
+
+        report = (
+            f"📊 <b>Статистика за {today}</b>\n\n"
+            f"👤 Новых пользователей: {new_users}\n"
+            f"📸 Анализов фото: {total_analyses}\n"
+            f"💰 Платежей: {payments_count}\n"
+        )
+
+        try:
+            await bot.send_message(-1004468971541, report, parse_mode="HTML")
+            logging.info(f"📊 Ежедневный отчёт отправлен")
+        except Exception as e:
+            logging.error(f"Ошибка отправки отчёта: {e}")
+
 # ===== ЗАПУСК =====
 async def main():
     global MAIN_LOOP
@@ -1018,6 +1067,7 @@ async def main():
     flask_thread = Thread(target=run_flask)
     flask_thread.daemon = True
     flask_thread.start()
+    asyncio.create_task(daily_report())
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
