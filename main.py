@@ -55,6 +55,7 @@ gen_format = {}
 test_mode = False
 
 HISTORY_FILE = "history.json"
+PROMO_FILE = "promocodes.json"
 
 def _load_history() -> dict:
     if not os.path.exists(HISTORY_FILE):
@@ -65,6 +66,16 @@ def _load_history() -> dict:
 def _save_history(history: dict):
     with open(HISTORY_FILE, "w", encoding="utf-8") as f:
         json.dump(history, f, ensure_ascii=False, indent=2)
+
+def _load_promo() -> dict:
+    if not os.path.exists(PROMO_FILE):
+        return {}
+    with open(PROMO_FILE, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+def _save_promo(promo: dict):
+    with open(PROMO_FILE, "w", encoding="utf-8") as f:
+        json.dump(promo, f, ensure_ascii=False, indent=2)
 
 def _add_history(user_id: int, action: str, details: str = ""):
     history = _load_history()
@@ -547,6 +558,110 @@ async def handle_admin(message: Message):
 
     else:
         await message.answer("❌ Неизвестная команда. Используй /admin stats, users, history, gen, course")
+        
+@dp.message(Command("promo"))
+async def handle_promo(message: Message):
+    user_id = message.from_user.id
+    args = message.text.split()
+    
+    # Если это админ и хочет управлять промокодами
+    if user_id == 456504792 and len(args) >= 2:
+        action = args[1].lower()
+        
+        if action == "create" and len(args) >= 3:
+            code = args[2].upper()
+            if len(args) >= 4 and args[3].lower() == "course":
+                # Промокод на курс
+                promo = _load_promo()
+                promo[code] = {"type": "course", "amount": 0, "used_by": []}
+                _save_promo(promo)
+                await message.answer(f"✅ Промокод <b>{code}</b> создан (курс)", parse_mode="HTML")
+            elif len(args) >= 4:
+                # Промокод на генерации
+                try:
+                    amount = int(args[3])
+                    promo = _load_promo()
+                    promo[code] = {"type": "gen", "amount": amount, "used_by": []}
+                    _save_promo(promo)
+                    await message.answer(f"✅ Промокод <b>{code}</b> создан ({amount} генераций)", parse_mode="HTML")
+                except ValueError:
+                    await message.answer("❌ Количество должно быть числом")
+            return
+        
+        elif action == "list":
+            promo = _load_promo()
+            if not promo:
+                await message.answer("📭 Нет активных промокодов")
+                return
+            text = "🎫 <b>Промокоды:</b>\n\n"
+            for code, data in promo.items():
+                ptype = "🎓 Курс" if data["type"] == "course" else f"⚡ {data['amount']} ген."
+                used = len(data["used_by"])
+                text += f"• <code>{code}</code> — {ptype} (исп.: {used})\n"
+            await message.answer(text, parse_mode="HTML")
+            return
+        
+        elif action == "delete" and len(args) >= 3:
+            code = args[2].upper()
+            promo = _load_promo()
+            if code in promo:
+                del promo[code]
+                _save_promo(promo)
+                await message.answer(f"🗑 Промокод <b>{code}</b> удалён", parse_mode="HTML")
+            else:
+                await message.answer(f"❌ Код <b>{code}</b> не найден", parse_mode="HTML")
+            return
+        
+        elif action == "reset" and len(args) >= 3:
+            code = args[2].upper()
+            promo = _load_promo()
+            if code in promo:
+                promo[code]["used_by"] = []
+                _save_promo(promo)
+                await message.answer(f"🔄 Промокод <b>{code}</b> сброшен", parse_mode="HTML")
+            else:
+                await message.answer(f"❌ Код <b>{code}</b> не найден", parse_mode="HTML")
+            return
+    
+    # Пользователь вводит промокод
+    if len(args) == 2:
+        code = args[1].upper()
+        promo = _load_promo()
+        
+        if code not in promo:
+            await message.answer("❌ Такого промокода не существует")
+            return
+        
+        promo_data = promo[code]
+        used_by = promo_data.get("used_by", [])
+        
+        if user_id in used_by:
+            await message.answer("❌ Ты уже использовал этот промокод")
+            return
+        
+        if promo_data["type"] == "gen":
+            amount = promo_data["amount"]
+            paid_generations[user_id] = paid_generations.get(user_id, 0) + amount
+            _save_gen()
+            used_by.append(user_id)
+            promo[code]["used_by"] = used_by
+            _save_promo(promo)
+            await message.answer(f"✅ Промокод активирован! Получено {amount} генераций. Используй кнопку «Улучшить фото»")
+        
+        elif promo_data["type"] == "course":
+            from course import activate_by_username
+            activate_by_username(str(user_id))
+            user_mode[user_id] = "course"
+            used_by.append(user_id)
+            promo[code]["used_by"] = used_by
+            _save_promo(promo)
+            await message.answer("✅ Промокод активирован! Мини-курс открыт. Напиши /course чтобы начать!")
+        
+        return
+    
+    # Без аргументов — подсказка
+    if len(args) == 1:
+        await message.answer("🎫 <b>Промокоды</b>\n\nЕсли у тебя есть промокод — введи /promo КОД\n\nНапример: /promo START", parse_mode="HTML")
 
 # ===== ЛОГИКА КУРСА =====
 def _is_trial(user_id: int) -> bool:
