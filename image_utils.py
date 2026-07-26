@@ -45,7 +45,7 @@ def _hex_to_rgb(hex_color: str) -> tuple:
     return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
 
 
-def _draw_line_handdrawn(draw: ImageDraw.ImageDraw, x1, y1, x2, y2, color, width=3, opacity=230):
+def _draw_line_handdrawn(draw: ImageDraw.ImageDraw, x1, y1, x2, y2, color, width=4, opacity=230):
     """Рисует линию с лёгким дрожанием."""
     rgba_color = (*_hex_to_rgb(color), opacity)
     points = [(x1, y1)]
@@ -235,10 +235,10 @@ def draw_hints(image: Image.Image, drawings: list) -> Image.Image:
 
         try:
             if shape_type == "line":
-                _draw_line_handdrawn(draw, x1, y1, x2, y2, color, width=3, opacity=230)
+                _draw_line_handdrawn(draw, x1, y1, x2, y2, color, width=4, opacity=230)
 
             elif shape_type == "dashed_line":
-                _draw_dashed_line(draw, x1, y1, x2, y2, color, width=3, dash=15, gap=8, opacity=230)
+                _draw_dashed_line(draw, x1, y1, x2, y2, color, width=4, dash=15, gap=8, opacity=230)
 
             elif shape_type == "crop_frame":
                 _draw_crop_frame(draw, result, x1, y1, x2, y2, color)
@@ -254,7 +254,7 @@ def draw_hints(image: Image.Image, drawings: list) -> Image.Image:
                 _draw_marker_arc(draw, x1, y1, x2, y2, "#FFB74D", width=4, opacity=230)
 
             elif shape_type == "arrow":
-                _draw_arrow(draw, x1, y1, x2, y2, color, width=3, opacity=230)
+                _draw_arrow(draw, x1, y1, x2, y2, color, width=4, opacity=230)
 
         except Exception as e:
             print(f"Не удалось нарисовать {shape_type}: {e}")
