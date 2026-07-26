@@ -56,6 +56,7 @@ test_mode = False
 
 HISTORY_FILE = "history.json"
 PROMO_FILE = "promocodes.json"
+FEEDBACK_FILE = "feedback.json"
 
 def _load_history() -> dict:
     if not os.path.exists(HISTORY_FILE):
@@ -76,6 +77,15 @@ def _load_promo() -> dict:
 def _save_promo(promo: dict):
     with open(PROMO_FILE, "w", encoding="utf-8") as f:
         json.dump(promo, f, ensure_ascii=False, indent=2)
+
+def _save_feedback(entry: dict):
+    feedback = []
+    if os.path.exists(FEEDBACK_FILE):
+        with open(FEEDBACK_FILE, "r", encoding="utf-8") as f:
+            feedback = json.load(f)
+    feedback.append(entry)
+    with open(FEEDBACK_FILE, "w", encoding="utf-8") as f:
+        json.dump(feedback, f, ensure_ascii=False, indent=2)
 
 def _add_history(user_id: int, action: str, details: str = ""):
     history = _load_history()
@@ -295,8 +305,8 @@ def get_keyboard(user_id: int) -> InlineKeyboardMarkup:
     elif paid_left > 0:
         buttons.append([InlineKeyboardButton(text=f"✨ Улучшить фото (осталось {paid_left})", callback_data="gen_paid")])
     else:
-        buttons.append([InlineKeyboardButton(text="💛 10 улучшений — 99 ₽", callback_data="buy_10_gen")])
-        buttons.append([InlineKeyboardButton(text="💛 30 улучшений — 199 ₽", callback_data="buy_30_gen")])
+        buttons.append([InlineKeyboardButton(text="⚡ 10 улучшений — 99 ₽", callback_data="buy_10_gen")])
+        buttons.append([InlineKeyboardButton(text="⚡ 30 улучшений — 199 ₽", callback_data="buy_30_gen")])
 
     if has_access(user_id) and user_mode.get(user_id) == "course" and not test_mode:
         buttons.append([InlineKeyboardButton(text="📸 Продолжить курс", callback_data="mode_course")])
@@ -321,19 +331,15 @@ async def send_photos(chat_id: int, day: int):
     photos = get_day_photos(day)
     if not photos:
         return
-    
-    # Отправляем только первое фото — остальные опционально
     try:
         await bot.send_photo(chat_id, URLInputFile(photos[0]))
     except Exception as e:
         logging.error(f"Ошибка отправки первого фото: {e}")
-    
-    # Остальные пытаемся отправить по одному
     for url in photos[1:]:
         try:
             await bot.send_photo(chat_id, URLInputFile(url))
-        except Exception as e:
-            pass  # Фото не существует — пропускаем
+        except Exception:
+            pass
 
 async def do_generation(user_id: int, chat_id: int, gen_type: str):
     if user_id not in last_photo:
@@ -356,7 +362,7 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str):
         error_type = analysis.get("error_type", "")
         what_is_wrong = analysis.get("what_is_wrong", "")
         how_to_fix = analysis.get("how_to_fix", "")
-        
+
         # Базовый промпт — применяется всегда
         prompt = (
             f"Улучши это фото как опытный ретушёр. Сделай кадр гармоничным и естественным. "
@@ -365,12 +371,12 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str):
             f"Исправь неестественную позу: если плечо прижато к телу и выглядит массивным — сделай его легче и изящнее, "
             f"если таз и плечи на одной линии — добавь лёгкий разворот для объёма. "
             f"Если главный объект строго по центру и это не выглядит осознанным художественным приёмом — смести его к левой или правой трети, оставь воздух по направлению взгляда. "
+            f"Убери только явно случайные объекты на фоне, которые перекрывают главный объект или «торчат из головы» (провода, штыри, столбы). Ветки, используемые как фрейминг, и объекты, создающие атмосферу — сохрани полностью. "
             f"Убери отвлекающие объекты, улучши свет и цвета. "
             f"НЕ меняй черты лица — сохрани их в точности как на исходном фото. "
-            f"Убери только явно случайные объекты на фоне, которые перекрывают главный объект или «торчат из головы» (провода, штыри, столбы). Ветки, используемые как фрейминг, и объекты, создающие атмосферу — сохрани полностью. "
             f"Сохрани все важные детали и объекты. Размер: {img_size}."
         )
-        
+
         # Точечные исправления на основе анализа
         if "horizon" in error_type:
             prompt += f" ОБЯЗАТЕЛЬНО выровняй горизонт — сейчас он завален. При повороте дорисуй недостающие участки неба и земли. {what_is_wrong} {how_to_fix}"
@@ -391,15 +397,11 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str):
             prompt += f" ОБЯЗАТЕЛЬНО обрежь лишнее по краям — убери пустое пространство, которое отвлекает от главного объекта. Приблизь объект, сделай его крупнее в кадре. {what_is_wrong} {how_to_fix}"
         if "framing" in error_type or "fill_frame" in error_type:
             prompt += f" Улучши композицию: если важный объект спрятан, обрезан или перекрыт — открой его, дорисуй недостающее. При необходимости расширь кадр или убери мешающие объекты. {what_is_wrong} {how_to_fix}"
-        
+
         if wish and wish.lower() != "ок":
             prompt += f" Дополнительное пожелание: {wish}"
 
         result = generate_image(image_bytes, prompt)
-
-        if result is None:
-            await bot.send_message(chat_id, "😕 Не удалось сгенерировать изображение. Попробуй другое фото.")
-            return
 
         if result is None:
             await bot.send_message(chat_id, "😕 Не удалось сгенерировать изображение. Попробуй другое фото.")
@@ -429,6 +431,13 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str):
             caption=f"✨ Вот твой улучшенный кадр!\nФормат: {format_name}\n\nЕсли хочешь ещё — купи пакет генераций.",
             reply_markup=get_keyboard(user_id),
         )
+
+        # Кнопки фидбека
+        feedback_kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="👍 Хорошо", callback_data=f"fb_good_{user_id}"),
+             InlineKeyboardButton(text="👎 Плохо", callback_data=f"fb_bad_{user_id}")],
+        ])
+        await bot.send_message(chat_id, "Оцени результат:", reply_markup=feedback_kb)
 
     except Exception as e:
         logging.exception("Ошибка генерации")
@@ -519,7 +528,8 @@ async def handle_admin(message: Message):
             "/admin users — список пользователей\n"
             "/admin history — последние действия\n"
             "/admin gen — генерации\n"
-            "/admin course — курс",
+            "/admin course — курс\n"
+            "/admin feedback — фидбек по генерациям",
             parse_mode="HTML"
         )
         return
@@ -586,15 +596,28 @@ async def handle_admin(message: Message):
             text += "Никто не начал курс."
         await message.answer(text, parse_mode="HTML")
 
+    elif command == "feedback":
+        if os.path.exists(FEEDBACK_FILE):
+            with open(FEEDBACK_FILE, "r") as f:
+                feedback = json.load(f)
+            text = "📝 <b>Фидбек по генерациям (последние 20):</b>\n\n"
+            reasons = {"horizon": "📐 Горизонт", "crop": "🪵 Обрезка", "face": "👤 Лицо", "light": "💡 Свет", "pose": "📐 Поза", "other": "✏️ Другое"}
+            for entry in feedback[-20:]:
+                reason = reasons.get(entry["reason"], entry["reason"])
+                text += f"• {entry['time'][:10]} — user {entry['user_id']}: {reason}\n"
+        else:
+            text = "📝 Нет записей фидбека."
+        await message.answer(text, parse_mode="HTML")
+
     else:
-        await message.answer("❌ Неизвестная команда. Используй /admin stats, users, history, gen, course")
-        
+        await message.answer("❌ Неизвестная команда. Используй /admin stats, users, history, gen, course, feedback")
+
+# ===== ПРОМОКОДЫ =====
 @dp.message(Command("promo"))
 async def handle_promo(message: Message):
     user_id = message.from_user.id
     args = message.text.split()
     
-    # Админ управляет промокодами
     if user_id == 456504792 and len(args) >= 2:
         action = args[1].lower()
         
@@ -602,7 +625,6 @@ async def handle_promo(message: Message):
             code = args[2].upper()
             expiry_days = None
             
-            # Проверяем, есть ли срок действия (последний аргумент)
             if len(args) >= 4:
                 if args[-1].lower() == "course":
                     ptype = "course"
@@ -657,7 +679,6 @@ async def handle_promo(message: Message):
                 await message.answer("📭 Нет активных промокодов")
                 return
             
-            # Проверяем истёкшие и удаляем
             expired = []
             from datetime import datetime
             for code, data in promo.items():
@@ -710,12 +731,10 @@ async def handle_promo(message: Message):
                 await message.answer(f"❌ Код <b>{code}</b> не найден", parse_mode="HTML")
             return
     
-    # Пользователь вводит промокод
     if len(args) == 2:
         code = args[1].upper()
         promo = _load_promo()
         
-        # Проверяем истёкшие
         from datetime import datetime
         expired = []
         for c, data in promo.items():
@@ -761,6 +780,97 @@ async def handle_promo(message: Message):
     
     if len(args) == 1:
         await message.answer("🎫 <b>Промокоды</b>\n\nЕсли у тебя есть промокод — введи /promo КОД\n\nНапример: /promo START", parse_mode="HTML")
+
+# ===== ЛОГИКА КУРСА =====
+def _is_trial(user_id: int) -> bool:
+    users = _load_users()
+    uid = str(user_id)
+    if uid not in users:
+        for key, data in users.items():
+            if isinstance(data, dict) and data.get("username") == str(user_id):
+                uid = key
+                break
+        else:
+            return False
+    return users[uid].get("trial", False)
+
+
+def _payment_keyboard() -> InlineKeyboardMarkup:
+    link = create_payment_link(490, "Оплата за мини-курс по композиции")
+    if not link:
+        link = "https://t.me/moy_razbor_bot"
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="💳 Оплатить курс (490 ₽)", url=link)],
+        ]
+    )
+
+
+async def handle_course_status_logic(user_id: int, chat_id: int):
+    effective_has_access = has_access(user_id) and not (user_id == 456504792 and test_mode)
+    if effective_has_access:
+        user_mode[user_id] = "course"
+        status = get_status(user_id)
+        if status is not None:
+            if "День 0" in status or "Подготовка" in status:
+                await bot.send_message(
+                    chat_id,
+                    status,
+                    parse_mode="HTML",
+                    reply_markup=InlineKeyboardMarkup(
+                        inline_keyboard=[
+                            [InlineKeyboardButton(text="🚀 Начать курс", callback_data="start_course_btn")],
+                        ]
+                    ),
+                )
+                await send_photos(chat_id, 0)
+
+            elif "День 1" in status and _is_trial(user_id):
+                await bot.send_message(
+                    chat_id,
+                    status + "\n\n🆓 <b>Это твой бесплатный пробный день!</b>\n"
+                    "День 0 и День 1 — бесплатно, чтобы ты мог попробовать формат обучения.\n"
+                    "После выполнения задания откроется возможность оплатить полный доступ.",
+                    parse_mode="HTML",
+                )
+                await send_photos(chat_id, 1)
+
+            else:
+                await bot.send_message(chat_id, status, parse_mode="HTML")
+                users = _load_users()
+                uid = str(user_id)
+                if uid in users:
+                    day = users[uid].get("day", 1)
+                    await send_photos(chat_id, day)
+        return
+
+    await bot.send_message(
+        chat_id,
+        "🎓 <b>Мини-курс по композиции (10 дней)</b>\n\n"
+        "10-дневный челлендж с проверкой каждого задания:\n"
+        "• День 0: Подготовка телефона\n"
+        "• День 1: Горизонт и геометрия 🆓\n"
+        "• День 2: Правило третей\n"
+        "• День 3: Свет и тени\n"
+        "• День 4: Тень как приём\n"
+        "• День 5: Фрейминг\n"
+        "• День 6: Ритм и перспектива\n"
+        "• День 7: Отражения\n"
+        "• День 8: Глубина резкости и фокус\n"
+        "• День 9: Глубина кадра\n"
+        "• День 10: Человек в кадре\n\n"
+        "🆓 <b>День 0 и День 1 — бесплатно!</b>\n"
+        "Попробуй, посмотри примеры фотографий, выполни первое задание.\n\n"
+        "💰 Полный доступ ко всем 10 дням: 490 ₽\n\n"
+        "Начни бесплатно прямо сейчас!",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text="🆓 Начать бесплатно", callback_data="start_trial")],
+                [InlineKeyboardButton(text="💳 Оплатить полный доступ (490 ₽)", callback_data="pay_course")],
+            ]
+        ),
+    )
 
 
 # ===== КНОПКИ КУРСА =====
@@ -811,7 +921,7 @@ async def handle_course_status(callback: CallbackQuery):
 
 @dp.callback_query(F.data == "start_course_btn")
 async def handle_start_course_btn(callback: CallbackQuery):
-    await callback.answer()  # ← сначала отвечаем на колбэк
+    await callback.answer()
     user_id = callback.from_user.id
     user_mode[user_id] = "course"
     add_text = add_photo(callback.from_user.id)
@@ -957,7 +1067,11 @@ def register_format_handlers():
                 await callback.answer(f"Выбран: {name}")
                 await callback.message.answer(
                     f"✨ Выбран формат: <b>{name}</b>\n\n"
-                    "Напиши пожелание (например: «дорисуй руку, сделай свет теплее»)\n"
+                    "Напиши пожелание, например:\n"
+                    "• «вытяни ноги, сделай позу изящнее»\n"
+                    "• «убери провода и мусор»\n"
+                    "• «сделай свет мягче и теплее»\n"
+                    "• «дорисуй обрезанный край»\n"
                     "Или напиши «ок» для стандартного улучшения.",
                     parse_mode="HTML",
                 )
@@ -972,7 +1086,11 @@ def register_format_handlers():
                 await callback.answer(f"Выбран: {name}")
                 await callback.message.answer(
                     f"✨ Выбран формат: <b>{name}</b>\n\n"
-                    "Напиши пожелание (например: «дорисуй руку, сделай свет теплее»)\n"
+                    "Напиши пожелание, например:\n"
+                    "• «вытяни ноги, сделай позу изящнее»\n"
+                    "• «убери провода и мусор»\n"
+                    "• «сделай свет мягче и теплее»\n"
+                    "• «дорисуй обрезанный край»\n"
                     "Или напиши «ок» для стандартного улучшения.",
                     parse_mode="HTML",
                 )
@@ -989,8 +1107,8 @@ register_format_handlers()
 @dp.callback_query(F.data == "gen_free")
 async def handle_gen_free(callback: CallbackQuery):
     user_id = callback.from_user.id
-    if user_id != 456504792 and free_generations.get(user_id, 0) >= 1:
-        await callback.answer("Ты уже использовал бесплатную генерацию. Купи пакет!")
+    if user_id != 456504792 and free_generations.get(user_id, 0) >= 5:
+        await callback.answer("Ты уже использовал бесплатные генерации. Купи пакет!")
         return
     if user_id not in last_photo:
         await callback.answer("Сначала пришли фото для анализа!")
@@ -1021,6 +1139,43 @@ async def handle_gen_paid(callback: CallbackQuery):
         parse_mode="HTML",
         reply_markup=format_keyboard("paid"),
     )
+
+# ===== ФИДБЕК =====
+@dp.callback_query(F.data.startswith("fb_good_"))
+async def handle_fb_good(callback: CallbackQuery):
+    await callback.answer("Спасибо! 🙏")
+    await callback.message.edit_text("👍 Спасибо за оценку!")
+
+@dp.callback_query(F.data.startswith("fb_bad_"))
+async def handle_fb_bad(callback: CallbackQuery):
+    await callback.answer()
+    user_id = int(callback.data.split("_")[-1])
+    await callback.message.edit_text(
+        "Что не понравилось?",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📐 Горизонт не исправлен", callback_data=f"fb_reason_horizon_{user_id}")],
+            [InlineKeyboardButton(text="🪵 Убрал не то / обрезал", callback_data=f"fb_reason_crop_{user_id}")],
+            [InlineKeyboardButton(text="👤 Изменилось лицо", callback_data=f"fb_reason_face_{user_id}")],
+            [InlineKeyboardButton(text="💡 Свет не тот", callback_data=f"fb_reason_light_{user_id}")],
+            [InlineKeyboardButton(text="📐 Поза неестественная", callback_data=f"fb_reason_pose_{user_id}")],
+            [InlineKeyboardButton(text="✏️ Другое", callback_data=f"fb_reason_other_{user_id}")],
+        ])
+    )
+
+@dp.callback_query(F.data.startswith("fb_reason_"))
+async def handle_fb_reason(callback: CallbackQuery):
+    await callback.answer("Спасибо, записал! 🔧")
+    parts = callback.data.split("_")
+    reason = parts[2]
+    user_id = int(parts[-1])
+    
+    _save_feedback({
+        "user_id": user_id,
+        "reason": reason,
+        "time": datetime.now().isoformat()
+    })
+    
+    await callback.message.edit_text("Спасибо! Я учту это. 📝")
 
 # ===== ОБРАБОТЧИКИ СООБЩЕНИЙ =====
 @dp.message(F.photo)
@@ -1056,8 +1211,8 @@ async def handle_photo(message: Message):
 
         if result is not None:
             error_type = result.get("error_type", "unknown")
-            add_analysis(user_id, error_type)
             last_analysis[user_id] = result
+            add_analysis(user_id, error_type)
             _add_history(user_id, "analysis", f"Ошибки: {error_type}")
 
         if result is None:
@@ -1120,7 +1275,6 @@ async def handle_photo(message: Message):
                         )
                     else:
                         await message.answer(check_text, parse_mode="HTML")
-                        # Если задание выполнено — показываем следующий день
                         if "задание выполнено" in check_text.lower():
                             await asyncio.sleep(1)
                             status = get_status(user_id)
