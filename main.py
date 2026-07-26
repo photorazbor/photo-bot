@@ -352,20 +352,25 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str):
     try:
         img_size = get_size_for_format(fmt, image_bytes)
 
+                # Формируем точный промпт на основе анализа
         analysis = last_analysis.get(user_id, {})
         error_type = analysis.get("error_type", "")
-
-        prompt = f"Улучши это фото: дорисуй обрезанные края, убери отвлекающие объекты, улучши свет и цвета. Сохрани все важные детали и объекты. Размер: {img_size}."
-
+        what_is_wrong = analysis.get("what_is_wrong", "")
+        how_to_fix = analysis.get("how_to_fix", "")
+        
+        prompt = f"Улучши это фото. Дорисуй обрезанные края, убери отвлекающие объекты, улучши свет и цвета. НЕ меняй черты лица людей — сохрани их в точности как на исходном фото. Сохрани все важные детали и объекты. Размер: {img_size}."
+        
         if "horizon" in error_type:
-            prompt += " Выровняй горизонт."
+            prompt += f" ОБЯЗАТЕЛЬНО выровняй горизонт — сейчас он завален. При повороте дорисуй недостающие участки неба и земли. {what_is_wrong} {how_to_fix}"
         if "distortion" in error_type:
-            prompt += " Исправь дисторсию и заваленные вертикали."
+            prompt += f" ОБЯЗАТЕЛЬНО исправь дисторсию и заваленные вертикали. {what_is_wrong}"
         if "pose" in error_type:
-            prompt += " Улучши позу человека."
+            prompt += f" Улучши позу человека, но сохрани лицо без изменений. {what_is_wrong}"
         if "lighting" in error_type:
-            prompt += " Исправь освещение."
-            
+            prompt += f" Исправь освещение: убери пересветы, добавь света в тени. {what_is_wrong}"
+        if "shadow" in error_type:
+            prompt += f" ОБЯЗАТЕЛЬНО убери тень фотографа или некрасивые теневые артефакты. {what_is_wrong}"
+        
         if wish and wish.lower() != "ок":
             prompt += f" Дополнительное пожелание: {wish}"
 
