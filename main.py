@@ -205,17 +205,17 @@ def tochka_webhook():
                     notify_text = f"💰 <b>Новый платёж!</b>\nСумма: {amount} ₽\nНазначение: {purp}\nПлательщик: {payer}\nID пользователя: <code>{uid}</code>"
                     _send_telegram_message(-1004468971541, notify_text)
 
-                    if "Пакет 5 генераций" in purp:
-                        paid_generations[uid] = paid_generations.get(uid, 0) + 5
+                    if "Пакет 10 генераций" in purp:
+                        paid_generations[uid] = paid_generations.get(uid, 0) + 10
                         _save_gen()
-                        logging.info(f"🎯 Начислено 5 генераций пользователю {uid}")
-                        _send_telegram_message(uid, "✅ Оплата получена! 5 генераций начислены. Присылай фото для улучшения!")
+                        logging.info(f"🎯 Начислено 10 генераций пользователю {uid}")
+                        _send_telegram_message(uid, "✅ Оплата получена! 10 генераций начислены. Присылай фото для улучшения!")
 
-                    elif "Пакет 20 генераций" in purp:
-                        paid_generations[uid] = paid_generations.get(uid, 0) + 20
+                    elif "Пакет 30 генераций" in purp:
+                        paid_generations[uid] = paid_generations.get(uid, 0) + 30
                         _save_gen()
-                        logging.info(f"🎯 Начислено 20 генераций пользователю {uid}")
-                        _send_telegram_message(uid, "✅ Оплата получена! 20 генераций начислены. Присылай фото для улучшения!")
+                        logging.info(f"🎯 Начислено 30 генераций пользователю {uid}")
+                        _send_telegram_message(uid, "✅ Оплата получена! 30 генераций начислены. Присылай фото для улучшения!")
 
                     elif "мини-курс" in purp or "курс" in purp:
                         from course import activate_by_username
@@ -285,7 +285,7 @@ def donate_keyboard() -> InlineKeyboardMarkup:
 def get_keyboard(user_id: int) -> InlineKeyboardMarkup:
     buttons = []
 
-    free_left = 1 - free_generations.get(user_id, 0)
+    free_left = 5 - free_generations.get(user_id, 0)
     paid_left = paid_generations.get(user_id, 0)
 
     if user_id == 456504792 and not test_mode:
@@ -295,8 +295,8 @@ def get_keyboard(user_id: int) -> InlineKeyboardMarkup:
     elif paid_left > 0:
         buttons.append([InlineKeyboardButton(text=f"✨ Улучшить фото (осталось {paid_left})", callback_data="gen_paid")])
     else:
-        buttons.append([InlineKeyboardButton(text="💛 5 улучшений — 99 ₽", callback_data="buy_5_gen")])
-        buttons.append([InlineKeyboardButton(text="💛 20 улучшений — 249 ₽", callback_data="buy_20_gen")])
+        buttons.append([InlineKeyboardButton(text="💛 10 улучшений — 99 ₽", callback_data="buy_10_gen")])
+        buttons.append([InlineKeyboardButton(text="💛 30 улучшений — 199 ₽", callback_data="buy_30_gen")])
 
     if has_access(user_id) and user_mode.get(user_id) == "course" and not test_mode:
         buttons.append([InlineKeyboardButton(text="📸 Продолжить курс", callback_data="mode_course")])
@@ -413,7 +413,7 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str):
             pass
 
         if gen_type == "free" and not (user_id == 456504792 and not test_mode):
-            free_generations[user_id] = 1
+            free_generations[user_id] = free_generations.get(user_id, 0) + 1
             _save_gen()
         elif gen_type == "paid":
             paid_generations[user_id] = max(0, paid_generations.get(user_id, 0) - 1)
@@ -911,46 +911,34 @@ async def handle_donate_300(callback: CallbackQuery):
 async def handle_donate_500(callback: CallbackQuery):
     await _handle_donate(callback, 500)
 
-@dp.callback_query(F.data == "buy_5_gen")
-async def handle_buy_5_gen(callback: CallbackQuery):
+@dp.callback_query(F.data == "buy_10_gen")
+async def handle_buy_10_gen(callback: CallbackQuery):
     await callback.answer()
-    link = create_payment_link(99, "Пакет 5 генераций", callback.from_user.id)
+    link = create_payment_link(99, "Пакет 10 генераций", callback.from_user.id)
     if not link:
-        await callback.message.answer(
-            "⚠️ Не удалось создать платёжную ссылку. Попробуй позже.",
-            parse_mode="HTML",
-        )
+        await callback.message.answer("⚠️ Не удалось создать платёжную ссылку. Попробуй позже.", parse_mode="HTML")
         return
     await callback.message.answer(
-        "✨ <b>Пакет 5 генераций — 99 ₽</b>\n\n"
-        "Нажми кнопку ниже, чтобы оплатить. После оплаты генерации зачислятся автоматически.",
+        "⚡ <b>Пакет 10 генераций — 99 ₽</b>\n\nНажми кнопку ниже, чтобы оплатить. После оплаты генерации зачислятся автоматически.",
         parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup(
-            inline_keyboard=[
-                [InlineKeyboardButton(text="💳 Оплатить 99 ₽", url=link)],
-            ]
-        ),
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="💳 Оплатить 99 ₽", url=link)],
+        ]),
     )
 
-@dp.callback_query(F.data == "buy_20_gen")
-async def handle_buy_20_gen(callback: CallbackQuery):
+@dp.callback_query(F.data == "buy_30_gen")
+async def handle_buy_30_gen(callback: CallbackQuery):
     await callback.answer()
-    link = create_payment_link(249, "Пакет 20 генераций", callback.from_user.id)
+    link = create_payment_link(199, "Пакет 30 генераций", callback.from_user.id)
     if not link:
-        await callback.message.answer(
-            "⚠️ Не удалось создать платёжную ссылку. Попробуй позже.",
-            parse_mode="HTML",
-        )
+        await callback.message.answer("⚠️ Не удалось создать платёжную ссылку. Попробуй позже.", parse_mode="HTML")
         return
     await callback.message.answer(
-        "✨ <b>Пакет 20 генераций — 249 ₽</b>\n\n"
-        "Нажми кнопку ниже, чтобы оплатить. После оплаты генерации зачислятся автоматически.",
+        "⚡ <b>Пакет 30 генераций — 199 ₽</b>\n\nНажми кнопку ниже, чтобы оплатить. После оплаты генерации зачислятся автоматически.",
         parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup(
-            inline_keyboard=[
-                [InlineKeyboardButton(text="💳 Оплатить 249 ₽", url=link)],
-            ]
-        ),
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="💳 Оплатить 199 ₽", url=link)],
+        ]),
     )
 
 # ===== ГЕНЕРАЦИЯ С ФОРМАТАМИ =====
