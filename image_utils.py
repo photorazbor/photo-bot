@@ -225,11 +225,11 @@ def draw_hints(image: Image.Image, drawings: list) -> Image.Image:
 
         # Переопределяем цвета для современного стиля
         if color == "red":
-            color = "#E57373"
+            color = "#FF4444"
         elif color == "green":
-            color = "#81C784"
+            color = "#44CC44"
         elif color == "yellow":
-            color = "#FFD54F"
+            color = "#FFCC00"
         elif color == "white":
             color = "#FFFFFF"
 
