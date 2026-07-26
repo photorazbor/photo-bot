@@ -386,7 +386,9 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str):
                 prompt += f" ОБЯЗАТЕЛЬНО убери тень фотографа или некрасивые теневые артефакты. {what_is_wrong}"
             else:
                 prompt += f" Сохрани художественную тень — она работает на кадр. {what_is_wrong}"
-        if "framing" in error_type or "cropping" in error_type or "fill_frame" in error_type:
+        if "cropping" in error_type:
+            prompt += f" ОБЯЗАТЕЛЬНО обрежь лишнее по краям — убери пустое пространство, которое отвлекает от главного объекта. Приблизь объект, сделай его крупнее в кадре. {what_is_wrong} {how_to_fix}"
+        if "framing" in error_type or "fill_frame" in error_type:
             prompt += f" Улучши композицию: если важный объект спрятан, обрезан или перекрыт — открой его, дорисуй недостающее. При необходимости расширь кадр или убери мешающие объекты. {what_is_wrong} {how_to_fix}"
         
         if wish and wish.lower() != "ок":
