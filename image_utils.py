@@ -45,7 +45,7 @@ def _hex_to_rgb(hex_color: str) -> tuple:
     return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
 
 
-def _draw_line_handdrawn(draw: ImageDraw.ImageDraw, x1, y1, x2, y2, color, width=3, opacity=180):
+def _draw_line_handdrawn(draw: ImageDraw.ImageDraw, x1, y1, x2, y2, color, width=3, opacity=230):
     """Рисует линию с лёгким дрожанием."""
     rgba_color = (*_hex_to_rgb(color), opacity)
     points = [(x1, y1)]
@@ -62,13 +62,10 @@ def _draw_line_handdrawn(draw: ImageDraw.ImageDraw, x1, y1, x2, y2, color, width
     for i in range(len(points) - 1):
         overlay_draw.line([points[i], points[i+1]], fill=rgba_color, width=width)
     
-    base = draw.im if hasattr(draw, 'im') else None
-    if base:
-        img = Image.open(io.BytesIO()) if base is None else None
     draw._image.paste(Image.alpha_composite(draw._image.convert("RGBA"), overlay).convert("RGB"))
 
 
-def _draw_dashed_line(draw: ImageDraw.ImageDraw, x1, y1, x2, y2, color, width=2, dash=12, gap=8, opacity=150):
+def _draw_dashed_line(draw: ImageDraw.ImageDraw, x1, y1, x2, y2, color, width=2, dash=12, gap=8, opacity=210):
     """Рисует стильную пунктирную линию."""
     rgba_color = (*_hex_to_rgb(color), opacity)
     total_length = math.hypot(x2 - x1, y2 - y1)
@@ -93,7 +90,7 @@ def _draw_dashed_line(draw: ImageDraw.ImageDraw, x1, y1, x2, y2, color, width=2,
     draw._image.paste(Image.alpha_composite(draw._image.convert("RGBA"), overlay).convert("RGB"))
 
 
-def _draw_arrow(draw: ImageDraw.ImageDraw, x1, y1, x2, y2, color, width=3, head_size=15, opacity=180):
+def _draw_arrow(draw: ImageDraw.ImageDraw, x1, y1, x2, y2, color, width=3, head_size=15, opacity=230):
     """Рисует стрелку с треугольным наконечником."""
     rgba_color = (*_hex_to_rgb(color), opacity)
     
@@ -139,12 +136,11 @@ def _draw_crop_frame(draw: ImageDraw.ImageDraw, image: Image.Image, x1, y1, x2, 
     image.paste(image_rgba)
 
     # Жёлтая пунктирная рамка
-    draw_backup = draw
     draw = ImageDraw.Draw(image)
-    _draw_dashed_line(draw, x1, y1, x2, y1, color, width=3, dash=15, gap=8, opacity=200)
-    _draw_dashed_line(draw, x1, y2, x2, y2, color, width=3, dash=15, gap=8, opacity=200)
-    _draw_dashed_line(draw, x1, y1, x1, y2, color, width=3, dash=15, gap=8, opacity=200)
-    _draw_dashed_line(draw, x2, y1, x2, y2, color, width=3, dash=15, gap=8, opacity=200)
+    _draw_dashed_line(draw, x1, y1, x2, y1, color, width=3, dash=15, gap=8, opacity=220)
+    _draw_dashed_line(draw, x1, y2, x2, y2, color, width=3, dash=15, gap=8, opacity=220)
+    _draw_dashed_line(draw, x1, y1, x1, y2, color, width=3, dash=15, gap=8, opacity=220)
+    _draw_dashed_line(draw, x2, y1, x2, y2, color, width=3, dash=15, gap=8, opacity=220)
 
 
 def _draw_grid_thirds(draw: ImageDraw.ImageDraw, image: Image.Image, color="#FFFFFF"):
@@ -153,13 +149,13 @@ def _draw_grid_thirds(draw: ImageDraw.ImageDraw, image: Image.Image, color="#FFF
     third_h = height // 3
     third_w = width // 3
 
-    _draw_dashed_line(draw, 0, third_h, width, third_h, color, width=2, dash=20, gap=12, opacity=120)
-    _draw_dashed_line(draw, 0, third_h * 2, width, third_h * 2, color, width=2, dash=20, gap=12, opacity=120)
-    _draw_dashed_line(draw, third_w, 0, third_w, height, color, width=2, dash=20, gap=12, opacity=120)
-    _draw_dashed_line(draw, third_w * 2, 0, third_w * 2, height, color, width=2, dash=20, gap=12, opacity=120)
+    _draw_dashed_line(draw, 0, third_h, width, third_h, color, width=2, dash=20, gap=12, opacity=180)
+    _draw_dashed_line(draw, 0, third_h * 2, width, third_h * 2, color, width=2, dash=20, gap=12, opacity=180)
+    _draw_dashed_line(draw, third_w, 0, third_w, height, color, width=2, dash=20, gap=12, opacity=180)
+    _draw_dashed_line(draw, third_w * 2, 0, third_w * 2, height, color, width=2, dash=20, gap=12, opacity=180)
 
 
-def _draw_marker_arc(draw: ImageDraw.ImageDraw, x1, y1, x2, y2, color="#FFB74D", width=4, opacity=180):
+def _draw_marker_arc(draw: ImageDraw.ImageDraw, x1, y1, x2, y2, color="#FFB74D", width=4, opacity=230):
     """Рисует незамкнутую дугу — имитация обводки маркером."""
     rgba_color = (*_hex_to_rgb(color), opacity)
     
@@ -187,7 +183,7 @@ def _draw_marker_arc(draw: ImageDraw.ImageDraw, x1, y1, x2, y2, color="#FFB74D",
     draw._image.paste(Image.alpha_composite(draw._image.convert("RGBA"), overlay).convert("RGB"))
 
 
-def _draw_marker_circle(draw: ImageDraw.ImageDraw, x1, y1, rx, ry, color="#FFB74D", width=4, opacity=180):
+def _draw_marker_circle(draw: ImageDraw.ImageDraw, x1, y1, rx, ry, color="#FFB74D", width=4, opacity=230):
     """Рисует незамкнутый эллипс — имитация обводки маркером."""
     rgba_color = (*_hex_to_rgb(color), opacity)
     
@@ -239,10 +235,10 @@ def draw_hints(image: Image.Image, drawings: list) -> Image.Image:
 
         try:
             if shape_type == "line":
-                _draw_line_handdrawn(draw, x1, y1, x2, y2, color, width=3, opacity=180)
+                _draw_line_handdrawn(draw, x1, y1, x2, y2, color, width=3, opacity=230)
 
             elif shape_type == "dashed_line":
-                _draw_dashed_line(draw, x1, y1, x2, y2, color, width=3, dash=15, gap=8, opacity=180)
+                _draw_dashed_line(draw, x1, y1, x2, y2, color, width=3, dash=15, gap=8, opacity=230)
 
             elif shape_type == "crop_frame":
                 _draw_crop_frame(draw, result, x1, y1, x2, y2, color)
@@ -252,13 +248,13 @@ def draw_hints(image: Image.Image, drawings: list) -> Image.Image:
 
             elif shape_type == "circle":
                 rx, ry = x2, y2
-                _draw_marker_circle(draw, x1, y1, rx, ry, "#FFB74D", width=4, opacity=180)
+                _draw_marker_circle(draw, x1, y1, rx, ry, "#FFB74D", width=4, opacity=230)
 
             elif shape_type == "frame":
-                _draw_marker_arc(draw, x1, y1, x2, y2, "#FFB74D", width=4, opacity=180)
+                _draw_marker_arc(draw, x1, y1, x2, y2, "#FFB74D", width=4, opacity=230)
 
             elif shape_type == "arrow":
-                _draw_arrow(draw, x1, y1, x2, y2, color, width=3, opacity=180)
+                _draw_arrow(draw, x1, y1, x2, y2, color, width=3, opacity=230)
 
         except Exception as e:
             print(f"Не удалось нарисовать {shape_type}: {e}")
