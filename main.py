@@ -564,28 +564,61 @@ async def handle_promo(message: Message):
     user_id = message.from_user.id
     args = message.text.split()
     
-    # Если это админ и хочет управлять промокодами
+    # Админ управляет промокодами
     if user_id == 456504792 and len(args) >= 2:
         action = args[1].lower()
         
         if action == "create" and len(args) >= 3:
             code = args[2].upper()
-            if len(args) >= 4 and args[3].lower() == "course":
-                # Промокод на курс
-                promo = _load_promo()
-                promo[code] = {"type": "course", "amount": 0, "used_by": []}
-                _save_promo(promo)
-                await message.answer(f"✅ Промокод <b>{code}</b> создан (курс)", parse_mode="HTML")
-            elif len(args) >= 4:
-                # Промокод на генерации
-                try:
-                    amount = int(args[3])
-                    promo = _load_promo()
-                    promo[code] = {"type": "gen", "amount": amount, "used_by": []}
-                    _save_promo(promo)
-                    await message.answer(f"✅ Промокод <b>{code}</b> создан ({amount} генераций)", parse_mode="HTML")
-                except ValueError:
-                    await message.answer("❌ Количество должно быть числом")
+            expiry_days = None
+            
+            # Проверяем, есть ли срок действия (последний аргумент)
+            if len(args) >= 4:
+                if args[-1].lower() == "course":
+                    ptype = "course"
+                    amount = 0
+                    if len(args) >= 5:
+                        try:
+                            expiry_days = int(args[-2])
+                        except ValueError:
+                            pass
+                else:
+                    try:
+                        amount = int(args[3])
+                        ptype = "gen"
+                        if len(args) >= 5:
+                            try:
+                                expiry_days = int(args[4])
+                            except ValueError:
+                                pass
+                    except ValueError:
+                        await message.answer("❌ Количество должно быть числом")
+                        return
+                
+                if len(args) == 4 and args[3].lower() == "course":
+                    ptype = "course"
+                    amount = 0
+            else:
+                await message.answer("❌ Укажи количество генераций или 'course'")
+                return
+            
+            promo = _load_promo()
+            expiry_date = None
+            if expiry_days:
+                from datetime import datetime, timedelta
+                expiry_date = (datetime.now() + timedelta(days=expiry_days)).isoformat()
+            
+            promo[code] = {
+                "type": ptype,
+                "amount": amount,
+                "used_by": [],
+                "expiry": expiry_date
+            }
+            _save_promo(promo)
+            
+            expiry_text = f" (действует {expiry_days} дн.)" if expiry_days else ""
+            type_text = "🎓 Курс" if ptype == "course" else f"⚡ {amount} ген."
+            await message.answer(f"✅ Промокод <b>{code}</b> создан — {type_text}{expiry_text}", parse_mode="HTML")
             return
         
         elif action == "list":
@@ -593,11 +626,35 @@ async def handle_promo(message: Message):
             if not promo:
                 await message.answer("📭 Нет активных промокодов")
                 return
+            
+            # Проверяем истёкшие и удаляем
+            expired = []
+            from datetime import datetime
+            for code, data in promo.items():
+                if data.get("expiry"):
+                    expiry = datetime.fromisoformat(data["expiry"])
+                    if datetime.now() > expiry:
+                        expired.append(code)
+            for code in expired:
+                del promo[code]
+            if expired:
+                _save_promo(promo)
+            
+            if not promo:
+                await message.answer("📭 Нет активных промокодов")
+                return
+            
             text = "🎫 <b>Промокоды:</b>\n\n"
             for code, data in promo.items():
                 ptype = "🎓 Курс" if data["type"] == "course" else f"⚡ {data['amount']} ген."
                 used = len(data["used_by"])
-                text += f"• <code>{code}</code> — {ptype} (исп.: {used})\n"
+                exp = ""
+                if data.get("expiry"):
+                    from datetime import datetime
+                    expiry = datetime.fromisoformat(data["expiry"])
+                    days_left = (expiry - datetime.now()).days
+                    exp = f" (⏳ {days_left} дн.)"
+                text += f"• <code>{code}</code> — {ptype} (исп.: {used}){exp}\n"
             await message.answer(text, parse_mode="HTML")
             return
         
@@ -627,6 +684,19 @@ async def handle_promo(message: Message):
     if len(args) == 2:
         code = args[1].upper()
         promo = _load_promo()
+        
+        # Проверяем истёкшие
+        from datetime import datetime
+        expired = []
+        for c, data in promo.items():
+            if data.get("expiry"):
+                expiry = datetime.fromisoformat(data["expiry"])
+                if datetime.now() > expiry:
+                    expired.append(c)
+        for c in expired:
+            del promo[c]
+        if expired:
+            _save_promo(promo)
         
         if code not in promo:
             await message.answer("❌ Такого промокода не существует")
@@ -659,100 +729,8 @@ async def handle_promo(message: Message):
         
         return
     
-    # Без аргументов — подсказка
     if len(args) == 1:
         await message.answer("🎫 <b>Промокоды</b>\n\nЕсли у тебя есть промокод — введи /promo КОД\n\nНапример: /promo START", parse_mode="HTML")
-
-# ===== ЛОГИКА КУРСА =====
-def _is_trial(user_id: int) -> bool:
-    users = _load_users()
-    uid = str(user_id)
-    if uid not in users:
-        for key, data in users.items():
-            if isinstance(data, dict) and data.get("username") == str(user_id):
-                uid = key
-                break
-        else:
-            return False
-    return users[uid].get("trial", False)
-
-
-def _payment_keyboard() -> InlineKeyboardMarkup:
-    link = create_payment_link(490, "Оплата за мини-курс по композиции")
-    if not link:
-        link = "https://t.me/moy_razbor_bot"
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="💳 Оплатить курс (490 ₽)", url=link)],
-        ]
-    )
-
-
-async def handle_course_status_logic(user_id: int, chat_id: int):
-    effective_has_access = has_access(user_id) and not (user_id == 456504792 and test_mode)
-    if effective_has_access:
-        user_mode[user_id] = "course"
-        status = get_status(user_id)
-        if status is not None:
-            if "День 0" in status or "Подготовка" in status:
-                await bot.send_message(
-                    chat_id,
-                    status,
-                    parse_mode="HTML",
-                    reply_markup=InlineKeyboardMarkup(
-                        inline_keyboard=[
-                            [InlineKeyboardButton(text="🚀 Начать курс", callback_data="start_course_btn")],
-                        ]
-                    ),
-                )
-                await send_photos(chat_id, 0)
-
-            elif "День 1" in status and _is_trial(user_id):
-                await bot.send_message(
-                    chat_id,
-                    status + "\n\n🆓 <b>Это твой бесплатный пробный день!</b>\n"
-                    "День 0 и День 1 — бесплатно, чтобы ты мог попробовать формат обучения.\n"
-                    "После выполнения задания откроется возможность оплатить полный доступ.",
-                    parse_mode="HTML",
-                )
-                await send_photos(chat_id, 1)
-
-            else:
-                await bot.send_message(chat_id, status, parse_mode="HTML")
-                users = _load_users()
-                uid = str(user_id)
-                if uid in users:
-                    day = users[uid].get("day", 1)
-                    await send_photos(chat_id, day)
-        return
-
-    await bot.send_message(
-        chat_id,
-        "🎓 <b>Мини-курс по композиции (10 дней)</b>\n\n"
-        "10-дневный челлендж с проверкой каждого задания:\n"
-        "• День 0: Подготовка телефона\n"
-        "• День 1: Горизонт и геометрия 🆓\n"
-        "• День 2: Правило третей\n"
-        "• День 3: Свет и тени\n"
-        "• День 4: Тень как приём\n"
-        "• День 5: Фрейминг\n"
-        "• День 6: Ритм и перспектива\n"
-        "• День 7: Отражения\n"
-        "• День 8: Глубина резкости и фокус\n"
-        "• День 9: Глубина кадра\n"
-        "• День 10: Человек в кадре\n\n"
-        "🆓 <b>День 0 и День 1 — бесплатно!</b>\n"
-        "Попробуй, посмотри примеры фотографий, выполни первое задание.\n\n"
-        "💰 Полный доступ ко всем 10 дням: 490 ₽\n\n"
-        "Начни бесплатно прямо сейчас!",
-        parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup(
-            inline_keyboard=[
-                [InlineKeyboardButton(text="🆓 Начать бесплатно", callback_data="start_trial")],
-                [InlineKeyboardButton(text="💳 Оплатить полный доступ (490 ₽)", callback_data="pay_course")],
-            ]
-        ),
-    )
 
 
 # ===== КНОПКИ КУРСА =====
