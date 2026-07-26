@@ -370,6 +370,8 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str):
             prompt += f" Исправь освещение: убери пересветы, добавь света в тени. {what_is_wrong}"
         if "shadow" in error_type:
             prompt += f" ОБЯЗАТЕЛЬНО убери тень фотографа или некрасивые теневые артефакты. {what_is_wrong}"
+        if "framing" in error_type or "cropping" in error_type or "fill_frame" in error_type:
+            prompt += f" Улучши композицию: если важный объект спрятан, обрезан или перекрыт — открой его, дорисуй недостающее. При необходимости расширь кадр или убери мешающие объекты. {what_is_wrong} {how_to_fix}"
         
         if wish and wish.lower() != "ок":
             prompt += f" Дополнительное пожелание: {wish}"
