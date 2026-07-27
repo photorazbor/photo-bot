@@ -307,7 +307,7 @@ def get_keyboard(user_id: int) -> InlineKeyboardMarkup:
         buttons.append([InlineKeyboardButton(text=f"✨ Улучшить фото (осталось {paid_left})", callback_data="gen_paid")])
     else:
         buttons.append([InlineKeyboardButton(text="⚡ 10 улучшений — 99 ₽", callback_data="buy_10_gen")])
-        buttons.append([InlineKeyboardButton(text="⚡ 30 улучшений — 199 ₽", callback_data="buy_30_gen")])
+        buttons.append([InlineKeyboardButton(text="⚡ 30 улучшений — 249 ₽", callback_data="buy_30_gen")])
 
     if has_access(user_id) and user_mode.get(user_id) == "course" and not test_mode:
         buttons.append([InlineKeyboardButton(text="📸 Продолжить курс", callback_data="mode_course")])
@@ -1048,15 +1048,15 @@ async def handle_buy_10_gen(callback: CallbackQuery):
 @dp.callback_query(F.data == "buy_30_gen")
 async def handle_buy_30_gen(callback: CallbackQuery):
     await callback.answer()
-    link = create_payment_link(199, "Пакет 30 генераций", callback.from_user.id)
+    link = create_payment_link(249, "Пакет 30 генераций", callback.from_user.id)
     if not link:
         await callback.message.answer("⚠️ Не удалось создать платёжную ссылку. Попробуй позже.", parse_mode="HTML")
         return
     await callback.message.answer(
-        "⚡ <b>Пакет 30 генераций — 199 ₽</b>\n\nНажми кнопку ниже, чтобы оплатить. После оплаты генерации зачислятся автоматически.",
+        "⚡ <b>Пакет 30 генераций — 249 ₽</b>\n\nНажми кнопку ниже, чтобы оплатить. После оплаты генерации зачислятся автоматически.",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="💳 Оплатить 199 ₽", url=link)],
+            [InlineKeyboardButton(text="💳 Оплатить 249 ₽", url=link)],
         ]),
     )
 
