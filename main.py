@@ -1229,12 +1229,6 @@ async def handle_photo(message: Message):
             last_analysis[user_id] = result
             add_analysis(user_id, error_type)
             _add_history(user_id, "analysis", f"Ошибки: {error_type}")
-                       
-                    invite_text,
-                    reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                        [InlineKeyboardButton(text="🎓 Мини-курс — попробовать бесплатно", callback_data="start_trial")],
-                    ])
-                )
 
         if result is None:
             await processing_msg.edit_text("😕 Не смог разобрать, попробуй другое фото.")
@@ -1258,7 +1252,7 @@ async def handle_photo(message: Message):
             f"🟢 зелёный — правильно\n"
             f"🟡 жёлтый — внимание"
         )
-                await message.answer(caption, reply_markup=get_keyboard(user_id))
+        await message.answer(caption, reply_markup=get_keyboard(user_id))
 
         # Приглашение на курс после каждого 5-го анализа
         from stats import _load_stats
