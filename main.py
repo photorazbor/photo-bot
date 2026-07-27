@@ -52,6 +52,7 @@ GEN_FILE = "generations.json"
 last_photo = {}
 gen_wish = {}
 gen_format = {}
+gen_retry_count = {}  # {user_id: количество перегенераций}
 test_mode = False
 
 HISTORY_FILE = "history.json"
@@ -418,12 +419,15 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str):
         except Exception:
             pass
 
-        if gen_type == "free" and not (user_id == 456504792 and not test_mode):
-            free_generations[user_id] = free_generations.get(user_id, 0) + 1
-            _save_gen()
-        elif gen_type == "paid":
-            paid_generations[user_id] = max(0, paid_generations.get(user_id, 0) - 1)
-            _save_gen()
+        retries = gen_retry_count.get(user_id, 0)
+        if retries == 0:
+            if gen_type == "free" and not (user_id == 456504792 and not test_mode):
+                free_generations[user_id] = free_generations.get(user_id, 0) + 1
+                _save_gen()
+            elif gen_type == "paid":
+                paid_generations[user_id] = max(0, paid_generations.get(user_id, 0) - 1)
+                _save_gen()
+        gen_retry_count[user_id] = retries + 1
 
         format_name = dict(FORMATS).get(fmt, fmt)
         await bot.send_photo(
@@ -433,12 +437,13 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str):
             reply_markup=get_keyboard(user_id),
         )
 
-        # Кнопки фидбека
-        feedback_kb = InlineKeyboardMarkup(inline_keyboard=[
+        # Кнопки после генерации
+        post_kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🔄 Перегенерировать", callback_data=f"gen_retry_{gen_type}_{user_id}")],
             [InlineKeyboardButton(text="👍 Хорошо", callback_data=f"fb_good_{user_id}"),
              InlineKeyboardButton(text="👎 Плохо", callback_data=f"fb_bad_{user_id}")],
         ])
-        await bot.send_message(chat_id, "Оцени результат:", reply_markup=feedback_kb)
+        await bot.send_message(chat_id, "Оцени результат или попробуй ещё раз:", reply_markup=post_kb)
 
     except Exception as e:
         logging.exception("Ошибка генерации")
@@ -1142,10 +1147,18 @@ async def handle_gen_paid(callback: CallbackQuery):
     )
 
 # ===== ФИДБЕК =====
-@dp.callback_query(F.data.startswith("fb_good_"))
-async def handle_fb_good(callback: CallbackQuery):
-    await callback.answer("Спасибо! 🙏")
-    await callback.message.edit_text("👍 Спасибо за оценку!")
+@dp.callback_query(F.data.startswith("gen_retry_"))
+async def handle_gen_retry(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    gen_type = parts[2]
+    user_id = int(parts[3])
+    
+    if gen_retry_count.get(user_id, 0) >= 2:
+        await callback.answer("Лимит перегенераций исчерпан. Попробуй новое фото!", show_alert=True)
+        return
+    
+    await callback.answer("🔄 Генерирую заново...")
+    await do_generation(user_id, callback.message.chat.id, gen_type)
 
 @dp.callback_query(F.data.startswith("fb_bad_"))
 async def handle_fb_bad(callback: CallbackQuery):
@@ -1201,6 +1214,7 @@ async def handle_photo(message: Message):
         image_bytes = image_to_bytes(image)
 
         last_photo[user_id] = image_bytes
+        gen_retry_count[user_id] = 0
 
         course_topic = None
         effective_has_access = has_access(user_id) and not (user_id == 456504792 and test_mode)
