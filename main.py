@@ -1230,21 +1230,6 @@ async def handle_photo(message: Message):
             add_analysis(user_id, error_type)
             _add_history(user_id, "analysis", f"Ошибки: {error_type}")
                        
-            # Приглашение на курс после каждого 5-го анализа
-            from stats import _load_stats
-            stats = _load_stats()
-            total = stats.get(str(user_id), {}).get("total", 0)
-            if total > 0 and total % 5 == 0:
-                if total == 5:
-                    invite_text = "📸 5 анализов — это уже подход! Хочешь сам видеть композицию как профи? Мини-курс: 10 дней практики. Начни бесплатно 🎓"
-                elif total == 10:
-                    invite_text = "🔍 10 анализов! Видишь закономерности в ошибках? Мини-курс поможет разобраться с ними системно. Первый день бесплатно 🚀"
-                elif total == 15:
-                    invite_text = "🔥 15 анализов — ты явно увлечён! Остался шаг до осознанной съёмки. Мини-курс — и ошибки уйдут. Попробуй бесплатный день 🎓"
-                else:
-                    invite_text = f"📸 {total} анализов! Закрепи навыки в мини-курсе по композиции. Первый день бесплатно 🎓"
-                await asyncio.sleep(1)
-                await message.answer(
                     invite_text,
                     reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                         [InlineKeyboardButton(text="🎓 Мини-курс — попробовать бесплатно", callback_data="start_trial")],
@@ -1273,7 +1258,28 @@ async def handle_photo(message: Message):
             f"🟢 зелёный — правильно\n"
             f"🟡 жёлтый — внимание"
         )
-        await message.answer(caption, reply_markup=get_keyboard(user_id))
+                await message.answer(caption, reply_markup=get_keyboard(user_id))
+
+        # Приглашение на курс после каждого 5-го анализа
+        from stats import _load_stats
+        stats = _load_stats()
+        total = stats.get(str(user_id), {}).get("total", 0)
+        if total > 0 and total % 5 == 0:
+            if total == 5:
+                invite_text = "📸 5 анализов — это уже подход! Хочешь сам видеть композицию как профи? Мини-курс: 10 дней практики. Начни бесплатно 🎓"
+            elif total == 10:
+                invite_text = "🔍 10 анализов! Видишь закономерности в ошибках? Мини-курс поможет разобраться с ними системно. Первый день бесплатно 🚀"
+            elif total == 15:
+                invite_text = "🔥 15 анализов — ты явно увлечён! Остался шаг до осознанной съёмки. Мини-курс — и ошибки уйдут. Попробуй бесплатный день 🎓"
+            else:
+                invite_text = f"📸 {total} анализов! Закрепи навыки в мини-курсе по композиции. Первый день бесплатно 🎓"
+            await asyncio.sleep(1)
+            await message.answer(
+                invite_text,
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="🎓 Мини-курс — попробовать бесплатно", callback_data="start_trial")],
+                ])
+            )
 
         if has_access(user_id) and user_mode.get(user_id) == "course":
             status = get_status(user_id)
