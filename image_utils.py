@@ -34,34 +34,20 @@ def image_to_bytes(image: Image.Image, fmt: str = "JPEG") -> bytes:
     return buffer.getvalue()
 
 
-def _jitter(coord: int, amount: int = 2) -> int:
-    """Добавляет лёгкое дрожание для имитации рисования от руки."""
-    return coord + random.randint(-amount, amount)
-
-
 def _hex_to_rgb(hex_color: str) -> tuple:
     """Переводит HEX в RGB."""
     hex_color = hex_color.lstrip('#')
     return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
 
 
-def _draw_line_handdrawn(draw: ImageDraw.ImageDraw, x1, y1, x2, y2, color, width=4, opacity=230):
-    """Рисует линию с лёгким дрожанием."""
+def _draw_solid_line(draw: ImageDraw.ImageDraw, x1, y1, x2, y2, color, width=5, opacity=255):
+    """Рисует яркую сплошную линию."""
     rgba_color = (*_hex_to_rgb(color), opacity)
-    points = [(x1, y1)]
-    steps = max(int(math.hypot(x2 - x1, y2 - y1) / 10), 1)
-    for i in range(1, steps):
-        t = i / steps
-        px = x1 + (x2 - x1) * t + random.randint(-2, 2)
-        py = y1 + (y2 - y1) * t + random.randint(-2, 2)
-        points.append((px, py))
-    points.append((x2, y2))
-    
+
     overlay = Image.new("RGBA", draw.im.size, (0, 0, 0, 0))
     overlay_draw = ImageDraw.Draw(overlay)
-    for i in range(len(points) - 1):
-        overlay_draw.line([points[i], points[i+1]], fill=rgba_color, width=width)
-    
+    overlay_draw.line([(x1, y1), (x2, y2)], fill=rgba_color, width=width)
+
     draw._image.paste(Image.alpha_composite(draw._image.convert("RGBA"), overlay).convert("RGB"))
 
 
@@ -90,17 +76,15 @@ def _draw_dashed_line(draw: ImageDraw.ImageDraw, x1, y1, x2, y2, color, width=2,
     draw._image.paste(Image.alpha_composite(draw._image.convert("RGBA"), overlay).convert("RGB"))
 
 
-def _draw_arrow(draw: ImageDraw.ImageDraw, x1, y1, x2, y2, color, width=3, head_size=15, opacity=230):
+def _draw_arrow(draw: ImageDraw.ImageDraw, x1, y1, x2, y2, color, width=5, head_size=18, opacity=255):
     """Рисует стрелку с треугольным наконечником."""
     rgba_color = (*_hex_to_rgb(color), opacity)
-    
+
     overlay = Image.new("RGBA", draw.im.size, (0, 0, 0, 0))
     overlay_draw = ImageDraw.Draw(overlay)
-    
-    # Линия
+
     overlay_draw.line([(x1, y1), (x2, y2)], fill=rgba_color, width=width)
 
-    # Наконечник
     angle = math.atan2(y2 - y1, x2 - x1)
     left_angle = angle + math.radians(150)
     right_angle = angle - math.radians(150)
@@ -109,15 +93,14 @@ def _draw_arrow(draw: ImageDraw.ImageDraw, x1, y1, x2, y2, color, width=3, head_
     right_point = (x2 + head_size * math.cos(right_angle), y2 + head_size * math.sin(right_angle))
 
     overlay_draw.polygon([(x2, y2), left_point, right_point], fill=rgba_color)
-    
+
     draw._image.paste(Image.alpha_composite(draw._image.convert("RGBA"), overlay).convert("RGB"))
 
 
-def _draw_crop_frame(draw: ImageDraw.ImageDraw, image: Image.Image, x1, y1, x2, y2, color="#FFD54F"):
+def _draw_crop_frame(draw: ImageDraw.ImageDraw, image: Image.Image, x1, y1, x2, y2, color="#FFDD00"):
     """Рисует жёлтую пунктирную рамку кадрирования и затемняет область за ней."""
     width, height = image.size
 
-    # Затемняем область за рамкой
     overlay = Image.new("RGBA", image.size, (0, 0, 0, 0))
     overlay_draw = ImageDraw.Draw(overlay)
 
@@ -135,7 +118,6 @@ def _draw_crop_frame(draw: ImageDraw.ImageDraw, image: Image.Image, x1, y1, x2, 
     image_rgba = image_rgba.convert("RGB")
     image.paste(image_rgba)
 
-    # Жёлтая пунктирная рамка
     draw = ImageDraw.Draw(image)
     _draw_dashed_line(draw, x1, y1, x2, y1, color, width=3, dash=15, gap=8, opacity=220)
     _draw_dashed_line(draw, x1, y2, x2, y2, color, width=3, dash=15, gap=8, opacity=220)
@@ -155,90 +137,61 @@ def _draw_grid_thirds(draw: ImageDraw.ImageDraw, image: Image.Image, color="#FFF
     _draw_dashed_line(draw, third_w * 2, 0, third_w * 2, height, color, width=2, dash=20, gap=12, opacity=180)
 
 
-def _draw_marker_arc(draw: ImageDraw.ImageDraw, x1, y1, x2, y2, color="#FFB74D", width=4, opacity=230):
-    """Рисует незамкнутую дугу — имитация обводки маркером."""
+def _draw_marker_circle(draw: ImageDraw.ImageDraw, x1, y1, rx, ry, color="#FFB74D", width=6, opacity=255):
+    """Рисует яркий замкнутый эллипс."""
     rgba_color = (*_hex_to_rgb(color), opacity)
-    
+
     overlay = Image.new("RGBA", draw.im.size, (0, 0, 0, 0))
     overlay_draw = ImageDraw.Draw(overlay)
-    
-    # Рисуем 4 угла как дуги, но не замыкаем прямоугольник полностью
-    gap = 30  # Разрыв в углах для эффекта скобок
-    
-    # Верхняя линия
-    overlay_draw.line([(x1 + gap, y1), (x2 - gap, y1)], fill=rgba_color, width=width)
-    # Правая линия
-    overlay_draw.line([(x2, y1 + gap), (x2, y2 - gap)], fill=rgba_color, width=width)
-    # Нижняя линия
-    overlay_draw.line([(x2 - gap, y2), (x1 + gap, y2)], fill=rgba_color, width=width)
-    # Левая линия
-    overlay_draw.line([(x1, y2 - gap), (x1, y1 + gap)], fill=rgba_color, width=width)
-    
-    # Маленькие закругления на углах
-    overlay_draw.arc([(x1 - 5, y1 - 5), (x1 + gap + 5, y1 + gap + 5)], 180, 270, fill=rgba_color, width=width)
-    overlay_draw.arc([(x2 - gap - 5, y1 - 5), (x2 + 5, y1 + gap + 5)], 270, 360, fill=rgba_color, width=width)
-    overlay_draw.arc([(x2 - gap - 5, y2 - gap - 5), (x2 + 5, y2 + 5)], 0, 90, fill=rgba_color, width=width)
-    overlay_draw.arc([(x1 - 5, y2 - gap - 5), (x1 + gap + 5, y2 + 5)], 90, 180, fill=rgba_color, width=width)
-    
+
+    bbox = [(x1 - rx, y1 - ry), (x1 + rx, y1 + ry)]
+    overlay_draw.ellipse(bbox, outline=rgba_color, width=width)
+
     draw._image.paste(Image.alpha_composite(draw._image.convert("RGBA"), overlay).convert("RGB"))
 
 
-def _draw_marker_circle(draw: ImageDraw.ImageDraw, x1, y1, rx, ry, color="#FFB74D", width=4, opacity=230):
-    """Рисует незамкнутый эллипс — имитация обводки маркером."""
+def _draw_marker_rect(draw: ImageDraw.ImageDraw, x1, y1, x2, y2, color="#FFB74D", width=6, opacity=255):
+    """Рисует яркий замкнутый прямоугольник."""
     rgba_color = (*_hex_to_rgb(color), opacity)
-    
+
     overlay = Image.new("RGBA", draw.im.size, (0, 0, 0, 0))
     overlay_draw = ImageDraw.Draw(overlay)
-    
-    # Рисуем почти полный эллипс с разрывом
-    bbox = [(x1 - rx, y1 - ry), (x1 + rx, y1 + ry)]
-    overlay_draw.arc(bbox, 30, 330, fill=rgba_color, width=width)
-    
-    # Лёгкие штрихи на концах для имитации маркера
-    angle_start = math.radians(30)
-    angle_end = math.radians(330)
-    
-    start_x = x1 + rx * math.cos(angle_start)
-    start_y = y1 + ry * math.sin(angle_start)
-    end_x = x1 + rx * math.cos(angle_end)
-    end_y = y1 + ry * math.sin(angle_end)
-    
-    overlay_draw.line([(start_x - 5, start_y - 5), (start_x, start_y)], fill=rgba_color, width=width - 1)
-    overlay_draw.line([(end_x, end_y), (end_x + 5, end_y - 5)], fill=rgba_color, width=width - 1)
-    
+
+    overlay_draw.rectangle([(x1, y1), (x2, y2)], outline=rgba_color, width=width)
+
     draw._image.paste(Image.alpha_composite(draw._image.convert("RGBA"), overlay).convert("RGB"))
 
 
 def draw_hints(image: Image.Image, drawings: list) -> Image.Image:
     """
     Рисует поверх фото список подсказок (линии, круги, рамки, стрелки),
-    полученных от ИИ. Стиль — живой, маркерный, современный.
+    полученных от ИИ. Стиль — яркий маркерный, без дрожания.
     """
     result = image.copy()
     draw = ImageDraw.Draw(result)
 
     for item in drawings:
         shape_type = item.get("type")
-        color = item.get("color", "#E57373")  # По умолчанию мягкий красный
+        color = item.get("color", "#FF2222")
         x1, y1 = item.get("x1", 0), item.get("y1", 0)
         x2, y2 = item.get("x2", 0), item.get("y2", 0)
 
-        # Переопределяем цвета для современного стиля
+        # Яркие маркерные цвета
         if color == "red":
-            color = "#FF4444"
+            color = "#FF2222"
         elif color == "green":
-            color = "#44CC44"
+            color = "#00DD00"
         elif color == "yellow":
-            color = "#FFCC00"
+            color = "#FFDD00"
         elif color == "white":
             color = "#FFFFFF"
 
         try:
             if shape_type == "line":
-                _draw_line_handdrawn(draw, x1, y1, x2, y2, color, width=4, opacity=230)
+                _draw_solid_line(draw, x1, y1, x2, y2, color, width=5, opacity=255)
 
             elif shape_type == "dashed_line":
-                _draw_dashed_line(draw, x1, y1, x2, y2, color, width=4, dash=15, gap=8, opacity=230)
+                _draw_dashed_line(draw, x1, y1, x2, y2, color, width=4, dash=12, gap=8, opacity=240)
 
             elif shape_type == "crop_frame":
                 _draw_crop_frame(draw, result, x1, y1, x2, y2, color)
@@ -248,13 +201,13 @@ def draw_hints(image: Image.Image, drawings: list) -> Image.Image:
 
             elif shape_type == "circle":
                 rx, ry = x2, y2
-                _draw_marker_circle(draw, x1, y1, rx, ry, "#FFB74D", width=4, opacity=230)
+                _draw_marker_circle(draw, x1, y1, rx, ry, "#FFB74D", width=6, opacity=255)
 
             elif shape_type == "frame":
-                _draw_marker_arc(draw, x1, y1, x2, y2, "#FFB74D", width=4, opacity=230)
+                _draw_marker_rect(draw, x1, y1, x2, y2, "#FFB74D", width=6, opacity=255)
 
             elif shape_type == "arrow":
-                _draw_arrow(draw, x1, y1, x2, y2, color, width=4, opacity=230)
+                _draw_arrow(draw, x1, y1, x2, y2, color, width=5, opacity=255)
 
         except Exception as e:
             print(f"Не удалось нарисовать {shape_type}: {e}")
