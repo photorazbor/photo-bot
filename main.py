@@ -302,7 +302,7 @@ def get_keyboard(user_id: int) -> InlineKeyboardMarkup:
     if user_id == 456504792 and not test_mode:
         buttons.append([InlineKeyboardButton(text="✨ Улучшить фото (автор)", callback_data="gen_free")])
     elif free_left > 0:
-        buttons.append([InlineKeyboardButton(text="✨ Улучшить фото (1 бесплатно)", callback_data="gen_free")])
+        buttons.append([InlineKeyboardButton(text="✨ Улучшить фото (5 бесплатно)", callback_data="gen_free")])
     elif paid_left > 0:
         buttons.append([InlineKeyboardButton(text=f"✨ Улучшить фото (осталось {paid_left})", callback_data="gen_paid")])
     else:
