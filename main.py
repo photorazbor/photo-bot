@@ -457,15 +457,25 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str):
 @dp.message(CommandStart())
 async def handle_start(message: Message):
     _add_history(message.from_user.id, "start", "Запустил бота")
-    await message.answer(
-        "👋 <b>Привет! Я — бот-наставник по мобильной фотографии.</b>\n\n"
-        "📸 <b>Бесплатный анализ:</b> пришли фото — я найду ошибки композиции и покажу их прямо на снимке.\n\n"
-        "✨ <b>Улучшение фото:</b> ИИ исправит композицию, свет, уберёт лишнее и дорисует края.\n\n"
-        "🎓 <b>Мини-курс по композиции (10 дней):</b> с проверкой каждого задания. Первый день — бесплатно, чтобы попробовать.\n\n"
-        "💛 <b>Поддержать проект:</b> если бот оказался полезным — можно поддержать разработку.\n\n"
-        "Присылай фото и начнём разбор! 👇",
-        reply_markup=AUTHOR_KEYBOARD,
+    
+    PHOTO_BASE = "https://raw.githubusercontent.com/photorazbor/photo-bot/main"
+    await message.answer_photo(
+        URLInputFile(f"{PHOTO_BASE}/start_banner.jpg"),
+        caption=(
+            "👋 <b>Привет! Я — бот-наставник по мобильной фотографии.</b>\n\n"
+            "📸 <b>Бесплатный анализ:</b> пришли фото — я найду ошибки композиции и покажу их прямо на снимке.\n\n"
+            "✨ <b>Улучшение фото:</b> ИИ исправит композицию, свет, уберёт лишнее и дорисует края.\n\n"
+            "🎓 <b>Мини-курс по композиции (10 дней):</b> с проверкой каждого задания. Первый день — бесплатно.\n\n"
+            "Присылай фото и начнём разбор! 👇"
+        ),
         parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📸 Разобрать фото", callback_data="new_photo")],
+            [InlineKeyboardButton(text="✨ Улучшить фото", callback_data="gen_free")],
+            [InlineKeyboardButton(text="🎓 Мини-курс", callback_data="course_status")],
+            [InlineKeyboardButton(text="💰 Цены и поддержка", callback_data="donate_menu")],
+            [InlineKeyboardButton(text="👤 Об авторе", callback_data="author_info")],
+        ])
     )
 
 @dp.message(Command("author"))
