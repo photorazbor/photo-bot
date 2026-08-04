@@ -1084,18 +1084,16 @@ def register_format_handlers():
             async def handler(callback: CallbackQuery):
                 user_id = callback.from_user.id
                 gen_format[user_id] = fmt
-                await callback.answer(f"Выбран: {name}")
+                await callback.answer()
                 await callback.message.answer(
-                    f"✨ Выбран формат: <b>{name}</b>\n\n"
-                    "Напиши пожелание, например:\n"
-                    "• «вытяни ноги, сделай позу изящнее»\n"
-                    "• «убери провода и мусор»\n"
-                    "• «сделай свет мягче и теплее»\n"
-                    "• «дорисуй обрезанный край»\n"
-                    "Или напиши «ок» для стандартного улучшения.",
+                    f"✨ Выбран формат: <b>{name}</b>\n\nЧто делаем?",
                     parse_mode="HTML",
+                    reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                        [InlineKeyboardButton(text="🆗 Улучшить", callback_data=f"gen_go_ok_free_{user_id}")],
+                        [InlineKeyboardButton(text="🧍 Исправить позу", callback_data=f"gen_go_pose_free_{user_id}")],
+                        [InlineKeyboardButton(text="✏️ Свой промпт", callback_data=f"gen_go_custom_free_{user_id}")],
+                    ])
                 )
-                user_mode[user_id] = "gen_wish_free"
             return handler
 
         def make_paid_handler(fmt=fmt, name=name):
@@ -1103,18 +1101,16 @@ def register_format_handlers():
             async def handler(callback: CallbackQuery):
                 user_id = callback.from_user.id
                 gen_format[user_id] = fmt
-                await callback.answer(f"Выбран: {name}")
+                await callback.answer()
                 await callback.message.answer(
-                    f"✨ Выбран формат: <b>{name}</b>\n\n"
-                    "Напиши пожелание, например:\n"
-                    "• «вытяни ноги, сделай позу изящнее»\n"
-                    "• «убери провода и мусор»\n"
-                    "• «сделай свет мягче и теплее»\n"
-                    "• «дорисуй обрезанный край»\n"
-                    "Или напиши «ок» для стандартного улучшения.",
+                    f"✨ Выбран формат: <b>{name}</b>\n\nЧто делаем?",
                     parse_mode="HTML",
+                    reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                        [InlineKeyboardButton(text="🆗 Улучшить", callback_data=f"gen_go_ok_paid_{user_id}")],
+                        [InlineKeyboardButton(text="🧍 Исправить позу", callback_data=f"gen_go_pose_paid_{user_id}")],
+                        [InlineKeyboardButton(text="✏️ Свой промпт", callback_data=f"gen_go_custom_paid_{user_id}")],
+                    ])
                 )
-                user_mode[user_id] = "gen_wish_paid"
             return handler
 
         make_free_handler()
@@ -1122,7 +1118,42 @@ def register_format_handlers():
 
 
 register_format_handlers()
+@dp.callback_query(F.data.startswith("gen_go_ok_"))
+async def handle_gen_go_ok(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    gen_type = parts[3]
+    user_id = int(parts[4])
+    gen_wish[user_id] = "ок"
+    user_mode[user_id] = f"gen_wish_{gen_type}"
+    await callback.answer()
+    await do_generation(user_id, callback.message.chat.id, gen_type)
+    user_mode[user_id] = "free"
 
+@dp.callback_query(F.data.startswith("gen_go_pose_"))
+async def handle_gen_go_pose(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    gen_type = parts[3]
+    user_id = int(parts[4])
+    gen_wish[user_id] = "Сфокусируйся ТОЛЬКО на позе человека: сделай её изящнее и естественнее, исправь осанку, добавь лёгкий разворот корпуса. НЕ меняй кадрирование, не обрезай края, не трогай фон и освещение."
+    user_mode[user_id] = f"gen_wish_{gen_type}"
+    await callback.answer()
+    await do_generation(user_id, callback.message.chat.id, gen_type)
+    user_mode[user_id] = "free"
+
+@dp.callback_query(F.data.startswith("gen_go_custom_"))
+async def handle_gen_go_custom(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    gen_type = parts[3]
+    user_id = int(parts[4])
+    user_mode[user_id] = f"gen_wish_{gen_type}"
+    await callback.answer()
+    await callback.message.answer(
+        "✏️ Напиши пожелание, например:\n"
+        "• «убери провода и мусор»\n"
+        "• «сделай свет мягче и теплее»\n"
+        "• «дорисуй обрезанный край»\n"
+        "• «добавь закатное небо»"
+    )
 
 @dp.callback_query(F.data == "gen_free")
 async def handle_gen_free(callback: CallbackQuery):
