@@ -179,27 +179,34 @@ Drawings: line, dashed_line, circle, frame, arrow, grid_thirds, crop_frame.
 
     response = requests.post(f"{BASE_URL}/chat/completions", headers=headers, json=payload, timeout=60)
 
-    print(f"Статус: {response.status_code}")
-    print(f"Ответ (первые 500 символов): {response.text[:500]}")
-
     if response.status_code != 200:
         print(f"Ошибка API: {response.status_code} {response.text}")
         return None
 
-    try:
-        raw_text = response.json()["choices"][0]["message"]["content"]
-        print(f"Контент: {raw_text[:200]}")
-    except Exception as e:
-        print(f"Ошибка парсинга ответа: {e}")
-        print(f"Полный ответ: {response.text}")
+    # Собираем streaming-ответ из чанков
+    full_content = ""
+    for line in response.text.split('\n'):
+        line = line.strip()
+        if line.startswith('data: ') and line != 'data: [DONE]':
+            try:
+                chunk = json.loads(line[6:])  # убираем "data: "
+                delta = chunk.get("choices", [{}])[0].get("delta", {}).get("content", "")
+                full_content += delta
+            except json.JSONDecodeError:
+                continue
+
+    if not full_content:
+        print("Пустой ответ от API")
         return None
+
+    print(f"Контент: {full_content[:200]}")
+    raw_text = full_content
 
     try:
         return _extract_json(raw_text)
     except (json.JSONDecodeError, AttributeError) as e:
         print(f"Не удалось распарсить JSON: {e}\nОтвет модели: {raw_text}")
         return None
-
 
 def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
     """Генерирует изображение через Gemini Image API на CheapAI (Формат 1)."""
