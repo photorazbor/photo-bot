@@ -165,6 +165,7 @@ Drawings: line, dashed_line, circle, frame, arrow, grid_thirds, crop_frame.
 
     payload = {
         "model": "gemini-3.5-flash",
+        "stream": False,
         "messages": [
             {
                 "role": "user",
@@ -183,27 +184,7 @@ Drawings: line, dashed_line, circle, frame, arrow, grid_thirds, crop_frame.
         print(f"Ошибка API: {response.status_code} {response.text}")
         return None
 
-    # Собираем streaming-ответ из чанков
-    full_content = ""
-    for line in response.text.split('\n'):
-        line = line.strip()
-        if line.startswith('data: ') and line != 'data: [DONE]':
-            try:
-                chunk = json.loads(line[6:])  # убираем "data: "
-                choices = chunk.get("choices", [])
-                if not choices:
-                    continue
-                delta = choices[0].get("delta", {}).get("content", "")
-                full_content += delta
-            except json.JSONDecodeError:
-                continue
-
-    if not full_content:
-        print("Пустой ответ от API")
-        return None
-
-    print(f"Контент: {full_content[:200]}")
-    raw_text = full_content
+    raw_text = response.json()["choices"][0]["message"]["content"]
 
     try:
         return _extract_json(raw_text)
