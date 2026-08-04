@@ -1179,10 +1179,11 @@ async def handle_gen_free(callback: CallbackQuery):
         return
     await callback.answer()
     await callback.message.answer(
-        "✨ <b>Улучшение фото (бесплатно)</b>\n\n"
-        "Выбери формат, затем напиши пожелание (или «ок»):",
+        "✨ <b>Улучшение фото</b>\n\n"
+        f"Осталось генераций: {paid_generations.get(user_id, 0)}\n\n"
+        "Выбери формат:",
         parse_mode="HTML",
-        reply_markup=format_keyboard("free"),
+        reply_markup=format_keyboard("paid"),
     )
 
 
