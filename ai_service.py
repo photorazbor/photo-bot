@@ -190,7 +190,10 @@ Drawings: line, dashed_line, circle, frame, arrow, grid_thirds, crop_frame.
         if line.startswith('data: ') and line != 'data: [DONE]':
             try:
                 chunk = json.loads(line[6:])  # убираем "data: "
-                delta = chunk.get("choices", [{}])[0].get("delta", {}).get("content", "")
+                choices = chunk.get("choices", [])
+                if not choices:
+                    continue
+                delta = choices[0].get("delta", {}).get("content", "")
                 full_content += delta
             except json.JSONDecodeError:
                 continue
