@@ -179,11 +179,20 @@ Drawings: line, dashed_line, circle, frame, arrow, grid_thirds, crop_frame.
 
     response = requests.post(f"{BASE_URL}/chat/completions", headers=headers, json=payload, timeout=60)
 
+    print(f"Статус: {response.status_code}")
+    print(f"Ответ (первые 500 символов): {response.text[:500]}")
+
     if response.status_code != 200:
         print(f"Ошибка API: {response.status_code} {response.text}")
         return None
 
-    raw_text = response.json()["choices"][0]["message"]["content"]
+    try:
+        raw_text = response.json()["choices"][0]["message"]["content"]
+        print(f"Контент: {raw_text[:200]}")
+    except Exception as e:
+        print(f"Ошибка парсинга ответа: {e}")
+        print(f"Полный ответ: {response.text}")
+        return None
 
     try:
         return _extract_json(raw_text)
