@@ -1091,6 +1091,7 @@ def register_format_handlers():
                     reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                         [InlineKeyboardButton(text="✨ Улучшить", callback_data=f"gen_go_ok_free_{user_id}")],
                         [InlineKeyboardButton(text="🔍 Глубокое улучшение", callback_data=f"gen_go_deep_free_{user_id}")],
+                        [InlineKeyboardButton(text="🎨 Полная переработка", callback_data=f"gen_go_full_free_{user_id}")],
                         [InlineKeyboardButton(text="🧍 Исправить позу", callback_data=f"gen_go_pose_free_{user_id}")],
                         [InlineKeyboardButton(text="🔄 Поменять позу", callback_data=f"gen_go_repose_free_{user_id}")],
                         [InlineKeyboardButton(text="✏️ Свой промпт", callback_data=f"gen_go_custom_free_{user_id}")],
@@ -1110,6 +1111,7 @@ def register_format_handlers():
                     reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                         [InlineKeyboardButton(text="✨ Улучшить", callback_data=f"gen_go_ok_paid_{user_id}")],
                         [InlineKeyboardButton(text="🔍 Глубокое улучшение", callback_data=f"gen_go_deep_paid_{user_id}")],
+                        [InlineKeyboardButton(text="🎨 Полная переработка", callback_data=f"gen_go_full_free_{user_id}")],
                         [InlineKeyboardButton(text="🧍 Исправить позу", callback_data=f"gen_go_pose_paid_{user_id}")],
                         [InlineKeyboardButton(text="🔄 Поменять позу", callback_data=f"gen_go_repose_paid_{user_id}")],
                         [InlineKeyboardButton(text="✏️ Свой промпт", callback_data=f"gen_go_custom_paid_{user_id}")],
@@ -1139,6 +1141,17 @@ async def handle_gen_go_deep(callback: CallbackQuery):
     gen_type = parts[3]
     user_id = int(parts[4])
     gen_wish[user_id] = "ОБЯЗАТЕЛЬНО выровняй горизонт и вертикали. Убери весь мусор, грязь, отвлекающие объекты. Сделай кадр максимально чистым, опрятным и вылизанным. Улучши свет, цвета, композицию."
+    user_mode[user_id] = f"gen_wish_{gen_type}"
+    await callback.answer()
+    await do_generation(user_id, callback.message.chat.id, gen_type)
+    user_mode[user_id] = "free"
+
+@dp.callback_query(F.data.startswith("gen_go_full_"))
+async def handle_gen_go_full(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    gen_type = parts[3]
+    user_id = int(parts[4])
+    gen_wish[user_id] = "Полностью переработай кадр: исправь позу на изящную и естественную, замени фон на более эстетичный и подходящий по смыслу, убери все лишние детали (пластыри, мусор, грязь), улучши свет и цвета. Сохрани лицо, мимику, цвет кожи и одежду в точности как на исходном фото."
     user_mode[user_id] = f"gen_wish_{gen_type}"
     await callback.answer()
     await do_generation(user_id, callback.message.chat.id, gen_type)
