@@ -1418,10 +1418,23 @@ async def handle_photo(message: Message):
     image_bytes = image_to_bytes(image)
     last_photo[user_id] = image_bytes
     gen_retry_count[user_id] = 0
+    
+    if mode in ("gen_wish_free", "gen_wish_paid"):
+        gen_type = "free" if "free" in mode else "paid"
+        await do_generation(user_id, message.chat.id, gen_type)
+        user_mode[user_id] = "free"
+        return
+
+    if mode == "change_format":
+        await message.answer(
+            "Выбери формат:",
+            reply_markup=format_keyboard("paid" if paid_generations.get(user_id, 0) > 0 else "free"),
+        )
+        return
 
     # Проверяем, есть ли у пользователя активный заказ на авторский разбор
-orders = _load_author_orders()
-active_order = None
+    orders = _load_author_orders()
+    active_order = None
 for order in orders:
     if order["user_id"] == user_id and order["status"] == "paid" and len(order.get("photos", [])) < 3:
         active_order = order
@@ -1445,19 +1458,6 @@ if active_order:
     with open(AUTHOR_ORDERS_FILE, "w", encoding="utf-8") as f:
         json.dump(all_orders, f, ensure_ascii=False, indent=2)
     return
-
-    if mode in ("gen_wish_free", "gen_wish_paid"):
-        gen_type = "free" if "free" in mode else "paid"
-        await do_generation(user_id, message.chat.id, gen_type)
-        user_mode[user_id] = "free"
-        return
-
-    if mode == "change_format":
-        await message.answer(
-            "Выбери формат:",
-            reply_markup=format_keyboard("paid" if paid_generations.get(user_id, 0) > 0 else "free"),
-        )
-        return
 
     processing_msg = await message.answer("🔍 Анализирую кадр... Обычно до минуты, иногда быстрее.")
 
