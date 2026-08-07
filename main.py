@@ -537,6 +537,11 @@ async def handle_admin(message: Message):
             parse_mode="HTML")
         return
     command = args[1].lower()
+    if command == "reset_orders":
+        with open(AUTHOR_ORDERS_FILE, "w", encoding="utf-8") as f:
+            json.dump([], f)
+        await message.answer("✅ Заказы сброшены")
+        return
     if command == "stats":
         users = _load_users()
         history = _load_history()
