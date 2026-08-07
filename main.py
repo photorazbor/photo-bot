@@ -908,6 +908,31 @@ async def handle_retry_button(callback: CallbackQuery):
 async def handle_main_menu(callback: CallbackQuery):
     await callback.answer()
     PHOTO_BASE = "https://raw.githubusercontent.com/photorazbor/photo-bot/main"
+    gen_left = 5 - free_generations.get(callback.from_user.id, 0) + paid_generations.get(callback.from_user.id, 0)
+    await callback.message.answer_photo(
+        URLInputFile(f"{PHOTO_BASE}/start_banner.jpg"),
+        caption=(
+            "👋 <b>Привет! Я — бот-наставник по мобильной фотографии.</b>\n\n"
+            "📸 <b>Бесплатный анализ:</b> пришли фото — я найду ошибки композиции и покажу их прямо на снимке.\n\n"
+            "✨ <b>Улучшение фото:</b> ИИ исправит композицию, свет, уберёт лишнее и дорисует края.\n\n"
+            "📐 <b>Смена формата:</b> загрузи готовое фото — адаптирую под любой формат: квадрат, сториз, панорама. Дорисую края и перестрою композицию.\n\n"
+            "🎓 <b>Мини-курс по композиции (10 дней):</b> с проверкой каждого задания. Первый день — бесплатно.\n\n"
+            f"Присылай фото и начнём разбор! 👇\n\n💎 Осталось генераций: {gen_left}"
+        ),
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📸 Разобрать фото", callback_data="new_photo")],
+            [InlineKeyboardButton(text="📐 Сменить формат", callback_data="change_format")],
+            [InlineKeyboardButton(text="🎓 Мини-курс", callback_data="course_status")],
+            [InlineKeyboardButton(text="💰 Цены и поддержка", callback_data="donate_menu")],
+            [InlineKeyboardButton(text="👤 Об авторе", callback_data="author_info")],
+        ])
+    )
+
+@dp.callback_query(F.data == "main_menu")
+async def handle_main_menu(callback: CallbackQuery):
+    await callback.answer()
+    PHOTO_BASE = "https://raw.githubusercontent.com/photorazbor/photo-bot/main"
     await callback.message.answer_photo(
         URLInputFile(f"{PHOTO_BASE}/start_banner.jpg"),
         caption=(
