@@ -52,6 +52,7 @@ last_photo = {}
 gen_wish = {}
 gen_format = {}
 gen_retry_count = {}
+change_format_warnings = {}
 test_mode = False
 
 HISTORY_FILE = "history.json"
@@ -289,6 +290,7 @@ def get_keyboard(user_id: int) -> InlineKeyboardMarkup:
         buttons.append([InlineKeyboardButton(text="🎓 Мини-курс по композиции (490 ₽)", callback_data="course_status")])
     buttons.append([InlineKeyboardButton(text="📊 Моя статистика", callback_data="my_stats")])
     buttons.append([InlineKeyboardButton(text="📷 Разобрать другое фото", callback_data="new_photo")])
+    buttons.append([InlineKeyboardButton(text="📐 Сменить формат этого фото", callback_data="change_format_same")])
     buttons.append([InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
@@ -420,7 +422,7 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
         )
 
         post_kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🔄 Перегенерировать", callback_data=f"gen_retry_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="🔄 Перегенерировать (бесплатно)", callback_data=f"gen_retry_{gen_type}_{user_id}")],
             [InlineKeyboardButton(text="⚡ Усилить (-1 ген.)", callback_data=f"gen_boost_menu_{gen_type}_{user_id}")],
             [InlineKeyboardButton(text="👍 Хорошо", callback_data=f"fb_good_{user_id}"),
              InlineKeyboardButton(text="👎 Плохо", callback_data=f"fb_bad_{user_id}")],
@@ -442,8 +444,9 @@ async def handle_start(message: Message):
             "👋 <b>Привет! Я — бот-наставник по мобильной фотографии.</b>\n\n"
             "📸 <b>Бесплатный анализ:</b> пришли фото — я найду ошибки композиции и покажу их прямо на снимке.\n\n"
             "✨ <b>Улучшение фото:</b> ИИ исправит композицию, свет, уберёт лишнее и дорисует края.\n\n"
+            "📐 <b>Смена формата:</b> загрузи готовое фото — адаптирую под любой формат: квадрат, сториз, панорама. Дорисую края и перестрою композицию.\n\n"
             "🎓 <b>Мини-курс по композиции (10 дней):</b> с проверкой каждого задания. Первый день — бесплатно.\n\n"
-            "Присылай фото и начнём разбор! 👇"
+            f"Присылай фото и начнём разбор! 👇\n\n💎 Осталось генераций: {5 - free_generations.get(message.from_user.id, 0) + paid_generations.get(message.from_user.id, 0)}"
         ),
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
@@ -908,8 +911,9 @@ async def handle_main_menu(callback: CallbackQuery):
             "👋 <b>Привет! Я — бот-наставник по мобильной фотографии.</b>\n\n"
             "📸 <b>Бесплатный анализ:</b> пришли фото — я найду ошибки композиции и покажу их прямо на снимке.\n\n"
             "✨ <b>Улучшение фото:</b> ИИ исправит композицию, свет, уберёт лишнее и дорисует края.\n\n"
+            "📐 <b>Смена формата:</b> загрузи готовое фото — адаптирую под любой формат: квадрат, сториз, панорама. Дорисую края и перестрою композицию.\n\n"
             "🎓 <b>Мини-курс по композиции (10 дней):</b> с проверкой каждого задания. Первый день — бесплатно.\n\n"
-            "Присылай фото и начнём разбор! 👇"
+            f"Присылай фото и начнём разбор! 👇\n\n💎 Осталось генераций: {5 - free_generations.get(message.from_user.id, 0) + paid_generations.get(message.from_user.id, 0)}"
         ),
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
@@ -921,20 +925,41 @@ async def handle_main_menu(callback: CallbackQuery):
         ])
     )
 
-@dp.callback_query(F.data == "change_format")
-async def handle_change_format(callback: CallbackQuery):
+@dp.callback_query(F.data == "change_format_same")
+async def handle_change_format_same(callback: CallbackQuery):
+    user_id = callback.from_user.id
+    if user_id not in last_photo:
+        await callback.answer("Сначала пришли фото!")
+        return
+    
+    warnings = change_format_warnings.get(user_id, 0)
+    if warnings < 3:
+        gen_left = 5 - free_generations.get(user_id, 0) + paid_generations.get(user_id, 0)
+        change_format_warnings[user_id] = warnings + 1
+        await callback.answer()
+        await callback.message.answer(
+            f"📐 Это потратит 1 генерацию.\n💎 Осталось: {gen_left}\n\nПродолжить?",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="✅ Да", callback_data=f"change_format_go_{user_id}")],
+                [InlineKeyboardButton(text="🔙 Отмена", callback_data="main_menu")],
+            ])
+        )
+        return
+    
     await callback.answer()
     await callback.message.answer(
-        "📐 <b>Смена формата</b>\n\n"
-        "Загрузи фото — я дорисую края и перестрою композицию под новый формат.\n"
-        "Подходит для соцсетей: квадрат, сториз, панорама.\n\n"
-        "Это тратит 1 генерацию из твоего пакета.",
-        parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="📸 Загрузить фото", callback_data="new_photo")],
-        ])
+        "Выбери формат:",
+        reply_markup=format_keyboard("paid" if paid_generations.get(user_id, 0) > 0 else "free"),
     )
-    user_mode[callback.from_user.id] = "change_format"
+
+@dp.callback_query(F.data.startswith("change_format_go_"))
+async def handle_change_format_go(callback: CallbackQuery):
+    user_id = int(callback.data.split("_")[-1])
+    await callback.answer()
+    await callback.message.answer(
+        "Выбери формат:",
+        reply_markup=format_keyboard("paid" if paid_generations.get(user_id, 0) > 0 else "free"),
+    )
 
 # ===== МЕНЮ ПОДДЕРЖКИ =====
 @dp.callback_query(F.data == "donate_menu")
@@ -1169,10 +1194,15 @@ async def handle_gen_boost_menu(callback: CallbackQuery):
             [InlineKeyboardButton(text="🧍 Позу", callback_data=f"gen_boost_pose_{gen_type}_{user_id}")],
             [InlineKeyboardButton(text="🎨 Полная переработка", callback_data=f"gen_boost_full_{gen_type}_{user_id}")],
             [InlineKeyboardButton(text="✏️ Свой промпт", callback_data=f"gen_go_custom_{gen_type}_{user_id}")],
-            [InlineKeyboardButton(text="🔙 Назад", callback_data=f"gen_retry_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="🔙 Назад", callback_data=f"gen_boost_back_{gen_type}_{user_id}")],
         ])
     )
 
+@dp.callback_query(F.data.startswith("gen_boost_back_"))
+async def handle_gen_boost_back(callback: CallbackQuery):
+    await callback.answer()
+    await callback.message.delete()
+    
 @dp.callback_query(F.data.startswith("gen_boost_"))
 async def handle_gen_boost(callback: CallbackQuery):
     parts = callback.data.split("_")
