@@ -240,7 +240,7 @@ def tochka_webhook():
                             "time": datetime.now().isoformat()
                         })
                         _save_author_orders(orders)
-                        asyncio.run_coroutine_threadsafe(bot.send_message(uid, "✅ Оплата получена! Присылай до 3 фото по одному (не файлом, а как обычное фото из галереи)."), MAIN_LOOP)
+                        asyncio.run_coroutine_threadsafe(bot.send_message(uid, "✅ Оплата получена! Присылай до 5 фото по одному (не файлом, а как обычное фото из галереи)."), MAIN_LOOP)
                         _send_telegram_message(-1004468971541, f"🔔 Новый заказ на авторский разбор!\nПользователь: {uid}")
                     elif "мини-курс" in purp or "курс" in purp:
                         from course import activate_by_username
@@ -528,6 +528,19 @@ async def handle_done(message: Message):
             _send_telegram_message(-1004468971541, f"🔔 Заказ готов!\nПользователь: {user_id}\nФото: {len(order['photos'])} шт")
             return
     await message.answer("У тебя нет активного заказа с фото. Сначала оплати авторский разбор и пришли фото.")
+
+@dp.callback_query(F.data.startswith("author_ready_"))
+async def handle_author_ready(callback: CallbackQuery):
+    user_id = int(callback.data.split("_")[-1])
+    orders = _load_author_orders()
+    for order in orders:
+        if order["user_id"] == user_id and order["status"] == "paid" and len(order["photos"]) > 0:
+            order["status"] = "ready"
+            _save_author_orders(orders)
+            await callback.message.edit_text(f"✅ Принято {len(order['photos'])} фото. Разберу в течение 24 часов.")
+            _send_telegram_message(-1004468971541, f"🔔 Заказ готов!\nПользователь: {user_id}\nФото: {len(order['photos'])} шт")
+            return
+    await callback.answer("Нет активного заказа.")
 
 # ===== АДМИН-ПАНЕЛЬ =====
 @dp.message(Command("admin"))
@@ -856,7 +869,7 @@ async def handle_author_review(callback: CallbackQuery):
     await callback.message.answer(
         "📸 <b>Авторский разбор фото</b>\n\n"
         "Я лично разберу твои фото — подробно, с советами.\n\n"
-        "📷 Присылай до 3 фото по одному (не файлом, а как обычное фото из галереи).\n"
+        "📷 Присылай до 5 фото по одному (не файлом, а как обычное фото из галереи).\n"
         "⏱ Ответ до 24 часов\n"
         "💰 500 ₽\n\n"
         "После оплаты присылай фото в этот чат.",
@@ -1181,7 +1194,7 @@ async def handle_photo(message: Message):
     orders = _load_author_orders()
     active_order = None
     for order in orders:
-        if order["user_id"] == user_id and order["status"] == "paid" and len(order["photos"]) < 3:
+        if order["user_id"] == user_id and order["status"] == "paid" and len(order["photos"]) < 5:
             active_order = order
             break
 
@@ -1190,14 +1203,14 @@ async def handle_photo(message: Message):
         filename = _save_author_photo(active_order["time"], photo_index, image_bytes)
         active_order["photos"].append(filename)
         photo_count = len(active_order["photos"])
-        if photo_count >= 3:
+        if photo_count >= 5:
             active_order["status"] = "ready"
         _save_author_orders(orders)
-        if photo_count >= 3:
-            await message.answer("✅ Все 3 фото получены! Разберу в течение 24 часов.")
+        if photo_count >= 5:
+            await message.answer("✅ Все 5 фото получены! Разберу в течение 24 часов.")
             _send_telegram_message(-1004468971541, f"🔔 Заказ готов!\nПользователь: {user_id}\nФото: 3 шт")
         else:
-            await message.answer(f"📸 Фото получено ({photo_count} из 3). Присылай ещё или /done.")
+            await message.answer(f"📸 Фото получено ({photo_count} из 5). Присылай ещё или /done.")
         return
 
     processing_msg = await message.answer("🔍 Анализирую кадр...")
