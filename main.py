@@ -376,8 +376,11 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
         result = generate_image(image_bytes, prompt)
 
         if result is None:
-            await bot.send_message(chat_id, "😕 Не удалось сгенерировать изображение. Попробуй другое фото.")
-            return
+            await bot.send_message(chat_id, "😕 Не получилось с первого раза. Пробую ещё раз...")
+            result = generate_image(image_bytes, prompt)
+            if result is None:
+                await bot.send_message(chat_id, "😕 Не удалось сгенерировать. Попробуй ещё раз ту же кнопку или чуть позже.")
+                return
 
         # Авто-переход на глубокое улучшение если нет изменений
         if check_diff and not wish:
