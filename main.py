@@ -231,7 +231,10 @@ def tochka_webhook():
                             "status": "paid",
                             "time": datetime.now().isoformat()
                         })
-                        _send_telegram_message(uid, "✅ Оплата получена! Присылай до 3 фото для авторского разбора.")
+                        asyncio.run_coroutine_threadsafe(
+                            bot.send_message(uid, "✅ Оплата получена! Присылай до 3 фото для авторского разбора."),
+                            MAIN_LOOP
+                        )
                         _send_telegram_message(-1004468971541, f"🔔 Новый заказ на авторский разбор!\nПользователь: {uid}")
                     elif "мини-курс" in purp or "курс" in purp:
                         from course import activate_by_username
