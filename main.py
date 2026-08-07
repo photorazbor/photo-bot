@@ -266,7 +266,7 @@ def donate_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton(text="💛 300 ₽", callback_data="donate_300"),
             InlineKeyboardButton(text="💛 500 ₽", callback_data="donate_500"),
         ],
-        [InlineKeyboardButton(text="🔙 Назад", callback_data="new_photo")],
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="main_menu")],
     ])
 
 def get_keyboard(user_id: int) -> InlineKeyboardMarkup:
@@ -963,7 +963,22 @@ async def handle_change_format_go(callback: CallbackQuery):
         "Выбери формат:",
         reply_markup=format_keyboard("paid" if paid_generations.get(user_id, 0) > 0 else "free"),
     )
-
+    
+@dp.callback_query(F.data == "change_format")
+async def handle_change_format(callback: CallbackQuery):
+    await callback.answer()
+    await callback.message.answer(
+        "📐 <b>Смена формата</b>\n\n"
+        "Загрузи фото — я дорисую края и перестрою композицию под новый формат.\n"
+        "Подходит для соцсетей: квадрат, сториз, панорама.\n\n"
+        "Это тратит 1 генерацию из твоего пакета.",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📸 Загрузить фото", callback_data="new_photo")],
+        ])
+    )
+    user_mode[callback.from_user.id] = "change_format"
+    
 # ===== МЕНЮ ПОДДЕРЖКИ =====
 @dp.callback_query(F.data == "donate_menu")
 async def handle_donate_menu(callback: CallbackQuery):
