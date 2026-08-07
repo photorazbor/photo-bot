@@ -58,6 +58,7 @@ test_mode = False
 HISTORY_FILE = "history.json"
 PROMO_FILE = "promocodes.json"
 FEEDBACK_FILE = "feedback.json"
+AUTHOR_ORDERS_FILE = "author_orders.json"
 
 def _load_history() -> dict:
     if not os.path.exists(HISTORY_FILE):
@@ -87,6 +88,18 @@ def _save_feedback(entry: dict):
     feedback.append(entry)
     with open(FEEDBACK_FILE, "w", encoding="utf-8") as f:
         json.dump(feedback, f, ensure_ascii=False, indent=2)
+
+def _load_author_orders() -> list:
+    if not os.path.exists(AUTHOR_ORDERS_FILE):
+        return []
+    with open(AUTHOR_ORDERS_FILE, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+def _save_author_order(order: dict):
+    orders = _load_author_orders()
+    orders.append(order)
+    with open(AUTHOR_ORDERS_FILE, "w", encoding="utf-8") as f:
+        json.dump(orders, f, ensure_ascii=False, indent=2)
 
 def _add_history(user_id: int, action: str, details: str = ""):
     history = _load_history()
@@ -213,6 +226,15 @@ def tochka_webhook():
                         _save_gen()
                         logging.info(f"🎯 Начислено 30 генераций пользователю {uid}")
                         _send_telegram_message(uid, "✅ Оплата получена! 30 генераций начислены. Присылай фото для улучшения!")
+                    elif "Авторский разбор" in purp:
+                        _save_author_order({
+                            "user_id": uid,
+                            "photos": [],
+                            "status": "paid",
+                            "time": datetime.now().isoformat()
+                        })
+                        _send_telegram_message(uid, "✅ Оплата получена! Присылай до 3 фото для авторского разбора.")
+                        _send_telegram_message(-1004468971541, f"🔔 Новый заказ на авторский разбор!\nПользователь: {uid}")
                     elif "мини-курс" in purp or "курс" in purp:
                         from course import activate_by_username
                         activate_by_username(str(uid))
@@ -456,6 +478,7 @@ async def handle_start(message: Message):
             [InlineKeyboardButton(text="📸 Разобрать фото", callback_data="new_photo")],
             [InlineKeyboardButton(text="📐 Сменить формат", callback_data="change_format")],
             [InlineKeyboardButton(text="🎓 Мини-курс", callback_data="course_status")],
+            [InlineKeyboardButton(text="📸 Авторский разбор", callback_data="author_review")],
             [InlineKeyboardButton(text="💰 Цены и поддержка", callback_data="donate_menu")],
             [InlineKeyboardButton(text="👤 Об авторе", callback_data="author_info")],
         ])
@@ -924,6 +947,7 @@ async def handle_main_menu(callback: CallbackQuery):
             [InlineKeyboardButton(text="📸 Разобрать фото", callback_data="new_photo")],
             [InlineKeyboardButton(text="📐 Сменить формат", callback_data="change_format")],
             [InlineKeyboardButton(text="🎓 Мини-курс", callback_data="course_status")],
+            [InlineKeyboardButton(text="📸 Авторский разбор", callback_data="author_review")],
             [InlineKeyboardButton(text="💰 Цены и поддержка", callback_data="donate_menu")],
             [InlineKeyboardButton(text="👤 Об авторе", callback_data="author_info")],
         ])
@@ -1003,6 +1027,39 @@ async def handle_change_format(callback: CallbackQuery):
         ])
     )
     user_mode[callback.from_user.id] = "change_format"
+
+@dp.callback_query(F.data == "author_review")
+async def handle_author_review(callback: CallbackQuery):
+    await callback.answer()
+    await callback.message.answer(
+        "📸 <b>Авторский разбор фото</b>\n\n"
+        "Я лично разберу твои фото — подробно, с примерами и советами.\n\n"
+        "📷 До 3 фото\n"
+        "⏱ Ответ в течение 24 часов\n"
+        "💰 Стоимость: 500 ₽\n\n"
+        "После оплаты просто пришли фото в этот чат.",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="💳 Оплатить (500 ₽)", callback_data="pay_author_review")],
+        ])
+    )
+
+@dp.callback_query(F.data == "pay_author_review")
+async def handle_pay_author_review(callback: CallbackQuery):
+    await callback.answer()
+    link = create_payment_link(500, "Авторский разбор фото", callback.from_user.id)
+    if not link:
+        await callback.message.answer("⚠️ Не удалось создать платёжную ссылку.")
+        return
+    await callback.message.answer(
+        "💳 <b>Авторский разбор — 500 ₽</b>\n\n"
+        "Нажми кнопку ниже, чтобы оплатить.\n"
+        "После оплаты просто пришли до 3 фото в этот чат.",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="💳 Оплатить 500 ₽", url=link)],
+        ])
+    )
     
 # ===== МЕНЮ ПОДДЕРЖКИ =====
 @dp.callback_query(F.data == "donate_menu")
