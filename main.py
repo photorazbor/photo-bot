@@ -461,7 +461,7 @@ async def handle_start(message: Message):
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="📸 Разобрать фото", callback_data="new_photo")],
             [InlineKeyboardButton(text="📐 Сменить формат", callback_data="change_format")],
-            [InlineKeyboardButton(text="📸 Авторский разбор", callback_data="author_review")],
+            [InlineKeyboardButton(text="🎯 Авторский разбор", callback_data="author_review")],
             [InlineKeyboardButton(text="🎓 Мини-курс", callback_data="course_status")],
             [InlineKeyboardButton(text="💰 Цены и поддержка", callback_data="donate_menu")],
             [InlineKeyboardButton(text="👤 Об авторе", callback_data="author_info")],
@@ -818,7 +818,7 @@ async def handle_main_menu(callback: CallbackQuery):
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="📸 Разобрать фото", callback_data="new_photo")],
             [InlineKeyboardButton(text="📐 Сменить формат", callback_data="change_format")],
-            [InlineKeyboardButton(text="📸 Авторский разбор", callback_data="author_review")],
+            [InlineKeyboardButton(text="🎯 Авторский разбор", callback_data="author_review")],
             [InlineKeyboardButton(text="🎓 Мини-курс", callback_data="course_status")],
             [InlineKeyboardButton(text="💰 Цены и поддержка", callback_data="donate_menu")],
             [InlineKeyboardButton(text="👤 Об авторе", callback_data="author_info")],
@@ -867,7 +867,7 @@ async def handle_change_format_go(callback: CallbackQuery):
 async def handle_author_review(callback: CallbackQuery):
     await callback.answer()
     await callback.message.answer(
-        "📸 <b>Авторский разбор фото</b>\n\n"
+        "🎯 <b>Авторский разбор фото</b>\n\n"
         "Я лично разберу твои фото — подробно, с советами.\n\n"
         "📷 Присылай до 5 фото по одному (не файлом, а как обычное фото из галереи).\n"
         "⏱ Ответ до 24 часов\n"
