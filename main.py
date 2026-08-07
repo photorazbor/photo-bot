@@ -289,6 +289,7 @@ def get_keyboard(user_id: int) -> InlineKeyboardMarkup:
         buttons.append([InlineKeyboardButton(text="🎓 Мини-курс по композиции (490 ₽)", callback_data="course_status")])
     buttons.append([InlineKeyboardButton(text="📊 Моя статистика", callback_data="my_stats")])
     buttons.append([InlineKeyboardButton(text="📷 Разобрать другое фото", callback_data="new_photo")])
+    buttons.append([InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 # ===== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =====
@@ -420,6 +421,7 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
 
         post_kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🔄 Перегенерировать", callback_data=f"gen_retry_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="⚡ Усилить (-1 ген.)", callback_data=f"gen_boost_menu_{gen_type}_{user_id}")],
             [InlineKeyboardButton(text="👍 Хорошо", callback_data=f"fb_good_{user_id}"),
              InlineKeyboardButton(text="👎 Плохо", callback_data=f"fb_bad_{user_id}")],
         ])
@@ -896,6 +898,29 @@ async def handle_retry_button(callback: CallbackQuery):
     await callback.message.answer("Присылай следующее фото — жду! 📷")
     await callback.answer()
 
+@dp.callback_query(F.data == "main_menu")
+async def handle_main_menu(callback: CallbackQuery):
+    await callback.answer()
+    PHOTO_BASE = "https://raw.githubusercontent.com/photorazbor/photo-bot/main"
+    await callback.message.answer_photo(
+        URLInputFile(f"{PHOTO_BASE}/start_banner.jpg"),
+        caption=(
+            "👋 <b>Привет! Я — бот-наставник по мобильной фотографии.</b>\n\n"
+            "📸 <b>Бесплатный анализ:</b> пришли фото — я найду ошибки композиции и покажу их прямо на снимке.\n\n"
+            "✨ <b>Улучшение фото:</b> ИИ исправит композицию, свет, уберёт лишнее и дорисует края.\n\n"
+            "🎓 <b>Мини-курс по композиции (10 дней):</b> с проверкой каждого задания. Первый день — бесплатно.\n\n"
+            "Присылай фото и начнём разбор! 👇"
+        ),
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📸 Разобрать фото", callback_data="new_photo")],
+            [InlineKeyboardButton(text="📐 Сменить формат", callback_data="change_format")],
+            [InlineKeyboardButton(text="🎓 Мини-курс", callback_data="course_status")],
+            [InlineKeyboardButton(text="💰 Цены и поддержка", callback_data="donate_menu")],
+            [InlineKeyboardButton(text="👤 Об авторе", callback_data="author_info")],
+        ])
+    )
+
 @dp.callback_query(F.data == "change_format")
 async def handle_change_format(callback: CallbackQuery):
     await callback.answer()
@@ -1128,6 +1153,60 @@ async def handle_gen_paid(callback: CallbackQuery):
     )
 
 # ===== ФИДБЕК =====
+@dp.callback_query(F.data.startswith("gen_boost_menu_"))
+async def handle_gen_boost_menu(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    gen_type = parts[3]
+    user_id = int(parts[4])
+    await callback.answer()
+    await callback.message.answer(
+        "⚡ <b>Усилить обработку</b> (-1 генерация)\n\nЧто усилить?",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📐 Горизонт и геометрию", callback_data=f"gen_boost_horizon_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="🧹 Чистку фона и мусор", callback_data=f"gen_boost_clean_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="💡 Свет и цвета", callback_data=f"gen_boost_light_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="🧍 Позу", callback_data=f"gen_boost_pose_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="🎨 Полная переработка", callback_data=f"gen_boost_full_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="✏️ Свой промпт", callback_data=f"gen_go_custom_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="🔙 Назад", callback_data=f"gen_retry_{gen_type}_{user_id}")],
+        ])
+    )
+
+@dp.callback_query(F.data.startswith("gen_boost_"))
+async def handle_gen_boost(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    boost_type = parts[2]
+    gen_type = parts[3]
+    user_id = int(parts[4])
+    
+    if boost_type == "menu":
+        return  # уже обработано выше
+    
+    boosts = {
+        "horizon": "ОБЯЗАТЕЛЬНО выровняй горизонт и исправь заваленные вертикали. При повороте дорисуй недостающие участки.",
+        "clean": "Убери весь мусор, грязь, отвлекающие объекты с фона и поверхностей. Сделай кадр чистым и опрятным.",
+        "light": "Исправь освещение: убери пересветы, добавь света в тени, сделай цвета сочнее и контрастнее.",
+        "pose": "Сфокусируйся на позе: сделай её изящнее, исправь осанку. Сохрани лицо без изменений.",
+        "full": "Полностью переработай кадр: выровняй горизонт, убери мусор, улучши свет, исправь позу. Сохрани лица.",
+    }
+    
+    wish = boosts.get(boost_type, "Улучши фото")
+    gen_wish[user_id] = wish
+    user_mode[user_id] = f"gen_wish_{gen_type}"
+    
+    # Списываем генерацию
+    if gen_type == "free" and not (user_id == 456504792 and not test_mode):
+        free_generations[user_id] = free_generations.get(user_id, 0) + 1
+        _save_gen()
+    elif gen_type == "paid":
+        paid_generations[user_id] = max(0, paid_generations.get(user_id, 0) - 1)
+        _save_gen()
+    
+    await callback.answer(f"⚡ Усиливаю: {boost_type}...")
+    await do_generation(user_id, callback.message.chat.id, gen_type, check_diff=False)
+    user_mode[user_id] = "free"
+    
 @dp.callback_query(F.data.startswith("gen_retry_"))
 async def handle_gen_retry(callback: CallbackQuery):
     parts = callback.data.split("_")
