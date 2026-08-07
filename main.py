@@ -1210,9 +1210,10 @@ async def handle_photo(message: Message):
             await message.answer("✅ Все 5 фото получены! Разберу в течение 24 часов.")
             _send_telegram_message(-1004468971541, f"🔔 Заказ готов!\nПользователь: {user_id}\nФото: 5 шт")
         else:
-            await message.answer(f"📸 Фото получено ({photo_count} из 5). Присылай ещё.",
+            await message.answer(
+                f"📸 Фото получено ({photo_count} из 5). Можешь прислать ещё или нажать «Готово», если это всё.",
                 reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text="✅ Готово", callback_data=f"author_ready_{user_id}")]]))
+                    [InlineKeyboardButton(text="✅ Готово — отправить на разбор", callback_data=f"author_ready_{user_id}")]]))
         return
 
     processing_msg = await message.answer("🔍 Анализирую кадр...")
