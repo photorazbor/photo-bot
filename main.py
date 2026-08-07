@@ -595,7 +595,9 @@ async def handle_admin(message: Message):
             for filename in o.get("photos", []):
                 filepath = os.path.join(AUTHOR_PHOTOS_DIR, filename)
                 if os.path.exists(filepath):
-                    await message.answer_photo(URLInputFile(filepath))
+                    with open(filepath, "rb") as f:
+                        photo_bytes = f.read()
+                    await message.answer_photo(BufferedInputFile(photo_bytes, filename=filename))
             await message.answer("Действия:", reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="✅ Выполнен", callback_data=f"author_done_{idx}")],
             ]))
