@@ -537,7 +537,7 @@ async def handle_author_ready(callback: CallbackQuery):
         if order["user_id"] == user_id and order["status"] == "paid" and len(order["photos"]) > 0:
             order["status"] = "ready"
             _save_author_orders(orders)
-            await callback.message.edit_text(f"✅ Принято {len(order['photos'])} фото. Разберу в течение 24 часов.")
+            await callback.message.edit_text(f"✅ Принято {len(order['photos'])} фото. Разберу в течение 24 часов и напишу тебе лично.")
             _send_telegram_message(-1004468971541, f"🔔 Заказ готов!\nПользователь: {user_id}\nФото: {len(order['photos'])} шт")
             return
     await callback.answer("Нет активного заказа.")
@@ -1207,7 +1207,7 @@ async def handle_photo(message: Message):
             active_order["status"] = "ready"
         _save_author_orders(orders)
         if photo_count >= 5:
-            await message.answer("✅ Все 5 фото получены! Разберу в течение 24 часов.")
+            await message.answer("✅ Все 5 фото получены! Разберу в течение 24 часов и напишу тебе лично в Telegram с результатом.")
             _send_telegram_message(-1004468971541, f"🔔 Заказ готов!\nПользователь: {user_id}\nФото: 5 шт")
         else:
             await message.answer(
