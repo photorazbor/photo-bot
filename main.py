@@ -881,7 +881,7 @@ async def handle_author_review(callback: CallbackQuery):
 @dp.callback_query(F.data == "pay_author_review")
 async def handle_pay_author_review(callback: CallbackQuery):
     await callback.answer()
-    link = create_payment_link(500, "Авторский разбор фото", callback.from_user.id)
+    link = create_payment_link(1, "Авторский разбор фото", callback.from_user.id)
     if not link:
         await callback.message.answer("⚠️ Не удалось создать ссылку.")
         return
