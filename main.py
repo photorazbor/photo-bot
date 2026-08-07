@@ -517,14 +517,14 @@ async def handle_done(message: Message):
     user_id = message.from_user.id
     orders = _load_author_orders()
     for order in orders:
-        if order["user_id"] == user_id and order["status"] == "paid":
+        if order["user_id"] == user_id and order["status"] == "paid" and len(order.get("photos", [])) > 0:
             order["status"] = "ready"
-            _send_telegram_message(-1004468971541, f"🔔 Заказ на авторский разбор готов!\nПользователь: {user_id}\nФото: {len(order.get('photos', []))} шт")
-            await message.answer(f"✅ Принято {len(order.get('photos', []))} фото. Я разберу их и пришлю результат.")
             with open(AUTHOR_ORDERS_FILE, "w", encoding="utf-8") as f:
                 json.dump(orders, f, ensure_ascii=False, indent=2)
+            await message.answer(f"✅ Принято {len(order['photos'])} фото. Разберу в течение 24 часов.")
+            _send_telegram_message(-1004468971541, f"🔔 Заказ готов!\nПользователь: {user_id}\nФото: {len(order['photos'])} шт")
             return
-    await message.answer("У тебя нет активного заказа.")
+    await message.answer("У тебя нет активного заказа с фото.")
 
 # ===== АДМИН-ПАНЕЛЬ =====
 @dp.message(Command("admin"))
@@ -1205,7 +1205,7 @@ async def handle_photo(message: Message):
             reply_markup=format_keyboard("paid" if paid_generations.get(user_id, 0) > 0 else "free"))
         return
 
-    # Проверка активного заказа на авторский разбор
+        # Проверка активного заказа на авторский разбор
     orders = _load_author_orders()
     active_order = None
     for order in orders:
@@ -1215,19 +1215,23 @@ async def handle_photo(message: Message):
 
     if active_order:
         active_order["photos"].append(image_bytes)
-        if len(active_order["photos"]) >= 3:
+        photo_count = len(active_order["photos"])
+        if photo_count >= 3:
             active_order["status"] = "ready"
-            _send_telegram_message(user_id, "✅ Все 3 фото получены! Разберу в течение 24 часов.")
-            _send_telegram_message(-1004468971541, f"🔔 Заказ на авторский разбор готов!\nПользователь: {user_id}\nФото: 3 шт")
-        else:
-            _send_telegram_message(user_id, f"📸 Фото получено ({len(active_order['photos'])} из 3). Присылай ещё или /done.")
+        # Сохраняем заказ
         all_orders = _load_author_orders()
         for i, o in enumerate(all_orders):
-            if o["user_id"] == user_id and o["time"] == active_order["time"]:
+            if o.get("time") == active_order["time"] and o["user_id"] == user_id:
                 all_orders[i] = active_order
                 break
         with open(AUTHOR_ORDERS_FILE, "w", encoding="utf-8") as f:
             json.dump(all_orders, f, ensure_ascii=False, indent=2)
+        # Отвечаем пользователю
+        if photo_count >= 3:
+            await message.answer("✅ Все 3 фото получены! Разберу в течение 24 часов.")
+            _send_telegram_message(-1004468971541, f"🔔 Заказ на авторский разбор готов!\nПользователь: {user_id}\nФото: 3 шт")
+        else:
+            await message.answer(f"📸 Фото получено ({photo_count} из 3). Присылай ещё или /done.")
         return
 
     processing_msg = await message.answer("🔍 Анализирую кадр...")
