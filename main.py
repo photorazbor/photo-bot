@@ -538,6 +538,20 @@ async def handle_test(message: Message):
     else:
         await message.answer("👑 <b>Режим автора ВКЛ</b>\nБесплатные генерации без ограничений.", parse_mode="HTML")
 
+@dp.message(Command("done"))
+async def handle_done(message: Message):
+    user_id = message.from_user.id
+    orders = _load_author_orders()
+    for order in orders:
+        if order["user_id"] == user_id and order["status"] == "paid":
+            order["status"] = "ready"
+            _send_telegram_message(-1004468971541, f"🔔 Заказ на авторский разбор готов!\nПользователь: {user_id}\nФото: {len(order.get('photos', []))} шт")
+            await message.answer(f"✅ Принято {len(order.get('photos', []))} фото. Я разберу их и пришлю результат в течение 24 часов.")
+            with open(AUTHOR_ORDERS_FILE, "w", encoding="utf-8") as f:
+                json.dump(orders, f, ensure_ascii=False, indent=2)
+            return
+    await message.answer("У тебя нет активного заказа на авторский разбор.")
+
 # ===== АДМИН-ПАНЕЛЬ =====
 @dp.message(Command("admin"))
 async def handle_admin(message: Message):
@@ -1404,6 +1418,33 @@ async def handle_photo(message: Message):
     image_bytes = image_to_bytes(image)
     last_photo[user_id] = image_bytes
     gen_retry_count[user_id] = 0
+
+    # Проверяем, есть ли у пользователя активный заказ на авторский разбор
+orders = _load_author_orders()
+active_order = None
+for order in orders:
+    if order["user_id"] == user_id and order["status"] == "paid" and len(order.get("photos", [])) < 3:
+        active_order = order
+        break
+
+if active_order:
+    # Сохраняем фото в заказ
+    active_order["photos"].append(image_bytes)
+    if len(active_order["photos"]) >= 3:
+        active_order["status"] = "ready"
+        _send_telegram_message(user_id, "✅ Все 3 фото получены! Я разберу их и пришлю результат в течение 24 часов.")
+        _send_telegram_message(-1004468971541, f"🔔 Заказ на авторский разбор готов к проверке!\nПользователь: {user_id}\nФото: 3 шт")
+    else:
+        _send_telegram_message(user_id, f"📸 Фото получено ({len(active_order['photos'])} из 3). Присылай ещё или напиши /done если закончил.")
+    # Обновляем заказ
+    all_orders = _load_author_orders()
+    for i, o in enumerate(all_orders):
+        if o["user_id"] == user_id and o["time"] == active_order["time"]:
+            all_orders[i] = active_order
+            break
+    with open(AUTHOR_ORDERS_FILE, "w", encoding="utf-8") as f:
+        json.dump(all_orders, f, ensure_ascii=False, indent=2)
+    return
 
     if mode in ("gen_wish_free", "gen_wish_paid"):
         gen_type = "free" if "free" in mode else "paid"
