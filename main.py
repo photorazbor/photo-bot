@@ -1459,7 +1459,7 @@ if active_order:
         json.dump(all_orders, f, ensure_ascii=False, indent=2)
     return
 
-        processing_msg = await message.answer("🔍 Анализирую кадр... Обычно до минуты, иногда быстрее.")
+    processing_msg = await message.answer("🔍 Анализирую кадр... Обычно до минуты, иногда быстрее.")
 
     try:
         course_topic = None
