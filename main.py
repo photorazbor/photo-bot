@@ -59,6 +59,7 @@ HISTORY_FILE = "history.json"
 PROMO_FILE = "promocodes.json"
 FEEDBACK_FILE = "feedback.json"
 AUTHOR_ORDERS_FILE = "author_orders.json"
+AUTHOR_PHOTOS_DIR = "author_photos"
 
 def _load_history() -> dict:
     if not os.path.exists(HISTORY_FILE):
@@ -95,11 +96,17 @@ def _load_author_orders() -> list:
     with open(AUTHOR_ORDERS_FILE, "r", encoding="utf-8") as f:
         return json.load(f)
 
-def _save_author_order(order: dict):
-    orders = _load_author_orders()
-    orders.append(order)
+def _save_author_orders(orders: list):
     with open(AUTHOR_ORDERS_FILE, "w", encoding="utf-8") as f:
         json.dump(orders, f, ensure_ascii=False, indent=2)
+
+def _save_author_photo(order_time: str, index: int, image_bytes: bytes) -> str:
+    os.makedirs(AUTHOR_PHOTOS_DIR, exist_ok=True)
+    filename = f"{order_time.replace(':','-').replace('.','-')}_{index}.jpg"
+    filepath = os.path.join(AUTHOR_PHOTOS_DIR, filename)
+    with open(filepath, "wb") as f:
+        f.write(image_bytes)
+    return filename
 
 def _add_history(user_id: int, action: str, details: str = ""):
     history = _load_history()
@@ -219,30 +226,29 @@ def tochka_webhook():
                     if "Пакет 10 генераций" in purp:
                         paid_generations[uid] = paid_generations.get(uid, 0) + 10
                         _save_gen()
-                        _send_telegram_message(uid, "✅ Оплата получена! 10 генераций начислены.")
+                        asyncio.run_coroutine_threadsafe(bot.send_message(uid, "✅ Оплата получена! 10 генераций начислены."), MAIN_LOOP)
                     elif "Пакет 30 генераций" in purp:
                         paid_generations[uid] = paid_generations.get(uid, 0) + 30
                         _save_gen()
-                        _send_telegram_message(uid, "✅ Оплата получена! 30 генераций начислены.")
+                        asyncio.run_coroutine_threadsafe(bot.send_message(uid, "✅ Оплата получена! 30 генераций начислены."), MAIN_LOOP)
                     elif "Авторский разбор" in purp:
-                        _save_author_order({
+                        orders = _load_author_orders()
+                        orders.append({
                             "user_id": uid,
                             "photos": [],
                             "status": "paid",
                             "time": datetime.now().isoformat()
                         })
-                        asyncio.run_coroutine_threadsafe(
-                            bot.send_message(uid, "✅ Оплата получена! Присылай до 3 фото для авторского разбора."),
-                            MAIN_LOOP
-                        )
+                        _save_author_orders(orders)
+                        asyncio.run_coroutine_threadsafe(bot.send_message(uid, "✅ Оплата получена! Присылай до 3 фото по одному (не файлом, а как обычное фото из галереи)."), MAIN_LOOP)
                         _send_telegram_message(-1004468971541, f"🔔 Новый заказ на авторский разбор!\nПользователь: {uid}")
                     elif "мини-курс" in purp or "курс" in purp:
                         from course import activate_by_username
                         activate_by_username(str(uid))
                         user_mode[uid] = "course"
-                        _send_telegram_message(uid, "✅ Оплата получена! Мини-курс активирован.")
+                        asyncio.run_coroutine_threadsafe(bot.send_message(uid, "✅ Оплата получена! Мини-курс активирован. Напиши /course"), MAIN_LOOP)
                     else:
-                        _send_telegram_message(uid, "💛 Спасибо за поддержку!")
+                        asyncio.run_coroutine_threadsafe(bot.send_message(uid, "💛 Спасибо за поддержку проекта!"), MAIN_LOOP)
                     del pending[payment_link_id]
                     with open("pending_payments.json", "w") as f:
                         json.dump(pending, f, ensure_ascii=False, indent=2)
@@ -278,11 +284,9 @@ def run_flask():
 # ===== КЛАВИАТУРЫ =====
 def donate_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="💛 100 ₽", callback_data="donate_100"),
-            InlineKeyboardButton(text="💛 300 ₽", callback_data="donate_300"),
-            InlineKeyboardButton(text="💛 500 ₽", callback_data="donate_500"),
-        ],
+        [InlineKeyboardButton(text="💛 100 ₽", callback_data="donate_100"),
+         InlineKeyboardButton(text="💛 300 ₽", callback_data="donate_300"),
+         InlineKeyboardButton(text="💛 500 ₽", callback_data="donate_500")],
         [InlineKeyboardButton(text="🔙 Назад", callback_data="main_menu")],
     ])
 
@@ -449,7 +453,7 @@ async def handle_start(message: Message):
             "👋 <b>Привет! Я — бот-наставник по мобильной фотографии.</b>\n\n"
             "📸 <b>Бесплатный анализ:</b> пришли фото — я найду ошибки композиции и покажу их прямо на снимке.\n\n"
             "✨ <b>Улучшение фото:</b> ИИ исправит композицию, свет, уберёт лишнее и дорисует края.\n\n"
-            "📐 <b>Смена формата:</b> загрузи готовое фото — адаптирую под любой формат: квадрат, сториз, панорама. Дорисую края и перестрою композицию.\n\n"
+            "📐 <b>Смена формата:</b> загрузи готовое фото — адаптирую под любой формат: квадрат, сториз, панорама.\n\n"
             "🎓 <b>Мини-курс по композиции (10 дней):</b> с проверкой каждого задания. Первый день — бесплатно.\n\n"
             f"Присылай фото и начнём разбор! 👇\n\n💎 Осталось генераций: {gen_left}"
         ),
@@ -517,14 +521,13 @@ async def handle_done(message: Message):
     user_id = message.from_user.id
     orders = _load_author_orders()
     for order in orders:
-        if order["user_id"] == user_id and order["status"] == "paid" and len(order.get("photos", [])) > 0:
+        if order["user_id"] == user_id and order["status"] == "paid" and len(order["photos"]) > 0:
             order["status"] = "ready"
-            with open(AUTHOR_ORDERS_FILE, "w", encoding="utf-8") as f:
-                json.dump(orders, f, ensure_ascii=False, indent=2)
-            await message.answer(f"✅ Принято {len(order['photos'])} фото. Разберу в течение 24 часов.")
+            _save_author_orders(orders)
+            await message.answer(f"✅ Принято {len(order['photos'])} фото. Я разберу их и пришлю результат в течение 24 часов.")
             _send_telegram_message(-1004468971541, f"🔔 Заказ готов!\nПользователь: {user_id}\nФото: {len(order['photos'])} шт")
             return
-    await message.answer("У тебя нет активного заказа с фото.")
+    await message.answer("У тебя нет активного заказа с фото. Сначала оплати авторский разбор и пришли фото.")
 
 # ===== АДМИН-ПАНЕЛЬ =====
 @dp.message(Command("admin"))
@@ -536,13 +539,13 @@ async def handle_admin(message: Message):
     if len(args) == 1:
         await message.answer(
             "📊 <b>Админ-панель</b>\n\n"
-            "/admin stats / users / history / gen / course / feedback / orders",
+            "/admin stats / users / history / gen / course / feedback / orders\n"
+            "/admin reset_orders — сбросить заказы",
             parse_mode="HTML")
         return
     command = args[1].lower()
     if command == "reset_orders":
-        with open(AUTHOR_ORDERS_FILE, "w", encoding="utf-8") as f:
-            json.dump([], f)
+        _save_author_orders([])
         await message.answer("✅ Заказы сброшены")
         return
     if command == "stats":
@@ -576,7 +579,7 @@ async def handle_admin(message: Message):
             return
         text = "📸 <b>Заказы:</b>\n\n"
         for i, o in enumerate(orders):
-            s = "✅" if o["status"] == "ready" else "⏳"
+            s = "✅" if o["status"] == "ready" else ("⏳" if o["status"] == "paid" else "✔️")
             text += f"#{i} | {o['user_id']} | Фото: {len(o.get('photos',[]))} | {s}\n"
         text += "\n/admin order НОМЕР — посмотреть"
         await message.answer(text, parse_mode="HTML")
@@ -589,8 +592,10 @@ async def handle_admin(message: Message):
                 return
             o = orders[idx]
             await message.answer(f"📸 Заказ #{idx}\nUser: {o['user_id']}\nСтатус: {o['status']}")
-            for p in o.get("photos", []):
-                await message.answer_photo(BufferedInputFile(p, filename="p.jpg"))
+            for filename in o.get("photos", []):
+                filepath = os.path.join(AUTHOR_PHOTOS_DIR, filename)
+                if os.path.exists(filepath):
+                    await message.answer_photo(URLInputFile(filepath))
             await message.answer("Действия:", reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="✅ Выполнен", callback_data=f"author_done_{idx}")],
             ]))
@@ -605,8 +610,7 @@ async def handle_author_done(callback: CallbackQuery):
     orders = _load_author_orders()
     if idx < len(orders):
         orders[idx]["status"] = "done"
-        with open(AUTHOR_ORDERS_FILE, "w") as f:
-            json.dump(orders, f, ensure_ascii=False, indent=2)
+        _save_author_orders(orders)
         await callback.answer("✅ Отмечено!")
         await callback.message.edit_text(callback.message.text + "\n\n✅ Выполнен")
 
@@ -623,91 +627,67 @@ async def handle_promo(message: Message):
             if len(args) >= 4:
                 if args[-1].lower() == "course":
                     ptype, amount = "course", 0
-                    if len(args) >= 5:
-                        try: expiry_days = int(args[-2])
-                        except: pass
                 else:
                     try:
                         amount, ptype = int(args[3]), "gen"
-                        if len(args) >= 5:
-                            try: expiry_days = int(args[4])
-                            except: pass
                     except ValueError:
                         await message.answer("❌ Количество должно быть числом")
                         return
-                if len(args) == 4 and args[3].lower() == "course":
-                    ptype, amount = "course", 0
             else:
                 await message.answer("❌ Укажи количество или 'course'")
                 return
             promo = _load_promo()
-            expiry_date = None
-            if expiry_days:
-                expiry_date = (datetime.now() + __import__('datetime').timedelta(days=expiry_days)).isoformat()
-            promo[code] = {"type": ptype, "amount": amount, "used_by": [], "expiry": expiry_date}
+            promo[code] = {"type": ptype, "amount": amount, "used_by": []}
             _save_promo(promo)
             await message.answer(f"✅ Промокод {code} создан")
             return
         elif action == "list":
             promo = _load_promo()
-            if not promo:
-                await message.answer("📭 Нет промокодов")
-                return
             text = "\n".join(f"• {c}: {d['type']} {d['amount']}" for c, d in promo.items())
-            await message.answer(text)
+            await message.answer(text or "📭 Нет промокодов")
             return
         elif action == "delete" and len(args) >= 3:
-            code = args[2].upper()
             promo = _load_promo()
-            if code in promo:
-                del promo[code]
+            if args[2].upper() in promo:
+                del promo[args[2].upper()]
                 _save_promo(promo)
-                await message.answer(f"🗑 {code} удалён")
+                await message.answer("🗑 Удалён")
             return
         elif action == "reset" and len(args) >= 3:
-            code = args[2].upper()
             promo = _load_promo()
-            if code in promo:
-                promo[code]["used_by"] = []
+            if args[2].upper() in promo:
+                promo[args[2].upper()]["used_by"] = []
                 _save_promo(promo)
-                await message.answer(f"🔄 {code} сброшен")
+                await message.answer("🔄 Сброшен")
             return
     if len(args) == 2:
         code = args[1].upper()
         promo = _load_promo()
         if code not in promo:
-            await message.answer("❌ Не существует")
-            return
+            await message.answer("❌ Не существует"); return
         d = promo[code]
         if user_id in d.get("used_by", []):
-            await message.answer("❌ Уже использован")
-            return
+            await message.answer("❌ Уже использован"); return
         if d["type"] == "gen":
             paid_generations[user_id] = paid_generations.get(user_id, 0) + d["amount"]
             _save_gen()
-            d["used_by"].append(user_id)
-            _save_promo(promo)
-            await message.answer(f"✅ Получено {d['amount']} генераций")
         elif d["type"] == "course":
             from course import activate_by_username
             activate_by_username(str(user_id))
             user_mode[user_id] = "course"
-            d["used_by"].append(user_id)
-            _save_promo(promo)
-            await message.answer("✅ Курс открыт!")
+        d["used_by"].append(user_id)
+        _save_promo(promo)
+        await message.answer("✅ Активирован!")
         return
-    if len(args) == 1:
-        await message.answer("🎫 /promo КОД")
+    await message.answer("🎫 /promo КОД")
 
 # ===== ЛОГИКА КУРСА =====
 def _is_trial(user_id: int) -> bool:
     users = _load_users()
-    uid = str(user_id)
     for key, data in users.items():
         if isinstance(data, dict) and data.get("username") == str(user_id):
-            uid = key
-            break
-    return users.get(uid, {}).get("trial", False)
+            return data.get("trial", False)
+    return False
 
 async def handle_course_status_logic(user_id: int, chat_id: int):
     effective = has_access(user_id) and not (user_id == 456504792 and test_mode)
@@ -726,25 +706,19 @@ async def handle_course_status_logic(user_id: int, chat_id: int):
             else:
                 await bot.send_message(chat_id, status, parse_mode="HTML")
                 users = _load_users()
-                uid = str(user_id)
-                for key, data in users.items():
-                    if isinstance(data, dict) and data.get("username") == str(user_id):
-                        uid = key
-                        break
+                uid = next((k for k, d in users.items() if isinstance(d, dict) and d.get("username") == str(user_id)), str(user_id))
                 if uid in users:
                     await send_photos(chat_id, users[uid].get("day", 1))
         return
     await bot.send_message(chat_id,
         "🎓 <b>Мини-курс по композиции (10 дней)</b>\n\n"
         "10-дневный челлендж с проверкой заданий.\n"
-        "🆓 День 0 и 1 — бесплатно!\n"
-        "💰 Полный доступ: 490 ₽",
+        "🆓 День 0 и 1 — бесплатно!\n💰 Полный доступ: 490 ₽",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🆓 Начать бесплатно", callback_data="start_trial")],
             [InlineKeyboardButton(text="💳 Оплатить (490 ₽)", callback_data="pay_course")]]))
 
-# ===== КНОПКИ КУРСА =====
 @dp.callback_query(F.data == "start_trial")
 async def handle_start_trial(callback: CallbackQuery):
     await callback.answer()
@@ -760,7 +734,7 @@ async def handle_start_trial(callback: CallbackQuery):
 @dp.callback_query(F.data == "pay_course")
 async def handle_pay_course(callback: CallbackQuery):
     await callback.answer()
-    link = create_payment_link(490, "Оплата за мини-курс по композиции", callback.from_user.id) or "https://t.me/moy_razbor_bot"
+    link = create_payment_link(490, "Оплата за мини-курс", callback.from_user.id) or "https://t.me/moy_razbor_bot"
     await callback.message.answer("💳 <b>Оплата курса — 490 ₽</b>", parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="💳 Оплатить 490 ₽", url=link)]]))
@@ -794,7 +768,7 @@ async def handle_mode_free(callback: CallbackQuery):
     user_mode[callback.from_user.id] = "free"
     await callback.answer("🔍 Обычный анализ")
 
-# ===== КНОПКИ (поддержка, покупки) =====
+# ===== КНОПКИ =====
 @dp.callback_query(F.data == "author_info")
 async def handle_author_info(callback: CallbackQuery):
     await callback.message.answer("📸 <b>Евгений Севостьянов</b>\nФотограф, преподаватель.\nInstagram: @sevosphoto\nTelegram: @sevosphoto\nVK: @cevoc", parse_mode="HTML")
@@ -880,8 +854,10 @@ async def handle_author_review(callback: CallbackQuery):
     await callback.message.answer(
         "📸 <b>Авторский разбор фото</b>\n\n"
         "Я лично разберу твои фото — подробно, с советами.\n\n"
-        "📷 До 3 фото\n⏱ Ответ до 24 часов\n💰 500 ₽\n\n"
-        "После оплаты отправляй фото по одному (не файлом, а как обычное фото из галереи).",
+        "📷 Присылай до 3 фото по одному (не файлом, а как обычное фото из галереи).\n"
+        "⏱ Ответ до 24 часов\n"
+        "💰 500 ₽\n\n"
+        "После оплаты присылай фото в этот чат.",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="💳 Оплатить (500 ₽)", callback_data="pay_author_review")]]))
@@ -908,8 +884,7 @@ async def _handle_donate(callback: CallbackQuery, amount: int):
     await callback.answer()
     link = create_payment_link(amount, f"Поддержка проекта ({amount} ₽)", callback.from_user.id)
     if not link:
-        await callback.message.answer("⚠️ Не удалось создать ссылку.")
-        return
+        await callback.message.answer("⚠️ Не удалось создать ссылку."); return
     await callback.message.answer(f"💛 <b>Поддержать на {amount} ₽</b>", parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text=f"💳 Оплатить {amount} ₽", url=link)]]))
@@ -925,8 +900,7 @@ async def d500(c: CallbackQuery): await _handle_donate(c, 500)
 async def handle_buy_10_gen(callback: CallbackQuery):
     await callback.answer()
     link = create_payment_link(99, "Пакет 10 генераций", callback.from_user.id)
-    if not link:
-        await callback.message.answer("⚠️ Не удалось создать ссылку."); return
+    if not link: await callback.message.answer("⚠️ Ошибка."); return
     await callback.message.answer("⚡ <b>10 генераций — 99 ₽</b>", parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="💳 Оплатить 99 ₽", url=link)]]))
@@ -935,8 +909,7 @@ async def handle_buy_10_gen(callback: CallbackQuery):
 async def handle_buy_30_gen(callback: CallbackQuery):
     await callback.answer()
     link = create_payment_link(249, "Пакет 30 генераций", callback.from_user.id)
-    if not link:
-        await callback.message.answer("⚠️ Не удалось создать ссылку."); return
+    if not link: await callback.message.answer("⚠️ Ошибка."); return
     await callback.message.answer("⚡ <b>30 генераций — 249 ₽</b>", parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="💳 Оплатить 249 ₽", url=link)]]))
@@ -1003,7 +976,7 @@ async def handle_gen_go_format_only(callback: CallbackQuery):
     parts = callback.data.split("_")
     gen_type = parts[4]
     user_id = int(parts[5])
-    gen_wish[user_id] = "Только измени формат: дорисуй или обрежь края до нужного размера. НЕ меняй само изображение, цвета, свет, объекты."
+    gen_wish[user_id] = "Только измени формат: дорисуй или обрежь края. НЕ меняй изображение."
     user_mode[user_id] = f"gen_wish_{gen_type}"
     await callback.answer()
     await do_generation(user_id, callback.message.chat.id, gen_type)
@@ -1014,7 +987,7 @@ async def handle_gen_go_deep(callback: CallbackQuery):
     parts = callback.data.split("_")
     gen_type = parts[3]
     user_id = int(parts[4])
-    gen_wish[user_id] = "ОБЯЗАТЕЛЬНО выровняй горизонт и вертикали. Убери весь мусор, грязь. Сделай кадр максимально чистым."
+    gen_wish[user_id] = "ОБЯЗАТЕЛЬНО выровняй горизонт и вертикали. Убери весь мусор. Сделай кадр чистым."
     user_mode[user_id] = f"gen_wish_{gen_type}"
     await callback.answer()
     await do_generation(user_id, callback.message.chat.id, gen_type)
@@ -1025,7 +998,7 @@ async def handle_gen_go_pose(callback: CallbackQuery):
     parts = callback.data.split("_")
     gen_type = parts[3]
     user_id = int(parts[4])
-    gen_wish[user_id] = "Сфокусируйся ТОЛЬКО на позе: сделай её изящнее, исправь осанку. НЕ меняй кадрирование, фон, освещение."
+    gen_wish[user_id] = "Сфокусируйся ТОЛЬКО на позе: сделай её изящнее. НЕ меняй фон и освещение."
     user_mode[user_id] = f"gen_wish_{gen_type}"
     await callback.answer()
     await do_generation(user_id, callback.message.chat.id, gen_type)
@@ -1036,7 +1009,7 @@ async def handle_gen_go_repose(callback: CallbackQuery):
     parts = callback.data.split("_")
     gen_type = parts[3]
     user_id = int(parts[4])
-    gen_wish[user_id] = "Полностью измени позу: разверни корпус, измени положение рук и ног. Сохрани лицо и одежду без изменений."
+    gen_wish[user_id] = "Полностью измени позу: разверни корпус, измени положение рук и ног. Сохрани лицо."
     user_mode[user_id] = f"gen_wish_{gen_type}"
     await callback.answer()
     await do_generation(user_id, callback.message.chat.id, gen_type)
@@ -1047,7 +1020,7 @@ async def handle_gen_go_full(callback: CallbackQuery):
     parts = callback.data.split("_")
     gen_type = parts[3]
     user_id = int(parts[4])
-    gen_wish[user_id] = "Полностью переработай кадр: исправь позу, замени фон, убери лишние детали, улучши свет. Сохрани лицо и одежду."
+    gen_wish[user_id] = "Полностью переработай кадр: позу, фон, свет. Сохрани лицо и одежду."
     user_mode[user_id] = f"gen_wish_{gen_type}"
     await callback.answer()
     await do_generation(user_id, callback.message.chat.id, gen_type)
@@ -1071,8 +1044,7 @@ async def handle_gen_go_custom(callback: CallbackQuery):
 async def handle_gen_free(callback: CallbackQuery):
     user_id = callback.from_user.id
     if user_id != 456504792 and free_generations.get(user_id, 0) >= 5:
-        await callback.answer("Бесплатные генерации закончились. Купи пакет!")
-        return
+        await callback.answer("Бесплатные генерации закончились. Купи пакет!"); return
     if user_id not in last_photo:
         await callback.answer("Сначала пришли фото!"); return
     await callback.answer()
@@ -1104,11 +1076,11 @@ async def handle_gen_boost_menu(callback: CallbackQuery):
         "⚡ <b>Усилить обработку</b> (-1 генерация)\n\nЧто усилить?",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="📐 Горизонт и геометрию", callback_data=f"gen_boost_horizon_{gen_type}_{user_id}")],
-            [InlineKeyboardButton(text="🧹 Чистку фона", callback_data=f"gen_boost_clean_{gen_type}_{user_id}")],
-            [InlineKeyboardButton(text="💡 Свет и цвета", callback_data=f"gen_boost_light_{gen_type}_{user_id}")],
-            [InlineKeyboardButton(text="🧍 Позу", callback_data=f"gen_boost_pose_{gen_type}_{user_id}")],
-            [InlineKeyboardButton(text="🎨 Полная переработка", callback_data=f"gen_boost_full_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="📐 Горизонт", callback_data=f"gen_boost_horizon_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="🧹 Чистка фона", callback_data=f"gen_boost_clean_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="💡 Свет", callback_data=f"gen_boost_light_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="🧍 Поза", callback_data=f"gen_boost_pose_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="🎨 Полная", callback_data=f"gen_boost_full_{gen_type}_{user_id}")],
             [InlineKeyboardButton(text="✏️ Свой промпт", callback_data=f"gen_go_custom_{gen_type}_{user_id}")],
             [InlineKeyboardButton(text="🔙 Назад", callback_data=f"gen_boost_back_{gen_type}_{user_id}")],
         ]))
@@ -1122,24 +1094,22 @@ async def handle_gen_boost(callback: CallbackQuery):
     gen_type = parts[3]
     user_id = int(parts[4])
     boosts = {
-        "horizon": "ОБЯЗАТЕЛЬНО выровняй горизонт и вертикали. Дорисуй недостающие участки.",
-        "clean": "Убери весь мусор, грязь, отвлекающие объекты. Сделай кадр чистым.",
-        "light": "Исправь освещение: убери пересветы, добавь света в тени, сделай цвета сочнее.",
-        "pose": "Сфокусируйся на позе: сделай её изящнее. Сохрани лицо без изменений.",
+        "horizon": "ОБЯЗАТЕЛЬНО выровняй горизонт и вертикали.",
+        "clean": "Убери весь мусор и грязь. Сделай кадр чистым.",
+        "light": "Исправь освещение: убери пересветы, добавь света в тени.",
+        "pose": "Сфокусируйся на позе: сделай её изящнее. Сохрани лицо.",
         "full": "Полностью переработай кадр: горизонт, мусор, свет, позу. Сохрани лица.",
     }
     wish = boosts.get(boost_type, "Улучши фото")
     gen_wish[user_id] = wish
-    user_mode[user_id] = f"gen_wish_{gen_type}"
     if gen_type == "free" and not (user_id == 456504792 and not test_mode):
         free_generations[user_id] = free_generations.get(user_id, 0) + 1
         _save_gen()
     elif gen_type == "paid":
         paid_generations[user_id] = max(0, paid_generations.get(user_id, 0) - 1)
         _save_gen()
-    await callback.answer(f"⚡ Усиливаю: {boost_type}...")
+    await callback.answer(f"⚡ Усиливаю...")
     await do_generation(user_id, callback.message.chat.id, gen_type, check_diff=False)
-    user_mode[user_id] = "free"
 
 @dp.callback_query(F.data.startswith("gen_retry_"))
 async def handle_gen_retry(callback: CallbackQuery):
@@ -1205,31 +1175,25 @@ async def handle_photo(message: Message):
             reply_markup=format_keyboard("paid" if paid_generations.get(user_id, 0) > 0 else "free"))
         return
 
-        # Проверка активного заказа на авторский разбор
+    # Проверка активного заказа на авторский разбор
     orders = _load_author_orders()
     active_order = None
     for order in orders:
-        if order["user_id"] == user_id and order["status"] == "paid" and len(order.get("photos", [])) < 3:
+        if order["user_id"] == user_id and order["status"] == "paid" and len(order["photos"]) < 3:
             active_order = order
             break
 
     if active_order:
-        active_order["photos"].append(image_bytes)
+        photo_index = len(active_order["photos"])
+        filename = _save_author_photo(active_order["time"], photo_index, image_bytes)
+        active_order["photos"].append(filename)
         photo_count = len(active_order["photos"])
         if photo_count >= 3:
             active_order["status"] = "ready"
-        # Сохраняем заказ
-        all_orders = _load_author_orders()
-        for i, o in enumerate(all_orders):
-            if o.get("time") == active_order["time"] and o["user_id"] == user_id:
-                all_orders[i] = active_order
-                break
-        with open(AUTHOR_ORDERS_FILE, "w", encoding="utf-8") as f:
-            json.dump(all_orders, f, ensure_ascii=False, indent=2)
-        # Отвечаем пользователю
+        _save_author_orders(orders)
         if photo_count >= 3:
             await message.answer("✅ Все 3 фото получены! Разберу в течение 24 часов.")
-            _send_telegram_message(-1004468971541, f"🔔 Заказ на авторский разбор готов!\nПользователь: {user_id}\nФото: 3 шт")
+            _send_telegram_message(-1004468971541, f"🔔 Заказ готов!\nПользователь: {user_id}\nФото: 3 шт")
         else:
             await message.answer(f"📸 Фото получено ({photo_count} из 3). Присылай ещё или /done.")
         return
@@ -1270,23 +1234,17 @@ async def handle_photo(message: Message):
         )
         await message.answer(caption, reply_markup=get_keyboard(user_id))
 
-        # Приглашение на курс
         from stats import _load_stats
         stats = _load_stats()
         total = stats.get(str(user_id), {}).get("total", 0)
         if total > 0 and total % 5 == 0:
-            invites = {
-                5: "📸 5 анализов! Мини-курс: 10 дней практики. Начни бесплатно 🎓",
-                10: "🔍 10 анализов! Мини-курс поможет системно. Первый день бесплатно 🚀",
-                15: "🔥 15 анализов! Мини-курс — и ошибки уйдут. Попробуй 🎓"
-            }
-            invite_text = invites.get(total, f"📸 {total} анализов! Закрепи навыки в мини-курсе. 🎓")
+            invites = {5: "📸 5 анализов! Мини-курс: 10 дней. 🎓", 10: "🔍 10 анализов! Мини-курс поможет. 🚀", 15: "🔥 15 анализов! Мини-курс — и ошибки уйдут. 🎓"}
+            invite_text = invites.get(total, f"📸 {total} анализов! Мини-курс. 🎓")
             await asyncio.sleep(1)
             await message.answer(invite_text,
                 reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text="🎓 Мини-курс — попробовать бесплатно", callback_data="start_trial")]]))
+                    [InlineKeyboardButton(text="🎓 Мини-курс — бесплатно", callback_data="start_trial")]]))
 
-        # Логика курса
         if has_access(user_id) and user_mode.get(user_id) == "course":
             status = get_status(user_id)
             if status is not None and "День" in status:
@@ -1295,7 +1253,7 @@ async def handle_photo(message: Message):
                 if check_text:
                     if _is_trial(user_id) and "задание выполнено" in check_text.lower():
                         link = create_payment_link(490, "Оплата за мини-курс", user_id) or "https://t.me/moy_razbor_bot"
-                        check_text += "\n\n🎉 Ты прошёл пробный день!\n💳 Оплати 490 ₽ и продолжай!"
+                        check_text += "\n\n🎉 Пробный день пройден!\n💳 Оплати 490 ₽ и продолжай!"
                         await message.answer(check_text, parse_mode="HTML",
                             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                                 [InlineKeyboardButton(text="💳 Оплатить 490 ₽", url=link)]]))
@@ -1307,11 +1265,7 @@ async def handle_photo(message: Message):
                             if status:
                                 await message.answer(status, parse_mode="HTML")
                                 users = _load_users()
-                                uid = str(user_id)
-                                for key, data in users.items():
-                                    if isinstance(data, dict) and data.get("username") == str(user_id):
-                                        uid = key
-                                        break
+                                uid = next((k for k, d in users.items() if isinstance(d, dict) and d.get("username") == str(user_id)), str(user_id))
                                 if uid in users:
                                     await send_photos(message.chat.id, users[uid].get("day", 1))
         await processing_msg.delete()
@@ -1350,7 +1304,7 @@ async def daily_report():
             payments = sum(1 for i in pending.values() if today in i.get("created",""))
         except: pass
         try:
-            await bot.send_message(-1004468971541, f"📊 <b>Статистика за {today}</b>\n👤 Новых: {new_users}\n📸 Анализов: {analyses}\n💰 Платежей: {payments}", parse_mode="HTML")
+            await bot.send_message(-1004468971541, f"📊 <b>{today}</b>\n👤 Новых: {new_users}\n📸 Анализов: {analyses}\n💰 Платежей: {payments}", parse_mode="HTML")
         except Exception as e:
             logging.error(f"Ошибка отчёта: {e}")
 
