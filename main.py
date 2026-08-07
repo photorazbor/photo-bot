@@ -881,7 +881,7 @@ async def handle_author_review(callback: CallbackQuery):
         "📸 <b>Авторский разбор фото</b>\n\n"
         "Я лично разберу твои фото — подробно, с советами.\n\n"
         "📷 До 3 фото\n⏱ Ответ до 24 часов\n💰 500 ₽\n\n"
-        "После оплаты пришли фото в этот чат.",
+        "После оплаты отправляй фото по одному (не файлом, а как обычное фото из галереи).",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="💳 Оплатить (500 ₽)", callback_data="pay_author_review")]]))
