@@ -42,6 +42,26 @@ MAIN_LOOP = None
 
 flask_app = Flask(__name__)
 
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+
+USER_KEYBOARD = ReplyKeyboardMarkup(
+    keyboard=[
+        [KeyboardButton(text="📸 Анализ фото"), KeyboardButton(text="✨ Улучшить")],
+        [KeyboardButton(text="📐 Сменить формат"), KeyboardButton(text="🎓 Мини-курс")],
+        [KeyboardButton(text="🎯 Авторский разбор"), KeyboardButton(text="📊 Статистика")],
+    ],
+    resize_keyboard=True
+)
+
+ADMIN_KEYBOARD = ReplyKeyboardMarkup(
+    keyboard=[
+        [KeyboardButton(text="📊 Админка"), KeyboardButton(text="🎫 Промо")],
+        [KeyboardButton(text="📸 Заказы"), KeyboardButton(text="🧪 Тест")],
+        [KeyboardButton(text="🔄 Сброс курса"), KeyboardButton(text="📋 Старт")],
+    ],
+    resize_keyboard=True
+)
+
 # ===== ХРАНИЛИЩА ДАННЫХ =====
 last_analysis = {}
 user_mode = {}
@@ -446,6 +466,12 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
 @dp.message(CommandStart())
 async def handle_start(message: Message):
     _add_history(message.from_user.id, "start", "Запустил бота")
+
+    if message.from_user.id == 456504792 and not test_mode:
+        await message.answer("👑 Админ-панель", reply_markup=ADMIN_KEYBOARD)
+    else:
+        await message.answer("👇 Выбери действие:", reply_markup=USER_KEYBOARD)
+        
     PHOTO_BASE = "https://raw.githubusercontent.com/photorazbor/photo-bot/main"
     gen_left = 5 - free_generations.get(message.from_user.id, 0) + paid_generations.get(message.from_user.id, 0)
     await message.answer_photo(
@@ -515,7 +541,10 @@ async def handle_test(message: Message):
         await message.answer("Только автор.")
         return
     test_mode = not test_mode
-    await message.answer("🧪 Тестовый режим ВКЛ" if test_mode else "👑 Режим автора ВКЛ")
+    if test_mode:
+        await message.answer("🧪 Тестовый режим ВКЛ", reply_markup=USER_KEYBOARD)
+    else:
+        await message.answer("👑 Режим автора ВКЛ", reply_markup=ADMIN_KEYBOARD)
 
 @dp.message(Command("done"))
 async def handle_done(message: Message):
@@ -1378,6 +1407,49 @@ async def handle_non_photo(message: Message):
         await do_generation(user_id, message.chat.id, gen_type)
         user_mode[user_id] = "free"
         return
+
+    text = message.text
+
+    # Админские кнопки
+    if text == "📊 Админка":
+        message.text = "/admin"
+        await handle_admin(message); return
+    if text == "🎫 Промо":
+        message.text = "/promo list"
+        await handle_promo(message); return
+    if text == "📸 Заказы":
+        message.text = "/admin orders"
+        await handle_admin(message); return
+    if text == "🧪 Тест":
+        await handle_test(message); return
+    if text == "🔄 Сброс курса":
+        await handle_reset(message); return
+    if text == "📋 Старт":
+        await handle_start(message); return
+
+    # Пользовательские кнопки
+    if text == "📸 Анализ фото":
+        await message.answer("Присылай фото — я проанализирую композицию! 📷"); return
+    if text == "✨ Улучшить":
+        if user_id in last_photo:
+            await message.answer("Выбери формат:", reply_markup=format_keyboard("free" if free_generations.get(user_id, 0) < 5 else "paid"))
+        else:
+            await message.answer("Сначала пришли фото для анализа!"); return
+    if text == "📐 Сменить формат":
+        if user_id in last_photo:
+            await message.answer("Выбери формат:", reply_markup=format_keyboard("paid" if paid_generations.get(user_id, 0) > 0 else "free"))
+        else:
+            await message.answer("Сначала пришли фото!"); return
+    if text == "🎓 Мини-курс":
+        await handle_course_status_logic(user_id, message.chat.id); return
+    if text == "🎯 Авторский разбор":
+        await message.answer("🎯 <b>Авторский разбор</b>\n\nЯ лично разберу твои фото.\n📷 До 5 фото\n💰 500 ₽", parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="💳 Оплатить (500 ₽)", callback_data="pay_author_review")]])); return
+    if text == "📊 Статистика":
+        stats_text = get_stats(user_id)
+        await message.answer(stats_text, parse_mode="HTML"); return
+
     await message.answer("Пришли мне фотографию 📷")
 
 # ===== ЕЖЕДНЕВНЫЙ ОТЧЁТ =====
