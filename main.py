@@ -235,6 +235,7 @@ def tochka_webhook():
                         orders = _load_author_orders()
                         orders.append({
                             "user_id": uid,
+                            "username": f"id{uid}",
                             "photos": [],
                             "status": "paid",
                             "time": datetime.now().isoformat()
@@ -525,7 +526,7 @@ async def handle_done(message: Message):
             order["status"] = "ready"
             _save_author_orders(orders)
             await message.answer(f"✅ Принято {len(order['photos'])} фото. Я разберу их и пришлю результат в течение 24 часов.")
-            _send_telegram_message(-1004468971541, f"🔔 Заказ готов!\n<a href='tg://user?id={user_id}'>👤 Написать пользователю</a>\nФото: {len(order['photos'])} шт")
+            _send_telegram_message(-1004468971541, f"🔔 Заказ готов!\n<a href='tg://user?id={user_id}'>👤 Пользователь</a>\nФото: {photo_count} шт")
             return
     await message.answer("У тебя нет активного заказа с фото. Сначала оплати авторский разбор и пришли фото.")
 
@@ -538,7 +539,7 @@ async def handle_author_ready(callback: CallbackQuery):
             order["status"] = "ready"
             _save_author_orders(orders)
             await callback.message.edit_text(f"✅ Принято {len(order['photos'])} фото. Разберу в течение 24 часов и напишу тебе лично.")
-            _send_telegram_message(-1004468971541, f"🔔 Заказ готов!\n<a href='tg://user?id={user_id}'>👤 Написать пользователю</a>\nФото: {len(order['photos'])} шт")
+            _send_telegram_message(-1004468971541, f"🔔 Заказ готов!\n<a href='tg://user?id={user_id}'>👤 Пользователь</a>\nФото: {photo_count} шт")
             return
     await callback.answer("Нет активного заказа.")
 
@@ -604,7 +605,12 @@ async def handle_admin(message: Message):
                 await message.answer("❌ Неверный номер")
                 return
             o = orders[idx]
-            await message.answer(f"📸 Заказ #{idx}\n<a href='tg://user?id={o['user_id']}'>👤 Написать пользователю</a>\nСтатус: {o['status']}", parse_mode="HTML")
+           username = o.get("username", f"id{o['user_id']}")
+    if username.startswith("id"):
+        user_link = f"tg://user?id={o['user_id']}"
+    else:
+        user_link = f"https://t.me/{username}"
+    await message.answer(f"📸 Заказ #{idx}\n<a href='{user_link}'>👤 Написать пользователю</a>\nСтатус: {o['status']}", parse_mode="HTML")
             for filename in o.get("photos", []):
                 filepath = os.path.join(AUTHOR_PHOTOS_DIR, filename)
                 if os.path.exists(filepath):
@@ -1161,6 +1167,8 @@ async def handle_gen_boost_menu(callback: CallbackQuery):
             [InlineKeyboardButton(text="💡 Свет", callback_data=f"gen_boost_light_{gen_type}_{user_id}")],
             [InlineKeyboardButton(text="🧍 Поза", callback_data=f"gen_boost_pose_{gen_type}_{user_id}")],
             [InlineKeyboardButton(text="🎨 Полная", callback_data=f"gen_boost_full_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="💫 Ретушь", callback_data=f"gen_boost_retouch_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="🎨 Стилизация", callback_data=f"gen_go_style_menu_{gen_type}_{user_id}")],
             [InlineKeyboardButton(text="✏️ Свой промпт", callback_data=f"gen_go_custom_{gen_type}_{user_id}")],
             [InlineKeyboardButton(text="🔙 Назад", callback_data=f"gen_boost_back_{gen_type}_{user_id}")],
         ]))
@@ -1169,7 +1177,7 @@ async def handle_gen_boost_menu(callback: CallbackQuery):
 async def handle_gen_boost(callback: CallbackQuery):
     parts = callback.data.split("_")
     boost_type = parts[2]
-    if boost_type in ("menu", "back"):
+    if boost_type in ("menu", "back", "retouch"):
         return
     gen_type = parts[3]
     user_id = int(parts[4])
@@ -1179,6 +1187,7 @@ async def handle_gen_boost(callback: CallbackQuery):
         "light": "Исправь освещение: убери пересветы, добавь света в тени.",
         "pose": "Сфокусируйся на позе: сделай её изящнее. Сохрани лицо.",
         "full": "Полностью переработай кадр: горизонт, мусор, свет, позу. Сохрани лица.",
+        "retouch": "Сделай деликатную ретушь: улучши кожу, убери блики и тёмные круги под глазами, смягчи складки. Если есть двойной подбородок — сделай его менее заметным. Плечи сделай чуть изящнее. Сохрани естественность, не меняй черты лица.",
     }
     wish = boosts.get(boost_type, "Улучши фото")
     gen_wish[user_id] = wish
@@ -1262,7 +1271,10 @@ async def handle_photo(message: Message):
         if order["user_id"] == user_id and order["status"] == "paid" and len(order["photos"]) < 5:
             active_order = order
             break
-
+            
+    if not active_order.get("username") or active_order["username"].startswith("id"):
+        active_order["username"] = message.from_user.username or f"id{user_id}"
+    
     if active_order:
         photo_index = len(active_order["photos"])
         filename = _save_author_photo(active_order["time"], photo_index, image_bytes)
@@ -1273,7 +1285,7 @@ async def handle_photo(message: Message):
         _save_author_orders(orders)
         if photo_count >= 5:
             await message.answer("✅ Все 5 фото получены! Разберу в течение 24 часов и напишу тебе лично в Telegram с результатом.")
-            _send_telegram_message(-1004468971541, f"🔔 Заказ готов!\n<a href='tg://user?id={user_id}'>👤 Написать пользователю</a>\nФото: 5 шт")
+            _send_telegram_message(-1004468971541, f"🔔 Заказ готов!\n<a href='tg://user?id={user_id}'>👤 Пользователь</a>\nФото: {photo_count} шт")
         else:
             await message.answer(
                 f"📸 Фото получено ({photo_count} из 5). Можешь прислать ещё или нажать «Готово», если это всё.",
