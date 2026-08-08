@@ -1175,6 +1175,85 @@ async def handle_gen_paid(callback: CallbackQuery):
     await callback.answer()
     await callback.message.answer(f"✨ <b>Улучшение фото</b>\n\nОсталось: {paid_generations.get(user_id, 0)}\n\nВыбери формат:", parse_mode="HTML", reply_markup=format_keyboard("paid"))
 
+# ===== АДМИН-МЕНЮ (CALLBACK) =====
+@dp.callback_query(F.data == "admin_menu_stats")
+async def admin_menu_stats(callback: CallbackQuery):
+    users = _load_users()
+    await callback.message.answer(f"👤 Пользователей: {len(users)}\n📸 Анализов: {sum(d.get('total',0) for d in users.values())}")
+    await callback.answer()
+
+@dp.callback_query(F.data == "admin_menu_users")
+async def admin_menu_users(callback: CallbackQuery):
+    users = _load_users()
+    text = "\n".join(f"• {d.get('username', uid)} — {d.get('total',0)} фото" for uid, d in users.items())
+    await callback.message.answer(text or "Нет пользователей")
+    await callback.answer()
+
+@dp.callback_query(F.data == "admin_menu_gen")
+async def admin_menu_gen(callback: CallbackQuery):
+    text = "\n".join(f"• {uid}: {c} шт" for uid, c in paid_generations.items() if c > 0)
+    await callback.message.answer(text or "Нет оплаченных генераций")
+    await callback.answer()
+
+@dp.callback_query(F.data == "admin_menu_course")
+async def admin_menu_course(callback: CallbackQuery):
+    users = _load_users()
+    text = "\n".join(f"• {d.get('username', uid)}: день {d.get('day',0)}/10" for uid, d in users.items() if d.get('day',0) > 0)
+    await callback.message.answer(text or "Никто не начал")
+    await callback.answer()
+
+@dp.callback_query(F.data == "admin_menu_feedback")
+async def admin_menu_feedback(callback: CallbackQuery):
+    if os.path.exists(FEEDBACK_FILE):
+        with open(FEEDBACK_FILE) as f:
+            fb = json.load(f)
+        reasons = {"horizon": "📐", "crop": "🪵", "face": "👤", "light": "💡", "pose": "📐", "other": "✏️"}
+        text = "\n".join(f"• {e['time'][:10]} — {reasons.get(e['reason'],'?')}" for e in fb[-20:])
+        await callback.message.answer(text or "Нет записей")
+    else:
+        await callback.message.answer("Нет записей")
+    await callback.answer()
+
+# Промокоды — меню
+@dp.callback_query(F.data == "promo_menu_create")
+async def promo_menu_create(callback: CallbackQuery):
+    user_mode[callback.from_user.id] = "promo_create_name"
+    await callback.message.answer(
+        "➕ <b>Создание промокода</b>\n\n"
+        "Введи название (латиницей, например: SALE, WELCOME, INSTA10):\n\n"
+        "Примеры:\n"
+        "• <code>START</code> — 5 генераций\n"
+        "• <code>VIP</code> — курс\n"
+        "• <code>SALE30</code> — 10 генераций",
+        parse_mode="HTML")
+    await callback.answer()
+
+@dp.callback_query(F.data == "promo_menu_list")
+async def promo_menu_list(callback: CallbackQuery):
+    promo = _load_promo()
+    if not promo:
+        await callback.message.answer("📭 Нет промокодов")
+    else:
+        text = "🎫 <b>Промокоды:</b>\n\n"
+        for c, d in promo.items():
+            ptype = "🎓 Курс" if d["type"] == "course" else f"⚡ {d['amount']} ген."
+            used = len(d.get("used_by", []))
+            text += f"• <code>{c}</code> — {ptype} (исп: {used})\n"
+        await callback.message.answer(text, parse_mode="HTML")
+    await callback.answer()
+
+@dp.callback_query(F.data == "promo_menu_delete")
+async def promo_menu_delete(callback: CallbackQuery):
+    user_mode[callback.from_user.id] = "promo_delete"
+    await callback.message.answer("🗑 Введи название промокода для удаления:")
+    await callback.answer()
+
+@dp.callback_query(F.data == "promo_menu_reset")
+async def promo_menu_reset(callback: CallbackQuery):
+    user_mode[callback.from_user.id] = "promo_reset"
+    await callback.message.answer("🔄 Введи название промокода для сброса:")
+    await callback.answer()
+
 # ===== ФИДБЕК =====
 @dp.callback_query(F.data.startswith("gen_boost_back_"))
 async def handle_gen_boost_back(callback: CallbackQuery):
@@ -1412,11 +1491,25 @@ async def handle_non_photo(message: Message):
 
     # Админские кнопки
     if text == "📊 Админка":
-        message.text = "/admin"
-        await handle_admin(message); return
+        await message.answer("📊 <b>Админ-панель</b>", parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="📊 Статистика", callback_data="admin_menu_stats")],
+                [InlineKeyboardButton(text="👤 Пользователи", callback_data="admin_menu_users")],
+                [InlineKeyboardButton(text="💎 Генерации", callback_data="admin_menu_gen")],
+                [InlineKeyboardButton(text="🎓 Курс", callback_data="admin_menu_course")],
+                [InlineKeyboardButton(text="📝 Фидбек", callback_data="admin_menu_feedback")],
+            ])); return
+
     if text == "🎫 Промо":
-        message.text = "/promo list"
-        await handle_promo(message); return
+        await message.answer("🎫 <b>Промокоды</b>\n\nВыбери действие:",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="➕ Создать", callback_data="promo_menu_create")],
+                [InlineKeyboardButton(text="📋 Список", callback_data="promo_menu_list")],
+                [InlineKeyboardButton(text="🗑 Удалить", callback_data="promo_menu_delete")],
+                [InlineKeyboardButton(text="🔄 Сбросить", callback_data="promo_menu_reset")],
+            ])); return
+
     if text == "📸 Заказы":
         message.text = "/admin orders"
         await handle_admin(message); return
@@ -1427,6 +1520,57 @@ async def handle_non_photo(message: Message):
     if text == "📋 Старт":
         await handle_start(message); return
 
+    # Обработка создания промокода
+    if mode == "promo_create_name":
+        user_mode[user_id] = "promo_create_value"
+        gen_wish[user_id] = message.text.upper()  # временно храним название
+        await message.answer(f"Название: <b>{message.text.upper()}</b>\n\nТеперь введи количество генераций (например: 5)\nИли напиши <b>course</b> для доступа к курсу:", parse_mode="HTML")
+        return
+
+    if mode == "promo_create_value":
+        code = gen_wish.get(user_id, "CODE").upper()
+        if message.text.lower() == "course":
+            ptype, amount = "course", 0
+            type_text = "🎓 Курс"
+        else:
+            try:
+                amount = int(message.text)
+                ptype = "gen"
+                type_text = f"⚡ {amount} ген."
+            except ValueError:
+                await message.answer("❌ Введи число или слово 'course'")
+                return
+        promo = _load_promo()
+        promo[code] = {"type": ptype, "amount": amount, "used_by": []}
+        _save_promo(promo)
+        user_mode[user_id] = "free"
+        await message.answer(f"✅ Промокод <b>{code}</b> создан — {type_text}", parse_mode="HTML")
+        return
+
+    if mode == "promo_delete":
+        code = message.text.upper()
+        promo = _load_promo()
+        if code in promo:
+            del promo[code]
+            _save_promo(promo)
+            await message.answer(f"🗑 Промокод <b>{code}</b> удалён", parse_mode="HTML")
+        else:
+            await message.answer(f"❌ Код <b>{code}</b> не найден", parse_mode="HTML")
+        user_mode[user_id] = "free"
+        return
+
+    if mode == "promo_reset":
+        code = message.text.upper()
+        promo = _load_promo()
+        if code in promo:
+            promo[code]["used_by"] = []
+            _save_promo(promo)
+            await message.answer(f"🔄 Промокод <b>{code}</b> сброшен", parse_mode="HTML")
+        else:
+            await message.answer(f"❌ Код <b>{code}</b> не найден", parse_mode="HTML")
+        user_mode[user_id] = "free"
+        return
+    
     # Пользовательские кнопки
     if text == "📸 Анализ фото":
         await message.answer("Присылай фото — я проанализирую композицию! 📷"); return
