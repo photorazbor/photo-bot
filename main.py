@@ -52,9 +52,6 @@ USER_KEYBOARD = ReplyKeyboardMarkup(
     ],
     resize_keyboard=True
 )
-    ],
-    resize_keyboard=True
-)
 
 ADMIN_KEYBOARD = ReplyKeyboardMarkup(
     keyboard=[
