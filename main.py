@@ -949,6 +949,7 @@ def register_format_handlers():
                         [InlineKeyboardButton(text="🔄 Поменять позу", callback_data=f"gen_go_repose_free_{user_id}")],
                         [InlineKeyboardButton(text="💫 Ретушь", callback_data=f"gen_go_retouch_free_{user_id}")],
                         [InlineKeyboardButton(text="📐 Только формат", callback_data=f"gen_go_format_only_free_{user_id}")],
+                        [InlineKeyboardButton(text="🎨 Стилизация", callback_data=f"gen_go_style_menu_free_{user_id}")],
                         [InlineKeyboardButton(text="✏️ Свой промпт", callback_data=f"gen_go_custom_free_{user_id}")],
                     ]))
             return handler
@@ -969,6 +970,7 @@ def register_format_handlers():
                         [InlineKeyboardButton(text="🔄 Поменять позу", callback_data=f"gen_go_repose_paid_{user_id}")],
                         [InlineKeyboardButton(text="💫 Ретушь", callback_data=f"gen_go_retouch_paid_{user_id}")],
                         [InlineKeyboardButton(text="📐 Только формат", callback_data=f"gen_go_format_only_paid_{user_id}")],
+                        [InlineKeyboardButton(text="🎨 Стилизация", callback_data=f"gen_go_style_menu_paid_{user_id}")],
                         [InlineKeyboardButton(text="✏️ Свой промпт", callback_data=f"gen_go_custom_paid_{user_id}")],
                     ]))
             return handler
@@ -1030,6 +1032,56 @@ async def handle_gen_go_retouch(callback: CallbackQuery):
     user_mode[user_id] = f"gen_wish_{gen_type}"
     await callback.answer()
     await do_generation(user_id, callback.message.chat.id, gen_type)
+    user_mode[user_id] = "free"
+
+@dp.callback_query(F.data.startswith("gen_go_style_menu_"))
+async def handle_gen_go_style_menu(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    gen_type = parts[4]
+    user_id = int(parts[5])
+    await callback.answer()
+    await callback.message.answer(
+        "🎨 <b>Стилизация</b> (-1 генерация)\n\nВыбери стиль:",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📸 Ч/Б фотография", callback_data=f"gen_style_bw_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="🌅 Золотой час", callback_data=f"gen_style_golden_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="🎞️ Под плёнку", callback_data=f"gen_style_film_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="🖼️ Как картина", callback_data=f"gen_style_painting_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="💡 Высокий ключ", callback_data=f"gen_style_highkey_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="🌙 Низкий ключ", callback_data=f"gen_style_lowkey_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="🔙 Назад", callback_data=f"gen_go_retouch_{gen_type}_{user_id}")],
+        ]))
+
+@dp.callback_query(F.data.startswith("gen_style_"))
+async def handle_gen_style(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    style = parts[2]
+    gen_type = parts[3]
+    user_id = int(parts[4])
+    
+    styles = {
+        "bw": "Переведи фото в чёрно-белый стиль. Сделай контрастным и атмосферным.",
+        "golden": "Добавь эффект золотого часа: тёплый закатный свет, мягкие тени, золотистые оттенки.",
+        "film": "Сделай фото в стиле плёночной фотографии: зернистость, мягкие тона, винтажный вид.",
+        "painting": "Преврати фото в картину: имитация живописи, мазки кисти, художественный стиль.",
+        "highkey": "Сделай фото в высоком ключе: светлые тона, минимум теней, воздушный стиль.",
+        "lowkey": "Сделай фото в низком ключе: тёмные тона, драматические тени, контрастный свет.",
+    }
+    
+    wish = styles.get(style, "Примени художественный стиль.")
+    gen_wish[user_id] = wish
+    user_mode[user_id] = f"gen_wish_{gen_type}"
+    
+    if gen_type == "free" and not (user_id == 456504792 and not test_mode):
+        free_generations[user_id] = free_generations.get(user_id, 0) + 1
+        _save_gen()
+    elif gen_type == "paid":
+        paid_generations[user_id] = max(0, paid_generations.get(user_id, 0) - 1)
+        _save_gen()
+    
+    await callback.answer(f"🎨 Применяю стиль...")
+    await do_generation(user_id, callback.message.chat.id, gen_type, check_diff=False)
     user_mode[user_id] = "free"
 
 @dp.callback_query(F.data.startswith("gen_go_repose_"))
