@@ -47,7 +47,7 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 USER_KEYBOARD = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text="📸 Анализ фото"), KeyboardButton(text="✨ Улучшить")],
-        [KeyboardButton(text="📐 Сменить формат"), KeyboardButton(text="🎓 Мини-курс")],
+        [KeyboardButton(text="✂️ Редактор"), KeyboardButton(text="🎓 Мини-курс")],
         [KeyboardButton(text="🎯 Авторский разбор"), KeyboardButton(text="📊 Статистика")],
     ],
     resize_keyboard=True
@@ -480,14 +480,14 @@ async def handle_start(message: Message):
             "👋 <b>Привет! Я — бот-наставник по мобильной фотографии.</b>\n\n"
             "📸 <b>Бесплатный анализ:</b> пришли фото — я найду ошибки композиции и покажу их прямо на снимке.\n\n"
             "✨ <b>Улучшение фото:</b> ИИ исправит композицию, свет, уберёт лишнее и дорисует края.\n\n"
-            "📐 <b>Смена формата:</b> загрузи готовое фото — адаптирую под любой формат: квадрат, сториз, панорама.\n\n"
+            "📐 <b>✂️ Редактор:</b> загрузи готовое фото — адаптирую под любой формат: квадрат, сториз, панорама.\n\n"
             "🎓 <b>Мини-курс по композиции (10 дней):</b> с проверкой каждого задания. Первый день — бесплатно.\n\n"
             f"Присылай фото и начнём разбор! 👇\n\n💎 Осталось генераций: {gen_left}"
         ),
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="📸 Разобрать фото", callback_data="new_photo")],
-            [InlineKeyboardButton(text="📐 Сменить формат", callback_data="change_format")],
+            [InlineKeyboardButton(text="✂️ Редактор", callback_data="change_format")],
             [InlineKeyboardButton(text="🎯 Авторский разбор", callback_data="author_review")],
             [InlineKeyboardButton(text="🎓 Мини-курс", callback_data="course_status")],
             [InlineKeyboardButton(text="💰 Цены и поддержка", callback_data="donate_menu")],
@@ -845,14 +845,14 @@ async def handle_main_menu(callback: CallbackQuery):
             "👋 <b>Привет! Я — бот-наставник по мобильной фотографии.</b>\n\n"
             "📸 <b>Бесплатный анализ:</b> пришли фото.\n\n"
             "✨ <b>Улучшение фото:</b> ИИ исправит композицию.\n\n"
-            "📐 <b>Смена формата:</b> адаптирую под любой формат.\n\n"
+            "✂️ <b>Редактор:</b> меняй формат, улучшай, ретушируй, стилизуй — все инструменты в одном месте.\n\n"
             "🎓 <b>Мини-курс (10 дней):</b> первый день бесплатно.\n\n"
             f"💎 Осталось генераций: {gen_left}"
         ),
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="📸 Разобрать фото", callback_data="new_photo")],
-            [InlineKeyboardButton(text="📐 Сменить формат", callback_data="change_format")],
+            [InlineKeyboardButton(text="✂️ Редактор", callback_data="change_format")],
             [InlineKeyboardButton(text="🎯 Авторский разбор", callback_data="author_review")],
             [InlineKeyboardButton(text="🎓 Мини-курс", callback_data="course_status")],
             [InlineKeyboardButton(text="💰 Цены и поддержка", callback_data="donate_menu")],
@@ -864,12 +864,15 @@ async def handle_main_menu(callback: CallbackQuery):
 async def handle_change_format(callback: CallbackQuery):
     await callback.answer()
     await callback.message.answer(
-        "📐 <b>Смена формата</b>\n\nЗагрузи фото — дорисую края под новый формат.\nЭто тратит 1 генерацию.",
+        "✂️ <b>Редактор</b>\n\n"
+        "Загрузи фото и работай без анализа: меняй формат под соцсети, улучшай, ретушируй, стилизуй, исправляй позу.\n\n"
+        "Все инструменты будут доступны после выбора формата.\n"
+        "1 генерация.",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="📸 Загрузить фото", callback_data="new_photo")]]))
     user_mode[callback.from_user.id] = "change_format"
-
+    
 @dp.callback_query(F.data == "change_format_same")
 async def handle_change_format_same(callback: CallbackQuery):
     user_id = callback.from_user.id
@@ -1579,7 +1582,7 @@ async def handle_non_photo(message: Message):
             await message.answer("Выбери формат:", reply_markup=format_keyboard("free" if free_generations.get(user_id, 0) < 5 else "paid"))
         else:
             await message.answer("Сначала пришли фото для анализа!"); return
-    if text == "📐 Сменить формат":
+    if text == "✂️ Редактор":
         if user_id in last_photo:
             await message.answer("Выбери формат:", reply_markup=format_keyboard("paid" if paid_generations.get(user_id, 0) > 0 else "free"))
         else:
