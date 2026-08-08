@@ -241,7 +241,7 @@ def tochka_webhook():
                             "time": datetime.now().isoformat()
                         })
                         _save_author_orders(orders)
-                        asyncio.run_coroutine_threadsafe(bot.send_message(uid, "✅ Оплата получена! Присылай до 5 фото по одному. После разбора я напишу тебе лично. Если я не смогу тебя найти — напиши мне @sevosphoto"), MAIN_LOOP)
+                        asyncio.run_coroutine_threadsafe(bot.send_message(uid, "✅ Оплата получена! Присылай до 5 фото по одному (не файлом, а как обычное фото из галереи). Когда закончишь — нажми кнопку «Готово». После разбора я напишу тебе лично. Если я не смогу тебя найти — напиши мне @sevosphoto"), MAIN_LOOP)
                         _send_telegram_message(-1004468971541, f"🔔 Новый заказ на авторский разбор!\nПользователь: {uid}")
                     elif "мини-курс" in purp or "курс" in purp:
                         from course import activate_by_username
