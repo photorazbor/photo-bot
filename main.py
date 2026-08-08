@@ -1034,7 +1034,7 @@ async def handle_gen_go_retouch(callback: CallbackQuery):
     parts = callback.data.split("_")
     gen_type = parts[3]
     user_id = int(parts[4])
-    gen_wish[user_id] = "Сделай лёгкую ретушь: улучши кожу, убери блики, сделай цвет лица ровнее. Сохрани естественность, не меняй черты лица."
+    gen_wish[user_id] = "Сделай деликатную ретушь: улучши кожу, убери блики и тёмные круги под глазами, смягчи складки. Если есть двойной подбородок — сделай его менее заметным. Плечи сделай чуть изящнее. Сохрани естественность, не меняй черты лица."
     user_mode[user_id] = f"gen_wish_{gen_type}"
     await callback.answer()
     await do_generation(user_id, callback.message.chat.id, gen_type)
