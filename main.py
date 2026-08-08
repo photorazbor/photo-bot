@@ -605,12 +605,12 @@ async def handle_admin(message: Message):
                 await message.answer("❌ Неверный номер")
                 return
             o = orders[idx]
-           username = o.get("username", f"id{o['user_id']}")
-    if username.startswith("id"):
-        user_link = f"tg://user?id={o['user_id']}"
-    else:
-        user_link = f"https://t.me/{username}"
-    await message.answer(f"📸 Заказ #{idx}\n<a href='{user_link}'>👤 Написать пользователю</a>\nСтатус: {o['status']}", parse_mode="HTML")
+            username = o.get("username", f"id{o['user_id']}")
+            if username.startswith("id"):
+                user_link = f"tg://user?id={o['user_id']}"
+            else:
+                user_link = f"https://t.me/{username}"
+            await message.answer(f"📸 Заказ #{idx}\n<a href='{user_link}'>👤 Написать пользователю</a>\nСтатус: {o['status']}", parse_mode="HTML")
             for filename in o.get("photos", []):
                 filepath = os.path.join(AUTHOR_PHOTOS_DIR, filename)
                 if os.path.exists(filepath):
