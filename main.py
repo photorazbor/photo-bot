@@ -46,9 +46,12 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 
 USER_KEYBOARD = ReplyKeyboardMarkup(
     keyboard=[
-        [KeyboardButton(text="📸 Анализ фото"), KeyboardButton(text="✨ Улучшить")],
-        [KeyboardButton(text="✂️ Редактор"), KeyboardButton(text="🎓 Мини-курс")],
-        [KeyboardButton(text="🎯 Авторский разбор"), KeyboardButton(text="📊 Статистика")],
+        [KeyboardButton(text="📸 Анализ фото"), KeyboardButton(text="✂️ Редактор")],
+        [KeyboardButton(text="🎓 Мини-курс"), KeyboardButton(text="🎯 Авторский разбор")],
+        [KeyboardButton(text="📊 Статистика"), KeyboardButton(text="🏠 Главное меню")],
+    ],
+    resize_keyboard=True
+)
     ],
     resize_keyboard=True
 )
@@ -480,7 +483,7 @@ async def handle_start(message: Message):
             "👋 <b>Привет! Я — бот-наставник по мобильной фотографии.</b>\n\n"
             "📸 <b>Бесплатный анализ:</b> пришли фото — я найду ошибки композиции и покажу их прямо на снимке.\n\n"
             "✨ <b>Улучшение фото:</b> ИИ исправит композицию, свет, уберёт лишнее и дорисует края.\n\n"
-            "📐 <b>✂️ Редактор:</b> загрузи готовое фото — адаптирую под любой формат: квадрат, сториз, панорама.\n\n"
+            "✂️ <b>Редактор:</b> меняй формат, улучшай, ретушируй, стилизуй — все инструменты в одном месте.\n\n"
             "🎓 <b>Мини-курс по композиции (10 дней):</b> с проверкой каждого задания. Первый день — бесплатно.\n\n"
             f"Присылай фото и начнём разбор! 👇\n\n💎 Осталось генераций: {gen_left}"
         ),
@@ -1587,8 +1590,29 @@ async def handle_non_photo(message: Message):
             await message.answer("Выбери формат:", reply_markup=format_keyboard("paid" if paid_generations.get(user_id, 0) > 0 else "free"))
         else:
             await message.answer("Сначала пришли фото!"); return
-    if text == "🎓 Мини-курс":
-        await handle_course_status_logic(user_id, message.chat.id); return
+    if text == "🏠 Главное меню":
+        PHOTO_BASE = "https://raw.githubusercontent.com/photorazbor/photo-bot/main"
+        gen_left = 5 - free_generations.get(user_id, 0) + paid_generations.get(user_id, 0)
+        await message.answer_photo(
+            URLInputFile(f"{PHOTO_BASE}/start_banner.jpg"),
+            caption=(
+                "👋 <b>Привет! Я — бот-наставник по мобильной фотографии.</b>\n\n"
+                "📸 <b>Бесплатный анализ:</b> пришли фото.\n\n"
+                "✂️ <b>Редактор:</b> меняй формат, улучшай, ретушируй, стилизуй — все инструменты в одном месте.\n\n"
+                "🎓 <b>Мини-курс (10 дней):</b> первый день бесплатно.\n\n"
+                f"💎 Осталось генераций: {gen_left}"
+            ),
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="📸 Разобрать фото", callback_data="new_photo")],
+                [InlineKeyboardButton(text="✂️ Редактор", callback_data="change_format")],
+                [InlineKeyboardButton(text="🎯 Авторский разбор", callback_data="author_review")],
+                [InlineKeyboardButton(text="🎓 Мини-курс", callback_data="course_status")],
+                [InlineKeyboardButton(text="💰 Цены и поддержка", callback_data="donate_menu")],
+                [InlineKeyboardButton(text="👤 Об авторе", callback_data="author_info")],
+            ]))
+        return
+    
     if text == "🎯 Авторский разбор":
         await message.answer("🎯 <b>Авторский разбор</b>\n\nЯ лично разберу твои фото.\n📷 До 5 фото\n💰 500 ₽", parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
