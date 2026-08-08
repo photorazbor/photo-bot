@@ -525,7 +525,7 @@ async def handle_done(message: Message):
             order["status"] = "ready"
             _save_author_orders(orders)
             await message.answer(f"✅ Принято {len(order['photos'])} фото. Я разберу их и пришлю результат в течение 24 часов.")
-            _send_telegram_message(-1004468971541, f"🔔 Заказ готов!\nПользователь: {user_id}\nФото: {len(order['photos'])} шт")
+            _send_telegram_message(-1004468971541, f"🔔 Заказ готов!\n<a href='tg://user?id={user_id}'>👤 Написать пользователю</a>\nФото: {len(order['photos'])} шт")
             return
     await message.answer("У тебя нет активного заказа с фото. Сначала оплати авторский разбор и пришли фото.")
 
@@ -538,7 +538,7 @@ async def handle_author_ready(callback: CallbackQuery):
             order["status"] = "ready"
             _save_author_orders(orders)
             await callback.message.edit_text(f"✅ Принято {len(order['photos'])} фото. Разберу в течение 24 часов и напишу тебе лично.")
-            _send_telegram_message(-1004468971541, f"🔔 Заказ готов!\nПользователь: {user_id}\nФото: {len(order['photos'])} шт")
+            _send_telegram_message(-1004468971541, f"🔔 Заказ готов!\n<a href='tg://user?id={user_id}'>👤 Написать пользователю</a>\nФото: {len(order['photos'])} шт")
             return
     await callback.answer("Нет активного заказа.")
 
@@ -604,7 +604,7 @@ async def handle_admin(message: Message):
                 await message.answer("❌ Неверный номер")
                 return
             o = orders[idx]
-            await message.answer(f"📸 Заказ #{idx}\nUser: {o['user_id']}\nСтатус: {o['status']}")
+            await message.answer(f"📸 Заказ #{idx}\n<a href='tg://user?id={o['user_id']}'>👤 Написать пользователю</a>\nСтатус: {o['status']}", parse_mode="HTML")
             for filename in o.get("photos", []):
                 filepath = os.path.join(AUTHOR_PHOTOS_DIR, filename)
                 if os.path.exists(filepath):
@@ -1208,7 +1208,7 @@ async def handle_photo(message: Message):
         _save_author_orders(orders)
         if photo_count >= 5:
             await message.answer("✅ Все 5 фото получены! Разберу в течение 24 часов и напишу тебе лично в Telegram с результатом.")
-            _send_telegram_message(-1004468971541, f"🔔 Заказ готов!\nПользователь: {user_id}\nФото: 5 шт")
+            _send_telegram_message(-1004468971541, f"🔔 Заказ готов!\n<a href='tg://user?id={user_id}'>👤 Написать пользователю</a>\nФото: 5 шт")
         else:
             await message.answer(
                 f"📸 Фото получено ({photo_count} из 5). Можешь прислать ещё или нажать «Готово», если это всё.",
