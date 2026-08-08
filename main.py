@@ -1285,7 +1285,7 @@ async def handle_gen_boost_menu(callback: CallbackQuery):
 async def handle_gen_boost(callback: CallbackQuery):
     parts = callback.data.split("_")
     boost_type = parts[2]
-    if boost_type in ("menu", "back", "retouch"):
+    if boost_type in ("menu", "back",):
         return
     gen_type = parts[3]
     user_id = int(parts[4])
