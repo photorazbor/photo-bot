@@ -1380,7 +1380,7 @@ async def handle_photo(message: Message):
             active_order = order
             break
             
-    if not active_order.get("username") or active_order["username"].startswith("id"):
+    if active_order and (not active_order.get("username") or active_order["username"].startswith("id")):
         active_order["username"] = message.from_user.username or f"id{user_id}"
     
     if active_order:
