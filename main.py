@@ -1583,10 +1583,16 @@ async def handle_non_photo(message: Message):
         else:
             await message.answer("Сначала пришли фото для анализа!"); return
     if text == "✂️ Редактор":
-        if user_id in last_photo:
-            await message.answer("Выбери формат:", reply_markup=format_keyboard("paid" if paid_generations.get(user_id, 0) > 0 else "free"))
-        else:
-            await message.answer("Сначала пришли фото!"); return
+        await message.answer(
+            "✂️ <b>Редактор</b>\n\n"
+            "Загрузи фото и работай без анализа: меняй формат, улучшай, ретушируй, стилизуй.\n"
+            "Все инструменты после выбора формата.\n"
+            "1 генерация.",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="📸 Загрузить фото", callback_data="new_photo")]]))
+        user_mode[user_id] = "change_format"
+        return
     if text == "🏠 Главное меню":
         PHOTO_BASE = "https://raw.githubusercontent.com/photorazbor/photo-bot/main"
         gen_left = 5 - free_generations.get(user_id, 0) + paid_generations.get(user_id, 0)
