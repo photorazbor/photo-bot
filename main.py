@@ -943,11 +943,12 @@ def register_format_handlers():
                     parse_mode="HTML",
                     reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                         [InlineKeyboardButton(text="✨ Улучшить", callback_data=f"gen_go_ok_free_{user_id}")],
-                        [InlineKeyboardButton(text="📐 Только формат", callback_data=f"gen_go_format_only_free_{user_id}")],
                         [InlineKeyboardButton(text="🔍 Глубокое улучшение", callback_data=f"gen_go_deep_free_{user_id}")],
+                        [InlineKeyboardButton(text="🎨 Полная переработка", callback_data=f"gen_go_full_free_{user_id}")],
                         [InlineKeyboardButton(text="🧍 Исправить позу", callback_data=f"gen_go_pose_free_{user_id}")],
                         [InlineKeyboardButton(text="🔄 Поменять позу", callback_data=f"gen_go_repose_free_{user_id}")],
-                        [InlineKeyboardButton(text="🎨 Полная переработка", callback_data=f"gen_go_full_free_{user_id}")],
+                        [InlineKeyboardButton(text="💫 Ретушь", callback_data=f"gen_go_retouch_free_{user_id}")],
+                        [InlineKeyboardButton(text="📐 Только формат", callback_data=f"gen_go_format_only_free_{user_id}")],
                         [InlineKeyboardButton(text="✏️ Свой промпт", callback_data=f"gen_go_custom_free_{user_id}")],
                     ]))
             return handler
@@ -962,11 +963,12 @@ def register_format_handlers():
                     parse_mode="HTML",
                     reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                         [InlineKeyboardButton(text="✨ Улучшить", callback_data=f"gen_go_ok_paid_{user_id}")],
-                        [InlineKeyboardButton(text="📐 Только формат", callback_data=f"gen_go_format_only_paid_{user_id}")],
                         [InlineKeyboardButton(text="🔍 Глубокое улучшение", callback_data=f"gen_go_deep_paid_{user_id}")],
+                        [InlineKeyboardButton(text="🎨 Полная переработка", callback_data=f"gen_go_full_paid_{user_id}")],
                         [InlineKeyboardButton(text="🧍 Исправить позу", callback_data=f"gen_go_pose_paid_{user_id}")],
                         [InlineKeyboardButton(text="🔄 Поменять позу", callback_data=f"gen_go_repose_paid_{user_id}")],
-                        [InlineKeyboardButton(text="🎨 Полная переработка", callback_data=f"gen_go_full_paid_{user_id}")],
+                        [InlineKeyboardButton(text="💫 Ретушь", callback_data=f"gen_go_retouch_paid_{user_id}")],
+                        [InlineKeyboardButton(text="📐 Только формат", callback_data=f"gen_go_format_only_paid_{user_id}")],
                         [InlineKeyboardButton(text="✏️ Свой промпт", callback_data=f"gen_go_custom_paid_{user_id}")],
                     ]))
             return handler
@@ -1014,6 +1016,17 @@ async def handle_gen_go_pose(callback: CallbackQuery):
     gen_type = parts[3]
     user_id = int(parts[4])
     gen_wish[user_id] = "Сфокусируйся ТОЛЬКО на позе: сделай её изящнее. НЕ меняй фон и освещение."
+    user_mode[user_id] = f"gen_wish_{gen_type}"
+    await callback.answer()
+    await do_generation(user_id, callback.message.chat.id, gen_type)
+    user_mode[user_id] = "free"
+
+@dp.callback_query(F.data.startswith("gen_go_retouch_"))
+async def handle_gen_go_retouch(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    gen_type = parts[3]
+    user_id = int(parts[4])
+    gen_wish[user_id] = "Сделай лёгкую ретушь: улучши кожу, убери блики, сделай цвет лица ровнее. Сохрани естественность, не меняй черты лица."
     user_mode[user_id] = f"gen_wish_{gen_type}"
     await callback.answer()
     await do_generation(user_id, callback.message.chat.id, gen_type)
