@@ -1063,7 +1063,7 @@ async def handle_gen_go_retouch(callback: CallbackQuery):
     parts = callback.data.split("_")
     gen_type = parts[3]
     user_id = int(parts[4])
-    gen_wish[user_id] = "Сделай ТОЛЬКО деликатную ретушь: улучши кожу, убери блики и тёмные круги под глазами, смягчи складки. НЕ меняй позу, композицию, фон, освещение. Сохрани лицо, одежду и расположение объектов в точности как на исходном фото."
+    gen_wish[user_id] = "Сделай деликатную портретную ретушь: выровняй тон кожи, осветли тёмные круги под глазами, смягчи мимические морщины и мелкие складки. Если есть двойной подбородок — аккуратно уменьши его. Добавь лёгкий студийный световой акцент. НЕ меняй позу, композицию, фон, освещение. Сохрани естественность и текстуру кожи."
     user_mode[user_id] = f"gen_wish_{gen_type}"
     await callback.answer()
     await do_generation(user_id, callback.message.chat.id, gen_type)
@@ -1270,11 +1270,11 @@ async def handle_gen_boost_menu(callback: CallbackQuery):
         "⚡ <b>Усилить обработку</b> (-1 генерация)\n\nЧто усилить?",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="📐 Горизонт", callback_data=f"gen_boost_horizon_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="📐 Исправить горизонт", callback_data=f"gen_boost_horizon_{gen_type}_{user_id}")],
             [InlineKeyboardButton(text="🧹 Чистка фона", callback_data=f"gen_boost_clean_{gen_type}_{user_id}")],
             [InlineKeyboardButton(text="💡 Свет", callback_data=f"gen_boost_light_{gen_type}_{user_id}")],
-            [InlineKeyboardButton(text="🧍 Поза", callback_data=f"gen_boost_pose_{gen_type}_{user_id}")],
-            [InlineKeyboardButton(text="🎨 Полная", callback_data=f"gen_boost_full_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="🧍 Исправить позу", callback_data=f"gen_boost_pose_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="🎨 Полная переработка", callback_data=f"gen_boost_full_{gen_type}_{user_id}")],
             [InlineKeyboardButton(text="💫 Ретушь", callback_data=f"gen_boost_retouch_{gen_type}_{user_id}")],
             [InlineKeyboardButton(text="🎨 Стилизация", callback_data=f"gen_go_style_menu_{gen_type}_{user_id}")],
             [InlineKeyboardButton(text="✏️ Свой промпт", callback_data=f"gen_go_custom_{gen_type}_{user_id}")],
@@ -1295,7 +1295,7 @@ async def handle_gen_boost(callback: CallbackQuery):
         "light": "Исправь освещение: убери пересветы, добавь света в тени.",
         "pose": "Сфокусируйся на позе: сделай её изящнее. Сохрани лицо.",
         "full": "Полностью переработай кадр: горизонт, мусор, свет, позу. Сохрани лица.",
-        "retouch": "Сделай ТОЛЬКО деликатную ретушь: улучши кожу, убери блики и тёмные круги под глазами, смягчи складки. НЕ меняй позу, композицию, фон, освещение. Сохрани лицо, одежду и расположение объектов в точности как на исходном фото.",
+        "retouch": "Сделай деликатную портретную ретушь: выровняй тон кожи, осветли тёмные круги под глазами, смягчи мимические морщины и мелкие складки. Если есть двойной подбородок — аккуратно уменьши его. Добавь лёгкий студийный световой акцент. НЕ меняй позу, композицию, фон, освещение. Сохрани естественность и текстуру кожи.",
     }
     wish = boosts.get(boost_type, "Улучши фото")
     gen_wish[user_id] = wish
