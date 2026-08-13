@@ -1088,7 +1088,7 @@ async def handle_gen_go_style_menu(callback: CallbackQuery):
             [InlineKeyboardButton(text="🖼️ Как картина", callback_data=f"gen_style_painting_{gen_type}_{user_id}")],
             [InlineKeyboardButton(text="💡 Высокий ключ", callback_data=f"gen_style_highkey_{gen_type}_{user_id}")],
             [InlineKeyboardButton(text="🌙 Низкий ключ", callback_data=f"gen_style_lowkey_{gen_type}_{user_id}")],
-            [InlineKeyboardButton(text="🔙 Назад", callback_data=f"gen_go_retouch_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="🔙 Назад", callback_data=f"gen_go_back_{gen_type}_{user_id}")],
         ]))
 
 @dp.callback_query(F.data.startswith("gen_style_"))
@@ -1121,6 +1121,11 @@ async def handle_gen_style(callback: CallbackQuery):
     await callback.answer(f"🎨 Применяю стиль...")
     await do_generation(user_id, callback.message.chat.id, gen_type, check_diff=False)
     user_mode[user_id] = "free"
+
+@dp.callback_query(F.data.startswith("gen_go_back_"))
+async def handle_gen_go_back(callback: CallbackQuery):
+    await callback.answer()
+    await callback.message.delete()
 
 @dp.callback_query(F.data.startswith("gen_go_repose_"))
 async def handle_gen_go_repose(callback: CallbackQuery):
