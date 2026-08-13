@@ -1026,7 +1026,7 @@ async def handle_gen_go_ok(callback: CallbackQuery):
     user_id = int(parts[4])
     gen_wish[user_id] = "ок"
     user_mode[user_id] = f"gen_wish_{gen_type}"
-    await callback.answer()
+    await callback.answer("Запускаю генерацию...")
     await do_generation(user_id, callback.message.chat.id, gen_type)
     user_mode[user_id] = "free"
 
@@ -1037,7 +1037,7 @@ async def handle_gen_go_horizon(callback: CallbackQuery):
     user_id = int(parts[4])
     gen_wish[user_id] = "САМОЕ ГЛАВНОЕ: выровняй горизонт. Поверни изображение чтобы линия горизонта стала строго горизонтальной. Дорисуй недостающие края после поворота. НЕ меняй ничего кроме горизонта."
     user_mode[user_id] = f"gen_wish_{gen_type}"
-    await callback.answer()
+    await callback.answer("Запускаю генерацию...")
     await do_generation(user_id, callback.message.chat.id, gen_type, check_diff=False)
     user_mode[user_id] = "free"
 
@@ -1048,7 +1048,7 @@ async def handle_gen_go_format_only(callback: CallbackQuery):
     user_id = int(parts[5])
     gen_wish[user_id] = "Только измени формат: дорисуй или обрежь края. НЕ меняй изображение."
     user_mode[user_id] = f"gen_wish_{gen_type}"
-    await callback.answer()
+    await callback.answer("Запускаю генерацию...")
     await do_generation(user_id, callback.message.chat.id, gen_type)
     user_mode[user_id] = "free"
 
@@ -1059,7 +1059,7 @@ async def handle_gen_go_deep(callback: CallbackQuery):
     user_id = int(parts[4])
     gen_wish[user_id] = "ОБЯЗАТЕЛЬНО выровняй горизонт и вертикали. Убери весь мусор. Сделай кадр чистым."
     user_mode[user_id] = f"gen_wish_{gen_type}"
-    await callback.answer()
+    await callback.answer("Запускаю генерацию...")
     await do_generation(user_id, callback.message.chat.id, gen_type)
     user_mode[user_id] = "free"
 
@@ -1070,7 +1070,7 @@ async def handle_gen_go_pose(callback: CallbackQuery):
     user_id = int(parts[4])
     gen_wish[user_id] = "Сфокусируйся ТОЛЬКО на позе: сделай её изящнее. НЕ меняй фон и освещение."
     user_mode[user_id] = f"gen_wish_{gen_type}"
-    await callback.answer()
+    await callback.answer("Запускаю генерацию...")
     await do_generation(user_id, callback.message.chat.id, gen_type)
     user_mode[user_id] = "free"
 
@@ -1081,7 +1081,7 @@ async def handle_gen_go_retouch(callback: CallbackQuery):
     user_id = int(parts[4])
     gen_wish[user_id] = "Сделай полную профессиональную ретушь: выровняй тон кожи, сделай его гладким и сияющим. Полностью убери тёмные круги под глазами, разгладь все морщины и складки на лице и шее. Убери горизонтальные полоски и кольцевые складки на шее. Уменьши двойной подбородок до минимума. Сделай причёску аккуратной, объёмной и ухоженной. Добавь выраженный студийный свет с мягкими тенями. Усиль контраст и резкость на лице. НЕ меняй позу, композицию, фон. Лицо должно выглядеть как после профессиональной фотосессии."
     user_mode[user_id] = f"gen_wish_{gen_type}"
-    await callback.answer()
+    await callback.answer("Запускаю генерацию...")
     await do_generation(user_id, callback.message.chat.id, gen_type)
     user_mode[user_id] = "free"
 
@@ -1090,7 +1090,7 @@ async def handle_gen_go_style_menu(callback: CallbackQuery):
     parts = callback.data.split("_")
     gen_type = parts[4]
     user_id = int(parts[5])
-    await callback.answer()
+    await callback.answer("Запускаю генерацию...")
     await callback.message.answer(
         "🎨 <b>Стилизация</b> (-1 генерация)\n\nВыбери стиль:",
         parse_mode="HTML",
@@ -1137,7 +1137,7 @@ async def handle_gen_style(callback: CallbackQuery):
 
 @dp.callback_query(F.data.startswith("gen_go_back_"))
 async def handle_gen_go_back(callback: CallbackQuery):
-    await callback.answer()
+    await callback.answer("Запускаю генерацию...")
     await callback.message.delete()
 
 @dp.callback_query(F.data.startswith("gen_go_repose_"))
@@ -1147,7 +1147,7 @@ async def handle_gen_go_repose(callback: CallbackQuery):
     user_id = int(parts[4])
     gen_wish[user_id] = "Полностью измени позу: разверни корпус, измени положение рук и ног. Сохрани лицо."
     user_mode[user_id] = f"gen_wish_{gen_type}"
-    await callback.answer()
+    await callback.answer("Запускаю генерацию...")
     await do_generation(user_id, callback.message.chat.id, gen_type)
     user_mode[user_id] = "free"
 
@@ -1158,7 +1158,7 @@ async def handle_gen_go_full(callback: CallbackQuery):
     user_id = int(parts[4])
     gen_wish[user_id] = "Полностью переработай кадр: позу, фон, свет. Сохрани лицо и одежду."
     user_mode[user_id] = f"gen_wish_{gen_type}"
-    await callback.answer()
+    await callback.answer("Запускаю генерацию...")
     await do_generation(user_id, callback.message.chat.id, gen_type)
     user_mode[user_id] = "free"
 
@@ -1168,7 +1168,7 @@ async def handle_gen_go_custom(callback: CallbackQuery):
     gen_type = parts[3]
     user_id = int(parts[4])
     user_mode[user_id] = f"gen_wish_{gen_type}"
-    await callback.answer()
+    await callback.answer("Запускаю генерацию...")
     await callback.message.answer(
         "✏️ Напиши пожелание, например:\n"
         "• «убери провода и мусор»\n"
