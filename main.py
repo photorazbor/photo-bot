@@ -1025,7 +1025,7 @@ async def handle_gen_go_ok(callback: CallbackQuery):
     parts = callback.data.split("_")
     gen_type = parts[3]
     user_id = int(parts[4])
-    gen_wish[user_id] = "ок"
+    gen_wish[user_id] = "Улучши фото: выровняй горизонт и вертикали, убери мусор, исправь свет и цвета. Сделай кадр заметно лучше."
     user_mode[user_id] = f"gen_wish_{gen_type}"
     await callback.answer("Запускаю генерацию...")
     await do_generation(user_id, callback.message.chat.id, gen_type)
