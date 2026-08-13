@@ -986,6 +986,7 @@ def register_format_handlers():
                         [InlineKeyboardButton(text="🧍 Исправить позу", callback_data=f"gen_go_pose_free_{user_id}")],
                         [InlineKeyboardButton(text="🔄 Поменять позу", callback_data=f"gen_go_repose_free_{user_id}")],
                         [InlineKeyboardButton(text="💫 Ретушь", callback_data=f"gen_go_retouch_free_{user_id}")],
+                        [InlineKeyboardButton(text="📐 Выровнять горизонт", callback_data=f"gen_go_horizon_free_{user_id}")],
                         [InlineKeyboardButton(text="📐 Только формат", callback_data=f"gen_go_format_only_free_{user_id}")],
                         [InlineKeyboardButton(text="🎨 Стилизация", callback_data=f"gen_go_style_menu_free_{user_id}")],
                         [InlineKeyboardButton(text="✏️ Свой промпт", callback_data=f"gen_go_custom_free_{user_id}")],
@@ -1007,6 +1008,7 @@ def register_format_handlers():
                         [InlineKeyboardButton(text="🧍 Исправить позу", callback_data=f"gen_go_pose_paid_{user_id}")],
                         [InlineKeyboardButton(text="🔄 Поменять позу", callback_data=f"gen_go_repose_paid_{user_id}")],
                         [InlineKeyboardButton(text="💫 Ретушь", callback_data=f"gen_go_retouch_paid_{user_id}")],
+                        [InlineKeyboardButton(text="📐 Выровнять горизонт", callback_data=f"gen_go_horizon_paid_{user_id}")],
                         [InlineKeyboardButton(text="📐 Только формат", callback_data=f"gen_go_format_only_paid_{user_id}")],
                         [InlineKeyboardButton(text="🎨 Стилизация", callback_data=f"gen_go_style_menu_paid_{user_id}")],
                         [InlineKeyboardButton(text="✏️ Свой промпт", callback_data=f"gen_go_custom_paid_{user_id}")],
@@ -1026,6 +1028,17 @@ async def handle_gen_go_ok(callback: CallbackQuery):
     user_mode[user_id] = f"gen_wish_{gen_type}"
     await callback.answer()
     await do_generation(user_id, callback.message.chat.id, gen_type)
+    user_mode[user_id] = "free"
+
+@dp.callback_query(F.data.startswith("gen_go_horizon_"))
+async def handle_gen_go_horizon(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    gen_type = parts[3]
+    user_id = int(parts[4])
+    gen_wish[user_id] = "САМОЕ ГЛАВНОЕ: выровняй горизонт. Поверни изображение чтобы линия горизонта стала строго горизонтальной. Дорисуй недостающие края после поворота. НЕ меняй ничего кроме горизонта."
+    user_mode[user_id] = f"gen_wish_{gen_type}"
+    await callback.answer()
+    await do_generation(user_id, callback.message.chat.id, gen_type, check_diff=False)
     user_mode[user_id] = "free"
 
 @dp.callback_query(F.data.startswith("gen_go_format_only_"))
@@ -1298,7 +1311,7 @@ async def handle_gen_boost(callback: CallbackQuery):
     gen_type = parts[3]
     user_id = int(parts[4])
     boosts = {
-        "horizon": "ОБЯЗАТЕЛЬНО выровняй горизонт и вертикали.",
+        "horizon": "САМОЕ ГЛАВНОЕ: выровняй горизонт. Поверни изображение чтобы линия горизонта стала строго горизонтальной. Дорисуй недостающие края после поворота. НЕ меняй ничего кроме горизонта.",
         "clean": "Убери весь мусор и грязь. Сделай кадр чистым.",
         "light": "Исправь освещение: убери пересветы, добавь света в тени.",
         "pose": "Сфокусируйся на позе: сделай её изящнее. Сохрани лицо.",
