@@ -379,6 +379,7 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
             f"Если есть фрейминг — сделай его аккуратнее. "
             f"Улучши свет и цвета. "
             f"НЕ меняй черты лица — сохрани их в точности. "
+            f"НЕ добавляй новые объекты, людей, животных, которых не было на исходном фото. Только улучшай существующее. "
             f"Размер: {img_size}. "
         )
         if "horizon" in error_type:
@@ -419,7 +420,7 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
                 result_img = Image.open(io_module.BytesIO(result))
                 diff = ImageChops.difference(original_img.resize(result_img.size), result_img)
                 if diff.getbbox() is None:
-                    gen_wish[user_id] = "ОБЯЗАТЕЛЬНО выровняй горизонт и вертикали. Убери весь мусор. Сделай кадр чистым."
+                    gen_wish[user_id] = "ОБЯЗАТЕЛЬНО выровняй горизонт до идеально ровного. Найди линию горизонта и поверни фото. Убери весь мусор. Сделай кадр чистым."
                     await bot.send_message(chat_id, "🔄 Первая попытка не дала изменений. Пробую глубокое улучшение...")
                     await do_generation(user_id, chat_id, gen_type, check_diff=False)
                     return
@@ -1035,7 +1036,7 @@ async def handle_gen_go_horizon(callback: CallbackQuery):
     parts = callback.data.split("_")
     gen_type = parts[3]
     user_id = int(parts[4])
-    gen_wish[user_id] = "САМОЕ ГЛАВНОЕ: выровняй горизонт. Поверни изображение чтобы линия горизонта стала строго горизонтальной. Дорисуй недостающие края после поворота. НЕ меняй ничего кроме горизонта."
+    gen_wish[user_id] = "Только выровняй горизонт. Найди линию горизонта и поверни изображение так, чтобы она стала идеально горизонтальной. Это единственная задача. Не меняй объекты, свет, композицию. Просто поверни фото до ровного горизонта."
     user_mode[user_id] = f"gen_wish_{gen_type}"
     await callback.answer("Запускаю генерацию...")
     await do_generation(user_id, callback.message.chat.id, gen_type, check_diff=False)
