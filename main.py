@@ -1634,7 +1634,9 @@ async def handle_non_photo(message: Message):
                 [InlineKeyboardButton(text="👤 Об авторе", callback_data="author_info")],
             ]))
         return
-    
+        
+    if text == "🎓 Мини-курс":
+        await handle_course_status_logic(user_id, message.chat.id); return
     if text == "🎯 Авторский разбор":
         await message.answer("🎯 <b>Авторский разбор</b>\n\nЯ лично разберу твои фото.\n📷 До 5 фото\n💰 500 ₽", parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
