@@ -227,7 +227,6 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
         }
         spesh_payload = {
             "model": "google/nano-banana-2",
-            "modalities": ["image", "text"],
             "messages": [
                 {
                     "role": "user",
