@@ -219,57 +219,57 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
 
     response = requests.post(f"{BASE_URL}/chat/completions", headers=headers, json=payload, timeout=45)
 
-    if response.status_code != 200:
-        print("CheapAI не ответил, пробую SpeShu...")
-        spe_shu_headers = {
-            "Authorization": f"Bearer {SPESHU_API_KEY}",
-            "Content-Type": "application/json"
-        }
-        spesh_task = requests.post(
-            "https://speshu.ai/api/v1/async/media/tasks",
-            headers=spe_shu_headers,
-            json={
-                "model": "nano-banana-2",
-                "input": {
-                    "prompt": prompt,
-                    "images": [{"type": "url", "data": data_url}]
-                }
-            },
-            timeout=45
-        )
-        if spesh_task.status_code not in (200, 201):
-            print(f"Ошибка SpeShu: {spesh_task.status_code} {spesh_task.text}")
-            return None
-
-        task_id = spesh_task.json().get("data", {}).get("taskId")
-        if not task_id:
-            print("Нет taskId от SpeShu")
-            return None
-
-        import time
-        for _ in range(60):
-            time.sleep(3)
-            spesh_result = requests.get(
-                f"https://speshu.ai/api/v1/async/media/tasks/{task_id}",
-                headers=spe_shu_headers,
-                timeout=30
-            )
-            if spesh_result.status_code == 200:
-                result_data = spesh_result.json().get("data", {})
-                status = result_data.get("status")
-                if status == "success":
-                    result_json = result_data.get("resultJson", {})
-                    image_url = result_json.get("url") or result_json.get("image_url") or result_json.get("output")
-                    if image_url:
-                        image_response = requests.get(image_url, timeout=45)
-                        if image_response.status_code == 200:
-                            return image_response.content
-                    break
-                elif status == "fail":
-                    print(f"SpeShu fail: {result_data.get('failMsg')}")
-                    break
-        print("SpeShu не вернул результат")
-        return None
+    # if response.status_code != 200:
+    #     print("CheapAI не ответил, пробую SpeShu...")
+    #     spe_shu_headers = {
+    #         "Authorization": f"Bearer {SPESHU_API_KEY}",
+    #         "Content-Type": "application/json"
+    #     }
+    #     spesh_task = requests.post(
+    #         "https://speshu.ai/api/v1/async/media/tasks",
+    #         headers=spe_shu_headers,
+    #         json={
+    #             "model": "nano-banana-2",
+    #             "input": {
+    #                 "prompt": prompt,
+    #                 "images": [{"type": "url", "data": data_url}]
+    #             }
+    #         },
+    #         timeout=45
+    #     )
+    #     if spesh_task.status_code not in (200, 201):
+    #         print(f"Ошибка SpeShu: {spesh_task.status_code} {spesh_task.text}")
+    #         return None
+    # 
+    #     task_id = spesh_task.json().get("data", {}).get("taskId")
+    #     if not task_id:
+    #         print("Нет taskId от SpeShu")
+    #         return None
+    # 
+    #     import time
+    #     for _ in range(60):
+    #         time.sleep(3)
+    #         spesh_result = requests.get(
+    #             f"https://speshu.ai/api/v1/async/media/tasks/{task_id}",
+    #             headers=spe_shu_headers,
+    #             timeout=30
+    #         )
+    #         if spesh_result.status_code == 200:
+    #             result_data = spesh_result.json().get("data", {})
+    #             status = result_data.get("status")
+    #             if status == "success":
+    #                 result_json = result_data.get("resultJson", {})
+    #                 image_url = result_json.get("url") or result_json.get("image_url") or result_json.get("output")
+    #                 if image_url:
+    #                     image_response = requests.get(image_url, timeout=45)
+    #                     if image_response.status_code == 200:
+    #                         return image_response.content
+    #                 break
+    #             elif status == "fail":
+    #                 print(f"SpeShu fail: {result_data.get('failMsg')}")
+    #                 break
+    #     print("SpeShu не вернул результат")
+    #     return None
 
     result = response.json()
     try:
