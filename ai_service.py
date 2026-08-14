@@ -9,7 +9,7 @@ import requests
 import os as _os
 from datetime import datetime
 
-from config import OPENAI_API_KEY, TOCHKA_API_TOKEN
+from config import OPENAI_API_KEY, TOCHKA_API_TOKEN, SPESHU_API_KEY 
 
 BASE_URL = "https://cheapai.io/v1"
 
@@ -221,7 +221,7 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
     if response.status_code != 200:
         print("CheapAI не ответил, пробую SpeShu...")
         spesh_headers = {
-            "Authorization": f"Bearer {OPENAI_API_KEY}",
+            "Authorization": f"Bearer {SPESHU_API_KEY}",
             "Content-Type": "application/json",
         }
         spesh_payload = {
