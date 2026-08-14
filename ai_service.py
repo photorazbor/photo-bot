@@ -216,7 +216,8 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
         "max_tokens": 2000,
     }
 
-    response = requests.post(f"{BASE_URL}/chat/completions", headers=headers, json=payload, timeout=45)
+    response = requests.Response()
+    response.status_code = 500  # имитируем сбой основного
 
     if response.status_code != 200:
         print("CheapAI не ответил, пробую SpeShu...")
@@ -238,7 +239,7 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
             ],
             "max_tokens": 2000,
         }
-        response = requests.post("https://speshu.ai/v1/chat/completions", headers=spesh_headers, json=spesh_payload, timeout=45)
+        response = requests.post("https://speshu.ai/api/v1/chat/completions", headers=spesh_headers, json=spesh_payload, timeout=45)
         if response.status_code != 200:
             print(f"Ошибка SpeShu: {response.status_code} {response.text}")
             return None
