@@ -9,7 +9,7 @@ import requests
 import os as _os
 from datetime import datetime
 
-from config import OPENAI_API_KEY, TOCHKA_API_TOKEN, SPESHU_API_KEY 
+from config import OPENAI_API_KEY, TOCHKA_API_TOKEN, SPESHU_API_KEY
 
 BASE_URL = "https://cheapai.io/v1"
 
@@ -192,6 +192,7 @@ Drawings: line, dashed_line, circle, frame, arrow, grid_thirds, crop_frame.
         print(f"Не удалось распарсить JSON: {e}\nОтвет модели: {raw_text}")
         return None
 
+
 def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
     """Генерирует изображение через Gemini Image API на CheapAI (Формат 1)."""
     data_url = _image_bytes_to_data_url(image_bytes)
@@ -216,8 +217,7 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
         "max_tokens": 2000,
     }
 
-    response = requests.Response()
-    response.status_code = 500  # имитируем сбой основного
+    response = requests.post(f"{BASE_URL}/chat/completions", headers=headers, json=payload, timeout=45)
 
     if response.status_code != 200:
         print("CheapAI не ответил, пробую SpeShu...")
@@ -225,13 +225,11 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
             "Authorization": f"Bearer {SPESHU_API_KEY}",
             "Content-Type": "application/json"
         }
-        # Отправляем задачу
-        b64_data = data_url.replace("data:image/jpeg;base64,", "")
         spesh_task = requests.post(
             "https://speshu.ai/api/v1/async/media/tasks",
             headers=spe_shu_headers,
             json={
-                "model": "google/gemini-3.1-flash-image-preview",
+                "model": "nano-banana-2",
                 "input": {
                     "prompt": prompt,
                     "images": [{"type": "url", "data": data_url}]
@@ -242,13 +240,12 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
         if spesh_task.status_code not in (200, 201):
             print(f"Ошибка SpeShu: {spesh_task.status_code} {spesh_task.text}")
             return None
-        
+
         task_id = spesh_task.json().get("data", {}).get("taskId")
         if not task_id:
             print("Нет taskId от SpeShu")
             return None
-        
-        # Ждём результат
+
         import time
         for _ in range(60):
             time.sleep(3)
@@ -273,6 +270,26 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
                     break
         print("SpeShu не вернул результат")
         return None
+
+    result = response.json()
+    try:
+        content = result["choices"][0]["message"]["content"]
+
+        match = re.search(r"data:image/[^;]+;base64,([A-Za-z0-9+/=]+)", content)
+        if match:
+            b64_str = match.group(1)
+            return base64.b64decode(b64_str)
+
+        if content.startswith("iVBOR") or content.startswith("/9j/"):
+            return base64.b64decode(content)
+
+        print(f"Не удалось извлечь изображение из ответа: {content[:200]}...")
+        return None
+
+    except Exception as e:
+        print(f"Не удалось извлечь изображение: {e}")
+        return None
+
 
 def create_payment_link(amount: float, purpose: str, user_id: int = None) -> str | None:
     if not TOCHKA_API_TOKEN:
