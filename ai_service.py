@@ -250,8 +250,8 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
         
         # Ждём результат
         import time
-        for _ in range(30):
-            time.sleep(2)
+        for _ in range(60):
+            time.sleep(3)
             spesh_result = requests.get(
                 f"https://speshu.ai/api/v1/async/media/tasks/{task_id}",
                 headers=spe_shu_headers,
