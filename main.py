@@ -306,6 +306,8 @@ def get_keyboard(user_id: int) -> InlineKeyboardMarkup:
     buttons = []
     free_left = 5 - free_generations.get(user_id, 0)
     paid_left = paid_generations.get(user_id, 0)
+    total_left = free_left + paid_left
+    
     if user_id == 456504792 and not test_mode:
         buttons.append([InlineKeyboardButton(text="✨ Улучшить фото (автор)", callback_data="gen_free")])
     elif free_left > 0:
@@ -321,7 +323,7 @@ def get_keyboard(user_id: int) -> InlineKeyboardMarkup:
     else:
         buttons.append([InlineKeyboardButton(text="💛 Поддержать проект", callback_data="donate_menu")])
         buttons.append([InlineKeyboardButton(text="🎓 Мини-курс по композиции (490 ₽)", callback_data="course_status")])
-    buttons.append([InlineKeyboardButton(text="📊 Моя статистика", callback_data="my_stats")])
+    buttons.append([InlineKeyboardButton(text=f"💎 Мои генерации: {total_left}", callback_data="my_balance")])
     buttons.append([InlineKeyboardButton(text="📷 Разобрать другое фото", callback_data="new_photo")])
     buttons.append([InlineKeyboardButton(text="📐 Сменить формат этого фото", callback_data="change_format_same")])
     buttons.append([InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")])
@@ -1137,9 +1139,32 @@ async def handle_author_info(callback: CallbackQuery):
     await callback.message.answer("📸 <b>Евгений Севостьянов</b>\nФотограф, преподаватель.\nInstagram: @sevosphoto\nTelegram: @sevosphoto\nVK: @cevoc", parse_mode="HTML")
     await callback.answer()
 
-@dp.callback_query(F.data == "my_stats")
-async def handle_stats_button(callback: CallbackQuery):
-    await callback.message.answer(get_stats(callback.from_user.id), parse_mode="HTML")
+@dp.callback_query(F.data == "my_balance")
+async def handle_my_balance(callback: CallbackQuery):
+    user_id = callback.from_user.id
+    free_left = 5 - free_generations.get(user_id, 0)
+    paid_left = paid_generations.get(user_id, 0)
+    total = free_left + paid_left
+    
+    text = (
+        f"💎 <b>Мои генерации</b>\n\n"
+        f"🆓 Бесплатных осталось: {free_left} из 5\n"
+        f"⚡ Оплаченных осталось: {paid_left}\n"
+        f"━━━━━━━━━━━━━━━\n"
+        f"💰 <b>Всего: {total}</b>\n\n"
+    )
+    
+    if total <= 0:
+        text += "У тебя закончились генерации. Купи пакет:"
+        await callback.message.answer(text, parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="⚡ 10 улучшений — 99 ₽", callback_data="buy_10_gen")],
+                [InlineKeyboardButton(text="⚡ 30 улучшений — 249 ₽", callback_data="buy_30_gen")],
+            ]))
+    else:
+        text += "Отлично! Можешь продолжать улучшать фото."
+        await callback.message.answer(text, parse_mode="HTML")
+    
     await callback.answer()
 
 @dp.callback_query(F.data == "new_photo")
@@ -1166,6 +1191,7 @@ async def handle_main_menu(callback: CallbackQuery):
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="📸 Разобрать фото", callback_data="new_photo")],
             [InlineKeyboardButton(text="✂️ Редактор", callback_data="change_format")],
+            [InlineKeyboardButton(text="💎 Мои генерации", callback_data="my_balance")],
             [InlineKeyboardButton(text="🎯 Авторский разбор", callback_data="author_review")],
             [InlineKeyboardButton(text="🎓 Мини-курс", callback_data="course_status")],
             [InlineKeyboardButton(text="💰 Цены и поддержка", callback_data="donate_menu")],
@@ -1852,6 +1878,7 @@ async def handle_non_photo(message: Message):
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="📸 Разобрать фото", callback_data="new_photo")],
                 [InlineKeyboardButton(text="✂️ Редактор", callback_data="change_format")],
+                [InlineKeyboardButton(text="💎 Мои генерации", callback_data="my_balance")],
                 [InlineKeyboardButton(text="🎯 Авторский разбор", callback_data="author_review")],
                 [InlineKeyboardButton(text="🎓 Мини-курс", callback_data="course_status")],
                 [InlineKeyboardButton(text="💰 Цены и поддержка", callback_data="donate_menu")],
