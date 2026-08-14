@@ -226,6 +226,7 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
             "Content-Type": "application/json"
         }
         # Отправляем задачу
+        b64_data = data_url.replace("data:image/jpeg;base64,", "")
         spesh_task = requests.post(
             "https://speshu.ai/api/v1/async/media/tasks",
             headers=spe_shu_headers,
@@ -233,7 +234,7 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
                 "model": "google/gemini-3.1-flash-image-preview",
                 "input": {
                     "prompt": prompt,
-                    "images": [{"type": "url", "data": data_url}]
+                    "images": [{"type": "base64", "data": b64_data}]
                 }
             },
             timeout=45
