@@ -991,7 +991,7 @@ def register_format_handlers():
                         [InlineKeyboardButton(text="💫 Ретушь", callback_data=f"gen_go_retouch_free_{user_id}")],
                         [InlineKeyboardButton(text="📐 Выровнять горизонт", callback_data=f"gen_go_horizon_free_{user_id}")],
                         [InlineKeyboardButton(text="📐 Только формат", callback_data=f"gen_go_format_only_free_{user_id}")],
-                        [InlineKeyboardButton(text="🎨 Стилизация", callback_data=f"gen_go_style_menu_free_{user_id}")],
+                        [InlineKeyboardButton(text="🎨 Стилизация", callback_data=f"gen_style_menu_full_free_{user_id}")],
                         [InlineKeyboardButton(text="✏️ Свой промпт", callback_data=f"gen_go_custom_free_{user_id}")],
                     ]))
             return handler
@@ -1013,7 +1013,7 @@ def register_format_handlers():
                         [InlineKeyboardButton(text="💫 Ретушь", callback_data=f"gen_go_retouch_paid_{user_id}")],
                         [InlineKeyboardButton(text="📐 Выровнять горизонт", callback_data=f"gen_go_horizon_paid_{user_id}")],
                         [InlineKeyboardButton(text="📐 Только формат", callback_data=f"gen_go_format_only_paid_{user_id}")],
-                        [InlineKeyboardButton(text="🎨 Стилизация", callback_data=f"gen_go_style_menu_paid_{user_id}")],
+                        [InlineKeyboardButton(text="🎨 Стилизация", callback_data=f"gen_style_menu_full_paid_{user_id}")],
                         [InlineKeyboardButton(text="✏️ Свой промпт", callback_data=f"gen_go_custom_paid_{user_id}")],
                     ]))
             return handler
