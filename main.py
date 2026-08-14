@@ -48,7 +48,7 @@ USER_KEYBOARD = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text="📸 Анализ фото"), KeyboardButton(text="✂️ Редактор")],
         [KeyboardButton(text="🎨 Стилизация"), KeyboardButton(text="🎯 Авторский разбор")],
-        [KeyboardButton(text="🎓 Мини-курс"), KeyboardButton(text="🎯 Авторский разбор")],
+        [KeyboardButton(text="🎓 Мини-курс"), KeyboardButton(text="🏠 Главное меню")],
     ],
     resize_keyboard=True
 )
