@@ -216,7 +216,7 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
         "max_tokens": 2000,
     }
 
-    response = requests.post(f"{BASE_URL}/chat/completions", headers=headers, json=payload, timeout=90)
+    response = requests.post(f"{BASE_URL}/chat/completions", headers=headers, json=payload, timeout=45)
 
     if response.status_code != 200:
         print(f"Ошибка генерации: {response.status_code} {response.text}")
