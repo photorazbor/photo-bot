@@ -453,6 +453,7 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
             reply_markup=get_keyboard(user_id))
 
         post_kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="✏️ Доработать результат", callback_data=f"gen_refine_{gen_type}_{user_id}")],
             [InlineKeyboardButton(text="🔄 Перегенерировать (бесплатно)", callback_data=f"gen_retry_{gen_type}_{user_id}")],
             [InlineKeyboardButton(text="⚡ Усилить (-1 ген.)", callback_data=f"gen_boost_menu_{gen_type}_{user_id}")],
             [InlineKeyboardButton(text="👍 Хорошо", callback_data=f"fb_good_{user_id}"),
@@ -1336,6 +1337,26 @@ async def handle_gen_style_menu_full(callback: CallbackQuery):
             [InlineKeyboardButton(text="🔥 Киберпанк", callback_data=f"gen_style_cyberpunk_{gen_type}_{user_id}"),
              InlineKeyboardButton(text="🖤 Нуар", callback_data=f"gen_style_noir_{gen_type}_{user_id}")],
             [InlineKeyboardButton(text="🔙 Назад", callback_data=f"gen_boost_back_{gen_type}_{user_id}")],
+        ]))
+
+@dp.callback_query(F.data.startswith("gen_refine_"))
+async def handle_gen_refine(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    gen_type = parts[2]
+    user_id = int(parts[3])
+    await callback.answer()
+    await callback.message.answer(
+        "✏️ <b>Доработать результат</b>\n\n"
+        "Выбери инструмент — он применится к улучшенному фото.\n"
+        "Каждая доработка тратит 1 генерацию.",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🧍 Исправить позу", callback_data=f"gen_go_pose_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="🔄 Поменять позу", callback_data=f"gen_go_repose_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="💫 Ретушь", callback_data=f"gen_go_retouch_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="🎨 Стилизация", callback_data=f"gen_style_menu_full_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="📐 Только формат", callback_data=f"gen_go_format_only_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="✏️ Свой промпт", callback_data=f"gen_go_custom_{gen_type}_{user_id}")],
         ]))
 
 @dp.callback_query(F.data.startswith("gen_boost_"))
