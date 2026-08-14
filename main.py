@@ -1114,11 +1114,19 @@ async def handle_gen_style(callback: CallbackQuery):
     
     styles = {
         "bw": "Переведи фото в чёрно-белый стиль. Сделай контрастным и атмосферным. НЕ меняй позу, композицию.",
-        "golden": "Добавь эффект золотого часа: тёплый закатный свет, мягкие тени, золотистые оттенки. НЕ меняй позу, композицию.",
-        "film": "Сделай фото в стиле плёночной фотографии: зернистость, мягкие теплые тона, винтажный вид с засвткой и с небольшми царапинами. НЕ меняй позу, композицию.",
+        "golden": "Добавь эффект закатного солнца: тёплый вечерний свет, мягкие тени, золотистые оттенки. НЕ меняй позу, композицию.",
+        "film": "Сделай фото в стиле плёночной фотографии: зернистость, мягкие тона, винтажный вид. НЕ меняй позу, композицию.",
+        "highkey": "Сделай фото воздушным: светлые тона, минимум теней, лёгкий стиль. НЕ меняй позу, композицию.",
+        "lowkey": "Сделай фото драматичным: тёмные тона, глубокие тени, контрастный свет. НЕ меняй позу, композицию.",
+        "pastel": "Добавь пастельные тона: мягкие розовые, голубые, кремовые оттенки. Нежный воздушный стиль. НЕ меняй позу, композицию.",
+        "retro": "Сделай фото в стиле ретро 80-х: VHS-эффект, выцветшие цвета, зернистость, лёгкая неоновая дымка. НЕ меняй позу, композицию.",
+        "cinema": "Сделай фото кинематографичным: широкий кадр, глубокая цветокоррекция, мягкий контраст, атмосфера фильма. НЕ меняй позу, композицию.",
         "painting": "Преврати фото в картину: имитация живописи, мазки кисти, художественный стиль. НЕ меняй позу, композицию.",
-        "highkey": "Сделай фото в высоком ключе: светлые тона, минимум теней, воздушный стиль. НЕ меняй позу, композицию.",
-        "lowkey": "Сделай фото в низком ключе: тёмные тона, драматические тени, контрастный свет. НЕ меняй позу, композицию.",
+        "comics": "Преврати фото в комикс: яркие цвета, чёткие контуры, стиль графического романа. НЕ меняй позу, композицию.",
+        "anime": "Преврати фото в аниме: стиль японской анимации, большие глаза, мягкие линии, яркие цвета. НЕ меняй позу, композицию.",
+        "aquarel": "Преврати фото в акварель: мягкие разводы краски, лёгкие полупрозрачные тона, художественный стиль. НЕ меняй позу, композицию.",
+        "cyberpunk": "Сделай фото в стиле киберпанк: неоновые огни, футуристическая атмосфера, яркие кислотные цвета, тёмный фон. НЕ меняй позу, композицию.",
+        "noir": "Сделай фото в стиле нуар: чёрно-белый детектив, резкие тени, драматический свет, атмосфера 40-х. НЕ меняй позу, композицию.",
     }
     
     wish = styles.get(style, "Примени художественный стиль.")
@@ -1601,6 +1609,28 @@ async def handle_non_photo(message: Message):
             await message.answer("Выбери формат:", reply_markup=format_keyboard("free" if free_generations.get(user_id, 0) < 5 else "paid"))
         else:
             await message.answer("Сначала пришли фото для анализа!"); return
+    if text == "🎨 Стилизация":
+        await message.answer(
+            "🎨 <b>Стилизация</b>\n\n— Цвет и свет —\n\n"
+            "Выбери стиль:",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="📸 Ч/Б", callback_data=f"gen_style_bw_free_{user_id}"),
+                 InlineKeyboardButton(text="🌅 Закат", callback_data=f"gen_style_golden_free_{user_id}")],
+                [InlineKeyboardButton(text="🎞️ Плёнка", callback_data=f"gen_style_film_free_{user_id}"),
+                 InlineKeyboardButton(text="💡 Воздушный", callback_data=f"gen_style_highkey_free_{user_id}")],
+                [InlineKeyboardButton(text="🌙 Драматичный", callback_data=f"gen_style_lowkey_free_{user_id}"),
+                 InlineKeyboardButton(text="🌸 Пастель", callback_data=f"gen_style_pastel_free_{user_id}")],
+                [InlineKeyboardButton(text="🌈 Ретро 80-х", callback_data=f"gen_style_retro_free_{user_id}"),
+                 InlineKeyboardButton(text="🎬 Кино", callback_data=f"gen_style_cinema_free_{user_id}")],
+                [InlineKeyboardButton(text="🖼️ Картина", callback_data=f"gen_style_painting_free_{user_id}"),
+                 InlineKeyboardButton(text="💥 Комикс", callback_data=f"gen_style_comics_free_{user_id}")],
+                [InlineKeyboardButton(text="🎌 Аниме", callback_data=f"gen_style_anime_free_{user_id}"),
+                 InlineKeyboardButton(text="🎨 Акварель", callback_data=f"gen_style_aquarel_free_{user_id}")],
+                [InlineKeyboardButton(text="🔥 Киберпанк", callback_data=f"gen_style_cyberpunk_free_{user_id}"),
+                 InlineKeyboardButton(text="🖤 Нуар", callback_data=f"gen_style_noir_free_{user_id}")],
+            ]))
+        return
     if text == "✂️ Редактор":
         await message.answer(
             "✂️ <b>Редактор</b>\n\n"
