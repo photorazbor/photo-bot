@@ -219,8 +219,29 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
     response = requests.post(f"{BASE_URL}/chat/completions", headers=headers, json=payload, timeout=45)
 
     if response.status_code != 200:
-        print(f"Ошибка генерации: {response.status_code} {response.text}")
-        return None
+        print("CheapAI не ответил, пробую SpeShu...")
+        spesh_headers = {
+            "Authorization": f"Bearer {OPENAI_API_KEY}",
+            "Content-Type": "application/json",
+        }
+        spesh_payload = {
+            "model": "nano-banana-2",
+            "modalities": ["image", "text"],
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {"type": "image_url", "image_url": {"url": data_url}},
+                    ],
+                }
+            ],
+            "max_tokens": 2000,
+        }
+        response = requests.post("https://speshu.ai/v1/chat/completions", headers=spesh_headers, json=spesh_payload, timeout=45)
+        if response.status_code != 200:
+            print(f"Ошибка SpeShu: {response.status_code} {response.text}")
+            return None
 
     result = response.json()
     try:
@@ -239,64 +260,4 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
 
     except Exception as e:
         print(f"Не удалось извлечь изображение: {e}")
-        return None
-
-
-def create_payment_link(amount: float, purpose: str, user_id: int = None) -> str | None:
-    """
-    Создаёт платёжную ссылку через API банка «Точка».
-    Возвращает ссылку на оплату или None в случае ошибки.
-    """
-    if not TOCHKA_API_TOKEN:
-        print("Ошибка: TOCHKA_API_TOKEN не задан в config.py")
-        return None
-
-    url = "https://enter.tochka.com/uapi/acquiring/v1.0/payments"
-
-    payment_link_id = str(uuid.uuid4())
-
-    payload = {
-        "Data": {
-            "customerCode": "301511177",
-            "merchantId": "200000000041437",
-            "amount": f"{amount:.2f}",
-            "purpose": purpose,
-            "redirectUrl": "https://t.me/moy_razbor_bot",
-            "failRedirectUrl": "https://t.me/moy_razbor_bot",
-            "webhookUrl": "https://photo-bot-6koz.onrender.com/webhook/tochka",
-            "paymentMode": ["sbp", "card"],
-            "saveCard": False,
-            "preAuthorization": False,
-            "ttl": 10080,
-            "paymentLinkId": payment_link_id
-        }
-    }
-
-    headers = {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Authorization': f'Bearer {TOCHKA_API_TOKEN}'
-    }
-
-    try:
-        response = requests.post(url, json=payload, headers=headers, timeout=30)
-
-        if response.status_code not in (200, 201):
-            print(f"Ошибка API Точки: {response.status_code} {response.text[:300]}")
-            return None
-
-        data = response.json()
-        payment_link = data.get("Data", {}).get("paymentLink")
-
-        if payment_link and user_id:
-            _save_payment_link(payment_link_id, user_id, purpose)
-
-        if payment_link:
-            return payment_link
-        else:
-            print(f"В ответе нет paymentLink: {data}")
-            return None
-
-    except Exception as e:
-        print(f"Ошибка создания платежа: {e}")
         return None
