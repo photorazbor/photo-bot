@@ -447,6 +447,7 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
                 _save_gen()
         gen_retry_count[user_id] = retries + 1
 
+        last_photo[user_id] = result
         format_name = dict(FORMATS).get(fmt, fmt)
         await bot.send_photo(chat_id, BufferedInputFile(result, filename="generated.jpg"),
             caption=f"✨ Вот твой улучшенный кадр!\nФормат: {format_name}",
@@ -1133,6 +1134,7 @@ async def handle_gen_style(callback: CallbackQuery):
     wish = styles.get(style, "Примени художественный стиль.")
     gen_wish[user_id] = wish
     user_mode[user_id] = f"gen_wish_{gen_type}"
+    gen_format[user_id] = "original"
     
     if gen_type == "free" and not (user_id == 456504792 and not test_mode):
         free_generations[user_id] = free_generations.get(user_id, 0) + 1
