@@ -231,7 +231,7 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
             "https://speshu.ai/api/v1/async/media/tasks",
             headers=spe_shu_headers,
             json={
-                "model": "google/gemini-3.1-flash-image-preview",
+                "model": "nano-banana-2",
                 "input": {
                     "prompt": prompt,
                     "images": [{"type": "base64", "data": b64_data}]
