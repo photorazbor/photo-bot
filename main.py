@@ -1402,6 +1402,28 @@ async def handle_photo(message: Message):
             reply_markup=format_keyboard("paid" if paid_generations.get(user_id, 0) > 0 else "free"))
         return
 
+    if mode == "style_photo":
+        await message.answer(
+            "🎨 <b>Выбери стиль:</b>",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="📸 Ч/Б", callback_data=f"gen_style_bw_free_{user_id}"),
+                 InlineKeyboardButton(text="🌅 Закат", callback_data=f"gen_style_golden_free_{user_id}")],
+                [InlineKeyboardButton(text="🎞️ Плёнка", callback_data=f"gen_style_film_free_{user_id}"),
+                 InlineKeyboardButton(text="💡 Воздушный", callback_data=f"gen_style_highkey_free_{user_id}")],
+                [InlineKeyboardButton(text="🌙 Драматичный", callback_data=f"gen_style_lowkey_free_{user_id}"),
+                 InlineKeyboardButton(text="🌸 Пастель", callback_data=f"gen_style_pastel_free_{user_id}")],
+                [InlineKeyboardButton(text="🌈 Ретро 80-х", callback_data=f"gen_style_retro_free_{user_id}"),
+                 InlineKeyboardButton(text="🎬 Кино", callback_data=f"gen_style_cinema_free_{user_id}")],
+                [InlineKeyboardButton(text="🖼️ Картина", callback_data=f"gen_style_painting_free_{user_id}"),
+                 InlineKeyboardButton(text="💥 Комикс", callback_data=f"gen_style_comics_free_{user_id}")],
+                [InlineKeyboardButton(text="🎌 Аниме", callback_data=f"gen_style_anime_free_{user_id}"),
+                 InlineKeyboardButton(text="🎨 Акварель", callback_data=f"gen_style_aquarel_free_{user_id}")],
+                [InlineKeyboardButton(text="🔥 Киберпанк", callback_data=f"gen_style_cyberpunk_free_{user_id}"),
+                 InlineKeyboardButton(text="🖤 Нуар", callback_data=f"gen_style_noir_free_{user_id}")],
+            ]))
+        return
+
     # Проверка активного заказа на авторский разбор
     orders = _load_author_orders()
     active_order = None
@@ -1611,25 +1633,25 @@ async def handle_non_photo(message: Message):
             await message.answer("Сначала пришли фото для анализа!"); return
     if text == "🎨 Стилизация":
         await message.answer(
-            "🎨 <b>Стилизация</b>\n\n— Цвет и свет —\n\n"
-            "Выбери стиль:",
-            parse_mode="HTML",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="📸 Ч/Б", callback_data=f"gen_style_bw_free_{user_id}"),
-                 InlineKeyboardButton(text="🌅 Закат", callback_data=f"gen_style_golden_free_{user_id}")],
-                [InlineKeyboardButton(text="🎞️ Плёнка", callback_data=f"gen_style_film_free_{user_id}"),
-                 InlineKeyboardButton(text="💡 Воздушный", callback_data=f"gen_style_highkey_free_{user_id}")],
-                [InlineKeyboardButton(text="🌙 Драматичный", callback_data=f"gen_style_lowkey_free_{user_id}"),
-                 InlineKeyboardButton(text="🌸 Пастель", callback_data=f"gen_style_pastel_free_{user_id}")],
-                [InlineKeyboardButton(text="🌈 Ретро 80-х", callback_data=f"gen_style_retro_free_{user_id}"),
-                 InlineKeyboardButton(text="🎬 Кино", callback_data=f"gen_style_cinema_free_{user_id}")],
-                [InlineKeyboardButton(text="🖼️ Картина", callback_data=f"gen_style_painting_free_{user_id}"),
-                 InlineKeyboardButton(text="💥 Комикс", callback_data=f"gen_style_comics_free_{user_id}")],
-                [InlineKeyboardButton(text="🎌 Аниме", callback_data=f"gen_style_anime_free_{user_id}"),
-                 InlineKeyboardButton(text="🎨 Акварель", callback_data=f"gen_style_aquarel_free_{user_id}")],
-                [InlineKeyboardButton(text="🔥 Киберпанк", callback_data=f"gen_style_cyberpunk_free_{user_id}"),
-                 InlineKeyboardButton(text="🖤 Нуар", callback_data=f"gen_style_noir_free_{user_id}")],
-            ]))
+            "🎨 Пришли фото для стилизации.\n\n"
+            "Доступные стили:\n"
+            "• 📸 Ч/Б — классика\n"
+            "• 🌅 Закат — тёплый вечерний свет\n"
+            "• 🎞️ Плёнка — винтажный вид\n"
+            "• 💡 Воздушный — светлый и лёгкий\n"
+            "• 🌙 Драматичный — контрастный\n"
+            "• 🌸 Пастель — мягкие тона\n"
+            "• 🌈 Ретро 80-х — VHS-эффект\n"
+            "• 🎬 Кино — как кадр из фильма\n"
+            "• 🖼️ Картина — живопись\n"
+            "• 💥 Комикс — графический роман\n"
+            "• 🎌 Аниме — японская анимация\n"
+            "• 🎨 Акварель — мягкие разводы\n"
+            "• 🔥 Киберпанк — неон и футуризм\n"
+            "• 🖤 Нуар — чёрно-белый детектив",
+            parse_mode="HTML"
+        )
+        user_mode[user_id] = "style_photo"
         return
     if text == "✂️ Редактор":
         await message.answer(
