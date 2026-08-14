@@ -221,93 +221,54 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
 
     if response.status_code != 200:
         print("CheapAI не ответил, пробую SpeShu...")
-        spesh_headers = {
+        spe_shu_headers = {
             "Authorization": f"Bearer {SPESHU_API_KEY}",
-            "Content-Type": "application/json",
+            "Content-Type": "application/json"
         }
-        spesh_payload = {
-            "model": "nano-banana-2",
-            "messages": [
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": prompt},
-                        {"type": "image_url", "image_url": {"url": data_url}},
-                    ],
+        # Отправляем задачу
+        spesh_task = requests.post(
+            "https://speshu.ai/api/v1/async/media/tasks",
+            headers=spe_shu_headers,
+            json={
+                "model": "google/gemini-3.1-flash-image-preview",
+                "input": {
+                    "prompt": prompt,
+                    "images": [{"type": "url", "data": data_url}]
                 }
-            ],
-            "max_tokens": 2000,
-        }
-        response = requests.post("https://speshu.ai/api/v1/chat/completions", headers=spesh_headers, json=spesh_payload, timeout=45)
-        if response.status_code != 200:
-            print(f"Ошибка SpeShu: {response.status_code} {response.text}")
+            },
+            timeout=45
+        )
+        if spesh_task.status_code not in (200, 201):
+            print(f"Ошибка SpeShu: {spesh_task.status_code} {spesh_task.text}")
             return None
-
-    result = response.json()
-    try:
-        content = result["choices"][0]["message"]["content"]
-
-        match = re.search(r"data:image/[^;]+;base64,([A-Za-z0-9+/=]+)", content)
-        if match:
-            b64_str = match.group(1)
-            return base64.b64decode(b64_str)
-
-        if content.startswith("iVBOR") or content.startswith("/9j/"):
-            return base64.b64decode(content)
-
-        print(f"Не удалось извлечь изображение из ответа: {content[:200]}...")
-        return None
-
-    except Exception as e:
-        print(f"Не удалось извлечь изображение: {e}")
-        return None
-
-def create_payment_link(amount: float, purpose: str, user_id: int = None) -> str | None:
-    if not TOCHKA_API_TOKEN:
-        print("Ошибка: TOCHKA_API_TOKEN не задан в config.py")
-        return None
-
-    url = "https://enter.tochka.com/uapi/acquiring/v1.0/payments"
-
-    payment_link_id = str(uuid.uuid4())
-
-    payload = {
-        "Data": {
-            "customerCode": "301511177",
-            "merchantId": "200000000041437",
-            "amount": f"{amount:.2f}",
-            "purpose": purpose,
-            "redirectUrl": "https://t.me/moy_razbor_bot",
-            "failRedirectUrl": "https://t.me/moy_razbor_bot",
-            "webhookUrl": "https://photo-bot-6koz.onrender.com/webhook/tochka",
-            "paymentMode": ["sbp", "card"],
-            "saveCard": False,
-            "preAuthorization": False,
-            "ttl": 10080,
-            "paymentLinkId": payment_link_id
-        }
-    }
-
-    headers = {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Authorization': f'Bearer {TOCHKA_API_TOKEN}'
-    }
-
-    try:
-        response = requests.post(url, json=payload, headers=headers, timeout=30)
-        if response.status_code not in (200, 201):
-            print(f"Ошибка API Точки: {response.status_code} {response.text[:300]}")
+        
+        task_id = spesh_task.json().get("data", {}).get("taskId")
+        if not task_id:
+            print("Нет taskId от SpeShu")
             return None
-        data = response.json()
-        payment_link = data.get("Data", {}).get("paymentLink")
-        if payment_link and user_id:
-            _save_payment_link(payment_link_id, user_id, purpose)
-        if payment_link:
-            return payment_link
-        else:
-            print(f"В ответе нет paymentLink: {data}")
-            return None
-    except Exception as e:
-        print(f"Ошибка создания платежа: {e}")
+        
+        # Ждём результат
+        import time
+        for _ in range(30):
+            time.sleep(2)
+            spesh_result = requests.get(
+                f"https://speshu.ai/api/v1/async/media/tasks/{task_id}",
+                headers=spe_shu_headers,
+                timeout=30
+            )
+            if spesh_result.status_code == 200:
+                result_data = spesh_result.json().get("data", {})
+                status = result_data.get("status")
+                if status == "success":
+                    result_json = result_data.get("resultJson", {})
+                    image_url = result_json.get("url") or result_json.get("image_url") or result_json.get("output")
+                    if image_url:
+                        image_response = requests.get(image_url, timeout=45)
+                        if image_response.status_code == 200:
+                            return image_response.content
+                    break
+                elif status == "fail":
+                    print(f"SpeShu fail: {result_data.get('failMsg')}")
+                    break
+        print("SpeShu не вернул результат")
         return None
