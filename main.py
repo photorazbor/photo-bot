@@ -1306,8 +1306,35 @@ async def handle_gen_boost_menu(callback: CallbackQuery):
             [InlineKeyboardButton(text="🧍 Исправить позу", callback_data=f"gen_boost_pose_{gen_type}_{user_id}")],
             [InlineKeyboardButton(text="🎨 Полная переработка", callback_data=f"gen_boost_full_{gen_type}_{user_id}")],
             [InlineKeyboardButton(text="💫 Ретушь", callback_data=f"gen_boost_retouch_{gen_type}_{user_id}")],
-            [InlineKeyboardButton(text="🎨 Стилизация", callback_data=f"gen_go_style_menu_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="🎨 Стилизация", callback_data=f"gen_style_menu_full_{gen_type}_{user_id}")],
             [InlineKeyboardButton(text="✏️ Свой промпт", callback_data=f"gen_go_custom_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="🔙 Назад", callback_data=f"gen_boost_back_{gen_type}_{user_id}")],
+        ]))
+
+@dp.callback_query(F.data.startswith("gen_style_menu_full_"))
+async def handle_gen_style_menu_full(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    gen_type = parts[4]
+    user_id = int(parts[5])
+    await callback.answer()
+    await callback.message.answer(
+        "🎨 <b>Выбери стиль:</b>",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📸 Ч/Б", callback_data=f"gen_style_bw_{gen_type}_{user_id}"),
+             InlineKeyboardButton(text="🌅 Закат", callback_data=f"gen_style_golden_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="🎞️ Плёнка", callback_data=f"gen_style_film_{gen_type}_{user_id}"),
+             InlineKeyboardButton(text="💡 Воздушный", callback_data=f"gen_style_highkey_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="🌙 Драматичный", callback_data=f"gen_style_lowkey_{gen_type}_{user_id}"),
+             InlineKeyboardButton(text="🌸 Пастель", callback_data=f"gen_style_pastel_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="🌈 Ретро 80-х", callback_data=f"gen_style_retro_{gen_type}_{user_id}"),
+             InlineKeyboardButton(text="🎬 Кино", callback_data=f"gen_style_cinema_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="🖼️ Картина", callback_data=f"gen_style_painting_{gen_type}_{user_id}"),
+             InlineKeyboardButton(text="💥 Комикс", callback_data=f"gen_style_comics_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="🎌 Аниме", callback_data=f"gen_style_anime_{gen_type}_{user_id}"),
+             InlineKeyboardButton(text="🎨 Акварель", callback_data=f"gen_style_aquarel_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="🔥 Киберпанк", callback_data=f"gen_style_cyberpunk_{gen_type}_{user_id}"),
+             InlineKeyboardButton(text="🖤 Нуар", callback_data=f"gen_style_noir_{gen_type}_{user_id}")],
             [InlineKeyboardButton(text="🔙 Назад", callback_data=f"gen_boost_back_{gen_type}_{user_id}")],
         ]))
 
