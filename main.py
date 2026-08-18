@@ -346,11 +346,12 @@ async def send_photos(chat_id: int, day: int):
         except Exception:
             pass
 
-async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: bool = True, use_original: bool = False):
+async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: bool = True, use_original: bool = False, mode: str = "normal"):
     """Выполняет генерацию изображения.
     
     Args:
         use_original: если True — берёт исходное фото (для перегенерации и усиления)
+        mode: "normal" — обычная, "retry" — перегенерация (другой вариант), "boost" — усиление (мощнее)
     """
     if user_id not in last_photo:
         await bot.send_message(chat_id, "Сначала пришли фото для анализа!")
@@ -367,6 +368,10 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
     
     if wish and wish.lower() != "ок":
         await bot.send_message(chat_id, "🎨 Генерирую изображение по твоему пожеланию...")
+    elif mode == "retry":
+        await bot.send_message(chat_id, "🔄 Генерирую другой вариант...")
+    elif mode == "boost":
+        await bot.send_message(chat_id, "⚡ Усиливаю обработку...")
     else:
         await bot.send_message(chat_id, "🎨 Генерирую изображение на основе анализа...")
     
@@ -391,6 +396,20 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
             f"НЕ добавляй новые объекты, людей, животных, которых не было на исходном фото. Только улучшай существующее. "
             f"Размер: {img_size}. "
         )
+        
+        # ===== ВАЖНО: ДОБАВЛЯЕМ РЕЖИМЫ =====
+        if mode == "retry":
+            # Перегенерация — другой вариант
+            prompt += (
+                " Сделай ДРУГОЙ вариант. Не повторяй предыдущий результат. "
+                "Попробуй другой подход к обработке. Изменения должны отличаться от прошлого варианта."
+            )
+        elif mode == "boost":
+            # Усиление — заметно мощнее
+            prompt += (
+                " Усиль обработку ЗНАЧИТЕЛЬНО. Изменения должны быть очень заметными. "
+                "Сделай фото заметно лучше, чем обычно. Примени более сильные исправления."
+            )
         
         if "horizon" in error_type:
             prompt += f"ОБЯЗАТЕЛЬНО выровняй горизонт. {what_is_wrong}"
@@ -449,11 +468,9 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
             pass
 
         # ===== СПИСАНИЕ ГЕНЕРАЦИЙ =====
-        # Перегенерация (retry) — бесплатная, не списываем
+        # Перегенерация (mode="retry") — бесплатная, не списываем
         # Все остальные — списываем 1 генерацию
-        is_retry = gen_retry_count.get(user_id, 0) > 0
-        
-        if not is_retry:
+        if mode != "retry":
             used = gen_used_count.get(user_id, 0)
             if used == 0:
                 if gen_type == "free" and not (user_id == 456504792 and not test_mode):
@@ -1030,7 +1047,7 @@ async def handle_gen_boost(callback: CallbackQuery):
     
     await callback.answer(f"⚡ Усиливаю...")
     # ВАЖНО: усиление берёт ИСХОДНОЕ фото
-    await do_generation(user_id, callback.message.chat.id, gen_type, check_diff=False, use_original=True)
+    await do_generation(user_id, callback.message.chat.id, gen_type, check_diff=False, use_original=True, mode="boost")
 
 # ===== ДОРАБОТКА РЕЗУЛЬТАТА =====
 @dp.callback_query(F.data.startswith("gen_refine_"))
@@ -1089,8 +1106,8 @@ async def handle_gen_retry(callback: CallbackQuery):
     # Отмечаем, что была перегенерация (бесплатная)
     gen_retry_count[user_id] = 1
     
-    await callback.answer("🔄 Генерирую заново с исходного фото...")
-    await do_generation(user_id, callback.message.chat.id, gen_type)
+    await callback.answer("🔄 Генерирую другой вариант...")
+    await do_generation(user_id, callback.message.chat.id, gen_type, use_original=True, mode="retry")
 
 # ===== КНОПКИ ГЕНЕРАЦИИ =====
 @dp.callback_query(F.data == "gen_free")
