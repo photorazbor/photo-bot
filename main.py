@@ -48,8 +48,9 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 USER_KEYBOARD = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text="📸 Анализ фото"), KeyboardButton(text="✂️ Редактор")],
-        [KeyboardButton(text="🎨 Стилизация"), KeyboardButton(text="🎯 Авторский разбор")],
-        [KeyboardButton(text="🎓 Мини-курс"), KeyboardButton(text="🏠 Главное меню")],
+        [KeyboardButton(text="📷 Flat Lay"), KeyboardButton(text="🎨 Стилизация")],
+        [KeyboardButton(text="🎯 Авторский разбор"), KeyboardButton(text="🎓 Мини-курс")],
+        [KeyboardButton(text="🏠 Главное меню")],
     ],
     resize_keyboard=True
 )
@@ -2052,6 +2053,47 @@ async def handle_non_photo(message: Message):
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="📸 Загрузить фото", callback_data="new_photo")]]))
+        return
+
+    if text == "📷 Flat Lay":
+        user_mode[user_id] = "flat_lay_format"
+        free_left = 5 - free_generations.get(user_id, 0)
+        paid_left = paid_generations.get(user_id, 0)
+        total = free_left + paid_left
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📱 1:1 (квадрат)", callback_data=f"flatfmt_1_1_{user_id}")],
+            [InlineKeyboardButton(text="📱 4:5 (Instagram пост)", callback_data=f"flatfmt_4_5_{user_id}")],
+            [InlineKeyboardButton(text="📱 9:16 (сториз)", callback_data=f"flatfmt_9_16_{user_id}")],
+            [InlineKeyboardButton(text="📐 Исходный формат", callback_data=f"flatfmt_original_{user_id}")],
+        ])
+        
+        if total > 0:
+            await message.answer(
+                f"📷 <b>Flat Lay (предметная съёмка)</b>\n\n"
+                f"Сфоткай предметы сверху или под небольшим углом.\n"
+                f"Я распознаю их и сделаю стильную композицию.\n\n"
+                f"Что можно снять:\n"
+                f"• ☕ Кофе и завтрак\n"
+                f"• 💄 Косметику\n"
+                f"• 📚 Книги и канцелярию\n"
+                f"• 🍽️ Еду\n"
+                f"• 💍 Украшения\n\n"
+                f"💎 Генераций осталось: {total}\n\n"
+                f"Выбери формат:",
+                parse_mode="HTML",
+                reply_markup=keyboard
+            )
+        else:
+            await message.answer(
+                f"❌ <b>Генерации закончились</b>\n\n"
+                f"Для предметной съёмки нужна 1 генерация.",
+                parse_mode="HTML",
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="⚡ 10 улучшений — 99 ₽", callback_data="buy_10_gen")],
+                    [InlineKeyboardButton(text="⚡ 30 улучшений — 249 ₽", callback_data="buy_30_gen")],
+                ])
+            )
         return
     
     if text == "🏠 Главное меню":
