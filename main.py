@@ -2133,9 +2133,12 @@ async def handle_flat_lay(callback: CallbackQuery):
     paid_left = paid_generations.get(user_id, 0)
     total = free_left + paid_left
     
+    # Форматы для Flat Lay
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=name, callback_data=f"flatfmt_{fmt}_{user_id}")]
-        for fmt, name in FLAT_LAY_FORMATS
+        [InlineKeyboardButton(text="📱 1:1 (квадрат)", callback_data=f"flatfmt_1_1_{user_id}")],
+        [InlineKeyboardButton(text="📱 4:5 (Instagram пост)", callback_data=f"flatfmt_4_5_{user_id}")],
+        [InlineKeyboardButton(text="📱 9:16 (сториз)", callback_data=f"flatfmt_9_16_{user_id}")],
+        [InlineKeyboardButton(text="📐 Исходный формат", callback_data=f"flatfmt_original_{user_id}")],
     ])
     
     if total > 0:
@@ -2168,25 +2171,32 @@ async def handle_flat_lay(callback: CallbackQuery):
 @dp.callback_query(F.data.startswith("flatfmt_"))
 async def handle_flat_fmt(callback: CallbackQuery):
     parts = callback.data.split("_")
-    if len(parts) < 3:
+    # flatfmt_1_1_123456
+    # 0       1  2  3
+    if len(parts) < 4:
         await callback.answer("Ошибка данных")
         return
-    fmt = parts[1]
-    user_id = int(parts[2])
     
+    fmt = parts[1] + "_" + parts[2]  # "1_1" или "original"
+    user_id = int(parts[3])
+    
+    # ВАЖНО: устанавливаем режим Flat Lay
     gen_format[user_id] = fmt
     user_mode[user_id] = "flat_lay_photo"
     
     await callback.answer()
     await callback.message.answer("📷 Пришли фото предметов сверху!")
-
+    
 # Обработка фото в режиме Flat Lay
 @dp.callback_query(F.data.startswith("flatstyle_"))
 async def handle_flat_style(callback: CallbackQuery):
     parts = callback.data.split("_")
+    # flatstyle_cozy_123456
+    # 0         1    2
     if len(parts) < 3:
         await callback.answer("Ошибка данных")
         return
+    
     style = parts[1]
     user_id = int(parts[2])
     
@@ -2195,10 +2205,17 @@ async def handle_flat_style(callback: CallbackQuery):
         return
     
     gen_wish[user_id] = FLAT_LAY_PROMPTS[style]
-    user_mode[user_id] = "flat_lay_generate"
     
-    await callback.answer(f"🎨 Применяю стиль...")
-    await do_generation(user_id, callback.message.chat.id, "free" if free_generations.get(user_id, 0) < 5 else "paid", check_diff=False)
+    # Определяем тип генерации
+    if free_generations.get(user_id, 0) < 5:
+        gen_type = "free"
+    elif paid_generations.get(user_id, 0) > 0:
+        gen_type = "paid"
+    else:
+        gen_type = "free"  # не должно случиться, но на всякий случай
+    
+    await callback.answer("🎨 Применяю стиль...")
+    await do_generation(user_id, callback.message.chat.id, gen_type, check_diff=False)
     user_mode[user_id] = "free"
 
 # ===== ЕЖЕДНЕВНЫЙ ОТЧЁТ =====
