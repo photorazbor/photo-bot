@@ -1952,6 +1952,8 @@ async def handle_photo(message: Message):
                 text=name,
                 callback_data=f"flatstyle_{style}_{user_id}"
             )])
+
+        keyboard.append([InlineKeyboardButton(text="✏️ Свой промпт", callback_data=f"flat_custom_prompt_{user_id}")])
         
         await message.answer(
             "🎨 <b>Выбери стиль оформления:</b>",
@@ -2078,6 +2080,14 @@ async def handle_non_photo(message: Message):
         gen_wish[user_id] = message.text
         gen_type = "free" if "free" in mode else "paid"
         await do_generation(user_id, message.chat.id, gen_type)
+        user_mode[user_id] = "free"
+        return
+
+        # Обработка custom prompt для Flat Lay
+    if mode == "flat_custom_prompt":
+        gen_wish[user_id] = message.text
+        gen_type = "free" if free_generations.get(user_id, 0) < 5 else "paid"
+        await do_generation(user_id, message.chat.id, gen_type, check_diff=False)
         user_mode[user_id] = "free"
         return
 
@@ -2326,11 +2336,15 @@ FLAT_LAY_STYLES = {
 }
 
 FLAT_LAY_PROMPTS = {
-    "cozy": "Разложи предметы красиво на деревянном столе. Добавь тёплый свет, салфетку, коричневые тона. Уютная атмосфера. Сохрани все предметы с фото, не удаляй и не заменяй их.",
-    "minimal": "Разложи предметы минималистично на белом фоне. Много пустого пространства, чистые линии. Сохрани все предметы с фото, не удаляй и не заменяй их.",
-    "nature": "Добавь природные элементы: листья, камни, зелень. Разложи предметы на натуральном фоне. Сохрани все предметы с фото, не удаляй и не заменяй их.",
-    "dark": "Разложи предметы на тёмном мраморном фоне. Драматичный свет, контраст. Сохрани все предметы с фото, не удаляй и не заменяй их.",
-    "pastel": "Добавь цветы, пастельные тона, мягкий свет. Нежная композиция. Сохрани все предметы с фото, не удаляй и не заменяй их.",
+    "cozy": "Разложи предметы красиво на тёплом деревянном столе. Распознай, что на фото, и добавь УМЕСТНЫЙ декор, подходящий к этим предметам: для чая — чайные листья, печенье; для кофе — кофейные зёрна; для еды — приборы, салфетку. Мягкий тёплый свет, уютная атмосфера как в Instagram. Сохрани все предметы с фото, не удаляй и не заменяй их.",
+    
+    "minimal": "Разложи предметы минималистично на чистом белом фоне. Много пустого пространства, идеальный порядок, геометричная композиция. Мягкий рассеянный свет. Сохрани все предметы с фото, не удаляй и не заменяй их. Стиль — чистый минимализм.",
+    
+    "nature": "Разложи предметы на красивом натуральном фоне: светлый камень или мрамор. Добавь ЗЕЛЁНЫЕ живые листья, веточки эвкалипта или цветы — то, что подходит к предметам на фото. Мягкий дневной свет. НЕ добавляй сухую траву, мусор, грязь. Сохрани все предметы с фото.",
+    
+    "dark": "Разложи предметы на тёмном мраморном или чёрном матовом фоне. Драматичный боковой свет, глубокие тени. Добавь тёмные текстуры: камень, дерево. Сохрани все предметы с фото, не удаляй и не заменяй их. Стиль — элегантный.",
+    
+    "pastel": "Разложи предметы на нежном пастельном фоне. Добавь живые цветы, подходящие по цвету, мягкий воздушный свет. Сохрани все предметы с фото, не удаляй и не заменяй их. Стиль — нежный и женственный.",
 }
 
 @dp.callback_query(F.data == "flat_lay")
@@ -2428,6 +2442,24 @@ async def handle_flat_style(callback: CallbackQuery):
     flat_lay_active[user_id] = True  # Отмечаем, что это Flat Lay
     await do_generation(user_id, callback.message.chat.id, gen_type, check_diff=False)
     user_mode[user_id] = "free"
+
+@dp.callback_query(F.data.startswith("flat_custom_prompt_"))
+async def handle_flat_custom_prompt(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    user_id = int(parts[-1])
+    
+    user_mode[user_id] = "flat_custom_prompt"
+    flat_lay_active[user_id] = True
+    
+    await callback.answer()
+    await callback.message.answer(
+        "✏️ Напиши свой промпт для Flat Lay.\n\n"
+        "Например:\n"
+        "• «На белом мраморе с золотыми украшениями»\n"
+        "• «На чёрном фоне с дымом»\n"
+        "• «В стиле новогодней открытки»\n"
+        "• «На деревянном столе с кофе»"
+    )
 
 # ===== ЕЖЕДНЕВНЫЙ ОТЧЁТ =====
 async def daily_report():
