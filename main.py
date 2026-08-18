@@ -534,6 +534,7 @@ async def handle_start(message: Message):
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="📸 Разобрать фото", callback_data="new_photo")],
             [InlineKeyboardButton(text="✂️ Редактор", callback_data="change_format")],
+            [InlineKeyboardButton(text="📷 Flat Lay (предметная съёмка)", callback_data="flat_lay")],
             [InlineKeyboardButton(text="💎 Мои генерации", callback_data="my_balance")],
             [InlineKeyboardButton(text="🎯 Авторский разбор", callback_data="author_review")],
             [InlineKeyboardButton(text="🎓 Мини-курс", callback_data="course_status")],
@@ -1318,6 +1319,7 @@ async def handle_main_menu(callback: CallbackQuery):
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="📸 Разобрать фото", callback_data="new_photo")],
             [InlineKeyboardButton(text="✂️ Редактор", callback_data="change_format")],
+            [InlineKeyboardButton(text="📷 Flat Lay (предметная съёмка)", callback_data="flat_lay")],
             [InlineKeyboardButton(text="💎 Мои генерации", callback_data="my_balance")],
             [InlineKeyboardButton(text="🎯 Авторский разбор", callback_data="author_review")],
             [InlineKeyboardButton(text="🎓 Мини-курс", callback_data="course_status")],
@@ -1773,6 +1775,22 @@ async def handle_photo(message: Message):
         )
         return
 
+    if mode == "flat_lay_photo":
+        # Показываем стили Flat Lay
+        keyboard = []
+        for style, name in FLAT_LAY_STYLES.items():
+            keyboard.append([InlineKeyboardButton(
+                text=name,
+                callback_data=f"flatstyle_{style}_{user_id}"
+            )])
+        
+        await message.answer(
+            "🎨 <b>Выбери стиль оформления:</b>",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard)
+        )
+        return
+
     # Проверка активного заказа на авторский разбор
     orders = _load_author_orders()
     active_order = None
@@ -2053,6 +2071,7 @@ async def handle_non_photo(message: Message):
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="📸 Разобрать фото", callback_data="new_photo")],
                 [InlineKeyboardButton(text="✂️ Редактор", callback_data="change_format")],
+                [InlineKeyboardButton(text="📷 Flat Lay (предметная съёмка)", callback_data="flat_lay")],
                 [InlineKeyboardButton(text="💎 Мои генерации", callback_data="my_balance")],
                 [InlineKeyboardButton(text="🎯 Авторский разбор", callback_data="author_review")],
                 [InlineKeyboardButton(text="🎓 Мини-курс", callback_data="course_status")],
@@ -2079,6 +2098,108 @@ async def handle_non_photo(message: Message):
         return
 
     await message.answer("Пришли мне фотографию 📷")
+
+# ===== FLAT LAY (ПРЕДМЕТНАЯ СЪЁМКА) =====
+FLAT_LAY_FORMATS = [
+    ("1_1", "📱 1:1 (квадрат)"),
+    ("4_5", "📱 4:5 (Instagram пост)"),
+    ("9_16", "📱 9:16 (сториз)"),
+    ("original", "📐 Исходный формат"),
+]
+
+FLAT_LAY_STYLES = {
+    "cozy": "☕ Уютный",
+    "minimal": "⬜ Минимализм",
+    "nature": "🌿 Природный",
+    "dark": "🖤 Тёмный",
+    "pastel": "🌸 Нежный",
+}
+
+FLAT_LAY_PROMPTS = {
+    "cozy": "Разложи предметы красиво на деревянном столе. Добавь тёплый свет, салфетку, коричневые тона. Уютная атмосфера. Сохрани все предметы с фото, не удаляй и не заменяй их.",
+    "minimal": "Разложи предметы минималистично на белом фоне. Много пустого пространства, чистые линии. Сохрани все предметы с фото, не удаляй и не заменяй их.",
+    "nature": "Добавь природные элементы: листья, камни, зелень. Разложи предметы на натуральном фоне. Сохрани все предметы с фото, не удаляй и не заменяй их.",
+    "dark": "Разложи предметы на тёмном мраморном фоне. Драматичный свет, контраст. Сохрани все предметы с фото, не удаляй и не заменяй их.",
+    "pastel": "Добавь цветы, пастельные тона, мягкий свет. Нежная композиция. Сохрани все предметы с фото, не удаляй и не заменяй их.",
+}
+
+@dp.callback_query(F.data == "flat_lay")
+async def handle_flat_lay(callback: CallbackQuery):
+    await callback.answer()
+    user_id = callback.from_user.id
+    user_mode[user_id] = "flat_lay_format"
+    
+    free_left = 5 - free_generations.get(user_id, 0)
+    paid_left = paid_generations.get(user_id, 0)
+    total = free_left + paid_left
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=name, callback_data=f"flatfmt_{fmt}_{user_id}")]
+        for fmt, name in FLAT_LAY_FORMATS
+    ])
+    
+    if total > 0:
+        await callback.message.answer(
+            f"📷 <b>Flat Lay (предметная съёмка)</b>\n\n"
+            f"Сфоткай предметы сверху или под небольшим углом.\n"
+            f"Я распознаю их и сделаю стильную композицию.\n\n"
+            f"Что можно снять:\n"
+            f"• ☕ Кофе и завтрак\n"
+            f"• 💄 Косметику\n"
+            f"• 📚 Книги и канцелярию\n"
+            f"• 🍽️ Еду\n"
+            f"• 💍 Украшения\n\n"
+            f"💎 Генераций осталось: {total}\n\n"
+            f"Выбери формат:",
+            parse_mode="HTML",
+            reply_markup=keyboard
+        )
+    else:
+        await callback.message.answer(
+            f"❌ <b>Генерации закончились</b>\n\n"
+            f"Для предметной съёмки нужна 1 генерация.",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="⚡ 10 улучшений — 99 ₽", callback_data="buy_10_gen")],
+                [InlineKeyboardButton(text="⚡ 30 улучшений — 249 ₽", callback_data="buy_30_gen")],
+            ])
+        )
+
+@dp.callback_query(F.data.startswith("flatfmt_"))
+async def handle_flat_fmt(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    if len(parts) < 3:
+        await callback.answer("Ошибка данных")
+        return
+    fmt = parts[1]
+    user_id = int(parts[2])
+    
+    gen_format[user_id] = fmt
+    user_mode[user_id] = "flat_lay_photo"
+    
+    await callback.answer()
+    await callback.message.answer("📷 Пришли фото предметов сверху!")
+
+# Обработка фото в режиме Flat Lay
+@dp.callback_query(F.data.startswith("flatstyle_"))
+async def handle_flat_style(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    if len(parts) < 3:
+        await callback.answer("Ошибка данных")
+        return
+    style = parts[1]
+    user_id = int(parts[2])
+    
+    if style not in FLAT_LAY_PROMPTS:
+        await callback.answer("Неизвестный стиль")
+        return
+    
+    gen_wish[user_id] = FLAT_LAY_PROMPTS[style]
+    user_mode[user_id] = "flat_lay_generate"
+    
+    await callback.answer(f"🎨 Применяю стиль...")
+    await do_generation(user_id, callback.message.chat.id, "free" if free_generations.get(user_id, 0) < 5 else "paid", check_diff=False)
+    user_mode[user_id] = "free"
 
 # ===== ЕЖЕДНЕВНЫЙ ОТЧЁТ =====
 async def daily_report():
