@@ -401,17 +401,24 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
             f"Размер: {img_size}. "
         )
         
-        # ===== ВАЖНО: ДОБАВЛЯЕМ РЕЖИМЫ =====
+         # ===== ВАЖНО: ДОБАВЛЯЕМ РЕЖИМЫ =====
         if mode == "retry":
             # Перегенерация — совершенно другой вариант
             if flat_lay_active.get(user_id, False):
-                # Для Flat Lay — полностью новая генерация
-                prompt += (
-                    " Сгенерируй СОВЕРШЕННО НОВЫЙ вариант Flat Lay с нуля. "
-                    "Полностью измени композицию, декор, расположение, фон, ракурс, свет. "
-                    "Это должен быть другой вариант оформления, не похожий на предыдущий. "
-                    "Используй другой подход к стилизации."
+                # Для Flat Lay — ПОЛНОСТЬЮ новый промпт
+                prompt = (
+                    f"Создай СОВЕРШЕННО НОВЫЙ Flat Lay с этими предметами. "
+                    f"НЕ сохраняй их текущее расположение. "
+                    f"Перемешай их, разложи ПО-ДРУГОМУ, под другим углом. "
+                    f"Используй другой декор и другие аксессуары. "
+                    f"Фон должен отличаться от предыдущего. "
+                    f"Композиция должна быть СОВСЕМ ДРУГОЙ. "
+                    f"Сохрани только сами предметы, но полностью измени их расположение. "
+                    f"Размер: {img_size}. "
                 )
+                # Добавляем стиль, если он был выбран
+                if wish and wish.lower() != "ок":
+                    prompt += f"Стиль: {wish}"
             else:
                 # Для обычных фото
                 prompt += (
@@ -419,39 +426,34 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
                     "Попробуй другой подход к обработке. Изменения должны отличаться от прошлого варианта."
                 )
         
-        if "horizon" in error_type:
-            prompt += f"ОБЯЗАТЕЛЬНО выровняй горизонт. {what_is_wrong}"
-        if "thirds" in error_type:
-            prompt += f"ОБЯЗАТЕЛЬНО примени правило третей. {what_is_wrong}"
-        if "distortion" in error_type:
-            prompt += f"ОБЯЗАТЕЛЬНО исправь дисторсию. {what_is_wrong}"
-        if "pose" in error_type:
-            prompt += f"Улучши позу человека. {what_is_wrong}"
-        if "lighting" in error_type:
-            prompt += f"Исправь освещение. {what_is_wrong}"
-        if "shadow" in error_type:
-            if "художественный" not in what_is_wrong.lower():
-                prompt += f"ОБЯЗАТЕЛЬНО убери тень фотографа. {what_is_wrong}"
-            else:
-                prompt += f"Сохрани художественную тень. {what_is_wrong}"
-        if "cropping" in error_type:
-            prompt += f"ОБЯЗАТЕЛЬНО обрежь лишнее по краям. {what_is_wrong}"
-        if "framing" in error_type:
-            prompt += f"Улучши фрейминг. {what_is_wrong}"
-        if "fill_frame" in error_type:
-            prompt += f"Улучши композицию. {what_is_wrong}"
+        # Для Flat Lay пропускаем анализ ошибок (они для портретов)
+        if not flat_lay_active.get(user_id, False):
+            if "horizon" in error_type:
+                prompt += f"ОБЯЗАТЕЛЬНО выровняй горизонт. {what_is_wrong}"
+            if "thirds" in error_type:
+                prompt += f"ОБЯЗАТЕЛЬНО примени правило третей. {what_is_wrong}"
+            if "distortion" in error_type:
+                prompt += f"ОБЯЗАТЕЛЬНО исправь дисторсию. {what_is_wrong}"
+            if "pose" in error_type:
+                prompt += f"Улучши позу человека. {what_is_wrong}"
+            if "lighting" in error_type:
+                prompt += f"Исправь освещение. {what_is_wrong}"
+            if "shadow" in error_type:
+                if "художественный" not in what_is_wrong.lower():
+                    prompt += f"ОБЯЗАТЕЛЬНО убери тень фотографа. {what_is_wrong}"
+                else:
+                    prompt += f"Сохрани художественную тень. {what_is_wrong}"
+            if "cropping" in error_type:
+                prompt += f"ОБЯЗАТЕЛЬНО обрежь лишнее по краям. {what_is_wrong}"
+            if "framing" in error_type:
+                prompt += f"Улучши фрейминг. {what_is_wrong}"
+            if "fill_frame" in error_type:
+                prompt += f"Улучши композицию. {what_is_wrong}"
         
         if wish and wish.lower() != "ок":
             prompt += f"Дополнительное пожелание: {wish}"
         
         result = generate_image(image_bytes, prompt)
-        if result is None:
-            await bot.send_message(chat_id, "😕 Не получилось с первого раза. Пробую ещё раз...")
-            result = generate_image(image_bytes, prompt)
-            if result is None:
-                await bot.send_message(chat_id, "😕 Не удалось сгенерировать. Попробуй ещё раз.")
-                return
-
         if check_diff and not wish:
             try:
                 original_img = Image.open(io_module.BytesIO(image_bytes))
