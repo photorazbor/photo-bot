@@ -76,6 +76,7 @@ gen_wish = {}
 gen_format = {}
 gen_retry_count = {}  # Счётчик перегенераций (0 = не было, 1 = была)
 gen_used_count = {}   # НОВОЕ: счётчик использованных генераций (0 = не списана, 1 = списана)
+flat_lay_active = {}  # НОВОЕ: отслеживает, что пользователь в режиме Flat Lay
 change_format_warnings = {}
 test_mode = False
 
@@ -493,14 +494,25 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
             reply_markup=get_keyboard(user_id))
 
         # Кнопки для дальнейшей работы с результатом
-        post_kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="✏️ Доработать результат", callback_data=f"gen_refine_{gen_type}_{user_id}")],
-            [InlineKeyboardButton(text="🔄 Перегенерировать (бесплатно)", callback_data=f"gen_retry_{gen_type}_{user_id}")],
-            [InlineKeyboardButton(text="⚡ Усилить (-1 ген.)", callback_data=f"gen_boost_menu_{gen_type}_{user_id}")],
-            [InlineKeyboardButton(text="👍 Хорошо", callback_data=f"fb_good_{user_id}"),
-             InlineKeyboardButton(text="👎 Плохо", callback_data=f"fb_bad_{user_id}")],
-        ])
-        await bot.send_message(chat_id, "Оцени результат или попробуй ещё раз:", reply_markup=post_kb)
+        if flat_lay_active.get(user_id, False):
+            # Специальные кнопки для Flat Lay
+            post_kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="✏️ Доработать Flat Lay", callback_data=f"flat_refine_{gen_type}_{user_id}")],
+                [InlineKeyboardButton(text="🔄 Перегенерировать (бесплатно)", callback_data=f"gen_retry_{gen_type}_{user_id}")],
+                [InlineKeyboardButton(text="👍 Хорошо", callback_data=f"fb_good_{user_id}"),
+                 InlineKeyboardButton(text="👎 Плохо", callback_data=f"fb_bad_{user_id}")],
+            ])
+            await bot.send_message(chat_id, "Оцени результат или доработай:", reply_markup=post_kb)
+        else:
+            # Стандартные кнопки
+            post_kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="✏️ Доработать результат", callback_data=f"gen_refine_{gen_type}_{user_id}")],
+                [InlineKeyboardButton(text="🔄 Перегенерировать (бесплатно)", callback_data=f"gen_retry_{gen_type}_{user_id}")],
+                [InlineKeyboardButton(text="⚡ Усилить (-1 ген.)", callback_data=f"gen_boost_menu_{gen_type}_{user_id}")],
+                [InlineKeyboardButton(text="👍 Хорошо", callback_data=f"fb_good_{user_id}"),
+                 InlineKeyboardButton(text="👎 Плохо", callback_data=f"fb_bad_{user_id}")],
+            ])
+            await bot.send_message(chat_id, "Оцени результат или попробуй ещё раз:", reply_markup=post_kb)
         
         # Сбрасываем wish после генерации
         gen_wish[user_id] = ""
@@ -1082,6 +1094,162 @@ async def handle_gen_refine(callback: CallbackQuery):
             [InlineKeyboardButton(text="📐 Только формат", callback_data=f"gen_go_format_only_{gen_type}_{user_id}")],
             [InlineKeyboardButton(text="✏️ Свой промпт", callback_data=f"gen_go_custom_{gen_type}_{user_id}")],
         ]))
+
+# ===== ДОРАБОТКА FLAT LAY =====
+@dp.callback_query(F.data.startswith("flat_refine_"))
+async def handle_flat_refine(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    if len(parts) < 4:
+        await callback.answer("Ошибка данных")
+        return
+    gen_type = parts[2]
+    user_id = int(parts[3])
+    
+    await callback.answer()
+    await callback.message.answer(
+        "✏️ <b>Что доработать?</b>\n\n"
+        "Выбери инструмент — он применится к текущему Flat Lay.\n"
+        "Каждая доработка тратит 1 генерацию.",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🎨 Другой стиль", callback_data=f"flat_refine_style_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="📐 Сменить формат", callback_data=f"flat_refine_format_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="✨ Улучшить композицию", callback_data=f"flat_refine_comp_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="💡 Исправить свет", callback_data=f"flat_refine_light_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="✏️ Свой промпт", callback_data=f"flat_refine_custom_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="🔙 Назад", callback_data=f"flat_back_{gen_type}_{user_id}")],
+        ]))
+
+# Другой стиль
+@dp.callback_query(F.data.startswith("flat_refine_style_"))
+async def handle_flat_refine_style(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    gen_type = parts[3]
+    user_id = int(parts[4])
+    await callback.answer()
+    
+    keyboard = []
+    for style, name in FLAT_LAY_STYLES.items():
+        keyboard.append([InlineKeyboardButton(
+            text=name,
+            callback_data=f"flat_restyle_{style}_{gen_type}_{user_id}"
+        )])
+    keyboard.append([InlineKeyboardButton(text="🔙 Назад", callback_data=f"flat_refine_{gen_type}_{user_id}")])
+    
+    await callback.message.answer(
+        "🎨 <b>Выбери новый стиль:</b>",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard)
+    )
+
+# Применение нового стиля
+@dp.callback_query(F.data.startswith("flat_restyle_"))
+async def handle_flat_restyle(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    style = parts[2]
+    gen_type = parts[3]
+    user_id = int(parts[4])
+    
+    if style not in FLAT_LAY_PROMPTS:
+        await callback.answer("Неизвестный стиль")
+        return
+    
+    gen_wish[user_id] = FLAT_LAY_PROMPTS[style]
+    flat_lay_active[user_id] = True
+    
+    await callback.answer("🎨 Применяю новый стиль...")
+    await do_generation(user_id, callback.message.chat.id, gen_type, check_diff=False)
+    user_mode[user_id] = "free"
+
+# Сменить формат
+@dp.callback_query(F.data.startswith("flat_refine_format_"))
+async def handle_flat_refine_format(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    gen_type = parts[3]
+    user_id = int(parts[4])
+    await callback.answer()
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📱 1:1 (квадрат)", callback_data=f"flat_chfmt_1_1_{gen_type}_{user_id}")],
+        [InlineKeyboardButton(text="📱 4:5 (Instagram пост)", callback_data=f"flat_chfmt_4_5_{gen_type}_{user_id}")],
+        [InlineKeyboardButton(text="📱 9:16 (сториз)", callback_data=f"flat_chfmt_9_16_{gen_type}_{user_id}")],
+        [InlineKeyboardButton(text="📐 Исходный формат", callback_data=f"flat_chfmt_original_{gen_type}_{user_id}")],
+        [InlineKeyboardButton(text="🔙 Назад", callback_data=f"flat_refine_{gen_type}_{user_id}")],
+    ])
+    
+    await callback.message.answer("📐 Выбери новый формат:", reply_markup=keyboard)
+
+# Применение нового формата
+@dp.callback_query(F.data.startswith("flat_chfmt_"))
+async def handle_flat_chfmt(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    # flat_chfmt_1_1_free_123456
+    fmt = parts[2] + "_" + parts[3] if parts[2] != "original" else "original"
+    gen_type = parts[4]
+    user_id = int(parts[5])
+    
+    gen_format[user_id] = fmt
+    gen_wish[user_id] = "Только измени формат: дорисуй или обрежь края. НЕ меняй предметы и композицию."
+    flat_lay_active[user_id] = True
+    
+    await callback.answer("📐 Меняю формат...")
+    await do_generation(user_id, callback.message.chat.id, gen_type, check_diff=False)
+    user_mode[user_id] = "free"
+
+# Улучшить композицию
+@dp.callback_query(F.data.startswith("flat_refine_comp_"))
+async def handle_flat_refine_comp(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    gen_type = parts[3]
+    user_id = int(parts[4])
+    
+    gen_wish[user_id] = "Улучши композицию Flat Lay: разложи предметы красивее, добавь гармонии. Сохрани все предметы."
+    flat_lay_active[user_id] = True
+    
+    await callback.answer("✨ Улучшаю композицию...")
+    await do_generation(user_id, callback.message.chat.id, gen_type, check_diff=False)
+    user_mode[user_id] = "free"
+
+# Исправить свет
+@dp.callback_query(F.data.startswith("flat_refine_light_"))
+async def handle_flat_refine_light(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    gen_type = parts[3]
+    user_id = int(parts[4])
+    
+    gen_wish[user_id] = "Исправь освещение Flat Lay: убери пересветы, осветли тени, сделай свет объёмным. Сохрани все предметы."
+    flat_lay_active[user_id] = True
+    
+    await callback.answer("💡 Исправляю свет...")
+    await do_generation(user_id, callback.message.chat.id, gen_type, check_diff=False)
+    user_mode[user_id] = "free"
+
+# Свой промпт
+@dp.callback_query(F.data.startswith("flat_refine_custom_"))
+async def handle_flat_refine_custom(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    gen_type = parts[3]
+    user_id = int(parts[4])
+    
+    user_mode[user_id] = "flat_custom"
+    flat_lay_active[user_id] = True
+    
+    await callback.answer()
+    await callback.message.answer("✏️ Напиши пожелание для доработки:")
+
+# Обработка своего промпта для Flat Lay
+# В handle_non_photo добавь:
+# if mode == "flat_custom":
+#     gen_wish[user_id] = message.text
+#     await do_generation(user_id, message.chat.id, "free" if free_generations.get(user_id, 0) < 5 else "paid", check_diff=False)
+#     user_mode[user_id] = "free"
+#     return
+
+# Назад
+@dp.callback_query(F.data.startswith("flat_back_"))
+async def handle_flat_back(callback: CallbackQuery):
+    await callback.answer()
+    await callback.message.delete()
 
 # ===== ПЕРЕГЕНЕРАЦИЯ =====
 @dp.callback_query(F.data.startswith("gen_retry_"))
@@ -1751,6 +1919,14 @@ async def handle_photo(message: Message):
         user_mode[user_id] = "free"
         return
 
+    # Обработка custom prompt для Flat Lay
+    if mode == "flat_custom":
+        gen_wish[user_id] = message.text
+        gen_type = "free" if free_generations.get(user_id, 0) < 5 else "paid"
+        await do_generation(user_id, message.chat.id, gen_type, check_diff=False)
+        user_mode[user_id] = "free"
+        return
+
     if mode == "change_format":
         await message.answer("Выбери формат:",
             reply_markup=format_keyboard("paid" if paid_generations.get(user_id, 0) > 0 else "free"))
@@ -2257,6 +2433,7 @@ async def handle_flat_style(callback: CallbackQuery):
         gen_type = "free"  # не должно случиться, но на всякий случай
     
     await callback.answer("🎨 Применяю стиль...")
+    flat_lay_active[user_id] = True  # Отмечаем, что это Flat Lay
     await do_generation(user_id, callback.message.chat.id, gen_type, check_diff=False)
     user_mode[user_id] = "free"
 
