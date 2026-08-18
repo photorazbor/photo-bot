@@ -1421,8 +1421,9 @@ async def handle_buy_30_gen(callback: CallbackQuery):
         return
     await callback.message.answer("⚡ <b>30 генераций — 249 ₽</b>", parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="💳 Оплатить 249 ₽", url=link)]))
-
+            [InlineKeyboardButton(text="💳 Оплатить 249 ₽", url=link)],
+        ]))
+    
 # ===== АДМИН-ПАНЕЛЬ =====
 @dp.message(Command("admin"))
 async def handle_admin(message: Message):
