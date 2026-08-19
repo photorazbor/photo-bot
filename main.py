@@ -1342,6 +1342,86 @@ async def handle_flat_refine(callback: CallbackQuery):
             [InlineKeyboardButton(text="🔙 Назад", callback_data=f"flat_back_{gen_type}_{user_id}")],
         ]))
 
+# ===== ДОРАБОТКА РЕЗУЛЬТАТА =====
+@dp.callback_query(F.data.startswith("gen_refine_"))
+async def handle_gen_refine(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    if len(parts) < 4:
+        await callback.answer("Ошибка данных")
+        return
+    gen_type = parts[2]
+    user_id = int(parts[3])
+    
+    await callback.answer()
+    await callback.message.answer(
+        "✏️ <b>Доработать результат</b>\n\n"
+        "Выбери инструмент — он применится к улучшенному фото.\n"
+        "Каждая доработка тратит 1 генерацию.",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🧍 Исправить позу", callback_data=f"gen_go_pose_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="🔄 Поменять позу", callback_data=f"gen_go_repose_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="💫 Ретушь", callback_data=f"gen_go_retouch_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="📐 Только формат", callback_data=f"gen_go_format_only_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="✏️ Свой промпт", callback_data=f"gen_go_custom_{gen_type}_{user_id}")],
+        ]))
+
+# ===== УСИЛЕНИЕ =====
+@dp.callback_query(F.data.startswith("gen_boost_back_"))
+async def handle_gen_boost_back(callback: CallbackQuery):
+    await callback.answer()
+    await callback.message.delete()
+
+@dp.callback_query(F.data.startswith("gen_boost_menu_"))
+async def handle_gen_boost_menu(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    if len(parts) < 5:
+        await callback.answer("Ошибка данных")
+        return
+    gen_type = parts[3]
+    user_id = int(parts[4])
+    await callback.answer()
+    await callback.message.answer(
+        "⚡ <b>Усилить обработку</b> (-1 генерация)\n\nЧто усилить?",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📐 Исправить горизонт", callback_data=f"gen_boost_horizon_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="🧹 Чистка фона", callback_data=f"gen_boost_clean_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="💡 Исправить свет", callback_data=f"gen_boost_light_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="🧍 Исправить позу", callback_data=f"gen_boost_pose_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="🎨 Полная переработка", callback_data=f"gen_boost_full_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="💫 Ретушь", callback_data=f"gen_boost_retouch_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="✏️ Свой промпт", callback_data=f"gen_go_custom_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="🔙 Назад", callback_data=f"gen_boost_back_{gen_type}_{user_id}")],
+        ]))
+
+@dp.callback_query(F.data.startswith("gen_boost_"))
+async def handle_gen_boost(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    if len(parts) < 5:
+        await callback.answer("Ошибка данных")
+        return
+    
+    boost_type = parts[2]
+    gen_type = parts[3]
+    user_id = int(parts[4])
+    
+    boosts = {
+        "horizon": "САМОЕ ГЛАВНОЕ: выровняй горизонт до идеально ровного. НЕ меняй объекты.",
+        "clean": "Убери ВЕСЬ мусор с фона. Сделай кадр чистым.",
+        "light": "Полностью переработай освещение: убери пересветы, осветли тени.",
+        "pose": "Сделай позу значительно изящнее.",
+        "full": "Полная переработка кадра: горизонт, мусор, свет, поза.",
+        "retouch": "Профессиональная ретушь лица и кожи.",
+    }
+    
+    wish = boosts.get(boost_type, "Улучши фото")
+    gen_wish[user_id] = wish
+    gen_used_count[user_id] = 0  # Чтобы списалась генерация
+    
+    await callback.answer("⚡ Усиливаю...")
+    await do_generation(user_id, callback.message.chat.id, gen_type, check_diff=False, use_original=True, mode="boost")
+
 # ===== ПЕРЕГЕНЕРАЦИЯ =====
 @dp.callback_query(F.data.startswith("gen_retry_"))
 async def handle_gen_retry(callback: CallbackQuery):
