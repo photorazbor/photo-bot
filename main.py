@@ -996,30 +996,6 @@ async def handle_flat_custom_prompt(callback: CallbackQuery):
     )
 
 # ===== ДОРАБОТКА FLAT LAY =====
-@dp.callback_query(F.data.startswith("flat_refine_"))
-async def handle_flat_refine(callback: CallbackQuery):
-    parts = callback.data.split("_")
-    if len(parts) < 4:
-        await callback.answer("Ошибка данных")
-        return
-    gen_type = parts[2]
-    user_id = int(parts[3])
-    
-    await callback.answer()
-    await callback.message.answer(
-        "✏️ <b>Что доработать?</b>\n\n"
-        "Выбери инструмент — он применится к текущему Flat Lay.\n"
-        "Каждая доработка тратит 1 генерацию.",
-        parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🎨 Другой стиль", callback_data=f"flat_refine_style_{gen_type}_{user_id}")],
-            [InlineKeyboardButton(text="📐 Сменить формат", callback_data=f"flat_refine_format_{gen_type}_{user_id}")],
-            [InlineKeyboardButton(text="✨ Улучшить композицию", callback_data=f"flat_refine_comp_{gen_type}_{user_id}")],
-            [InlineKeyboardButton(text="💡 Исправить свет", callback_data=f"flat_refine_light_{gen_type}_{user_id}")],
-            [InlineKeyboardButton(text="✏️ Свой промпт", callback_data=f"flat_refine_custom_{gen_type}_{user_id}")],
-            [InlineKeyboardButton(text="🔙 Назад", callback_data=f"flat_back_{gen_type}_{user_id}")],
-        ]))
-
 @dp.callback_query(F.data.startswith("flat_refine_style_"))
 async def handle_flat_refine_style(callback: CallbackQuery):
     parts = callback.data.split("_")
@@ -1165,6 +1141,30 @@ async def handle_flat_refine_custom(callback: CallbackQuery):
 async def handle_flat_back(callback: CallbackQuery):
     await callback.answer()
     await callback.message.delete()
+
+@dp.callback_query(F.data.startswith("flat_refine_"))
+async def handle_flat_refine(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    if len(parts) < 4:
+        await callback.answer("Ошибка данных")
+        return
+    gen_type = parts[2]
+    user_id = int(parts[3])
+    
+    await callback.answer()
+    await callback.message.answer(
+        "✏️ <b>Что доработать?</b>\n\n"
+        "Выбери инструмент — он применится к текущему Flat Lay.\n"
+        "Каждая доработка тратит 1 генерацию.",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🎨 Другой стиль", callback_data=f"flat_refine_style_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="📐 Сменить формат", callback_data=f"flat_refine_format_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="✨ Улучшить композицию", callback_data=f"flat_refine_comp_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="💡 Исправить свет", callback_data=f"flat_refine_light_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="✏️ Свой промпт", callback_data=f"flat_refine_custom_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="🔙 Назад", callback_data=f"flat_back_{gen_type}_{user_id}")],
+        ]))
 
 # ===== ПЕРЕГЕНЕРАЦИЯ =====
 @dp.callback_query(F.data.startswith("gen_retry_"))
