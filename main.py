@@ -405,9 +405,11 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
         if mode == "retry":
             # Перегенерация — совершенно другой вариант
             if flat_lay_active.get(user_id, False):
+                # Просто используем полный промпт стиля как при первой генерации
                 style_prompt = wish if wish and wish.lower() != "ок" else ""
                 prompt = (
                     f"{style_prompt} "
+                    f"Сделай другой вариант композиции с этими же предметами. "
                     f"Размер: {img_size}. "
                 )
                 # ВАЖНО: добавляем выбранный стиль
