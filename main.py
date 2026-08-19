@@ -405,8 +405,6 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
         if mode == "retry":
             # Перегенерация — совершенно другой вариант
             if flat_lay_active.get(user_id, False):
-                # Просто используем тот же промпт стиля, что и при первой генерации
-                # Нейросеть сгенерирует новый вариант
                 style_prompt = wish if wish and wish.lower() != "ок" else ""
                 prompt = (
                     f"{style_prompt} "
