@@ -453,14 +453,14 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
         
         # ===== ФОРМИРУЕМ ПРОМПТ =====
         if is_flat_lay:
-            # Для Flat Lay — используем промпт стиля
-            if wish and wish.lower() != "ок":
+            # Для Flat Lay — используем сохранённый стиль
+            saved_style = flat_lay_style.get(user_id, "")
+            if saved_style and saved_style in FLAT_LAY_PROMPTS:
+                prompt = f"{FLAT_LAY_PROMPTS[saved_style]} Размер: {img_size}. "
+            elif wish and wish.lower() != "ок":
                 prompt = f"{wish} Размер: {img_size}. "
             else:
                 prompt = f"Создай стильный Flat Lay. Размер: {img_size}. "
-            
-            if mode == "retry":
-                prompt += " Сделай другой вариант композиции. "
         else:
             # Обычный промпт для портретов/фото
             prompt = (
@@ -895,10 +895,10 @@ async def handle_flat_lay(callback: CallbackQuery):
     total = free_left + paid_left
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📐 Исходный формат", callback_data=f"flatfmt_original_{user_id}")],
         [InlineKeyboardButton(text="📱 1:1 (квадрат)", callback_data=f"flatfmt_1_1_{user_id}")],
         [InlineKeyboardButton(text="📱 4:5 (Instagram пост)", callback_data=f"flatfmt_4_5_{user_id}")],
         [InlineKeyboardButton(text="📱 9:16 (сториз)", callback_data=f"flatfmt_9_16_{user_id}")],
-        [InlineKeyboardButton(text="📐 Исходный формат", callback_data=f"flatfmt_original_{user_id}")],
     ])
     
     if total > 0:
@@ -931,8 +931,9 @@ async def handle_flat_lay(callback: CallbackQuery):
 @dp.callback_query(F.data.startswith("flatfmt_"))
 async def handle_flat_fmt(callback: CallbackQuery):
     parts = callback.data.split("_")
-    # flatfmt_1_1_123456 или flatfmt_original_123456
-    if len(parts) < 4:
+    # flatfmt_original_123456 (3 части: flatfmt, original, id)
+    # flatfmt_1_1_123456 (4 части: flatfmt, 1, 1, id)
+    if len(parts) < 3:
         await callback.answer("Ошибка данных")
         return
     
