@@ -1877,6 +1877,523 @@ async def handle_non_photo(message: Message):
 
     await message.answer("Пришли мне фотографию 📷")
 
+# ===== СТИЛИЗАЦИЯ =====
+ALL_STYLES = {
+    "bw": "📸 Ч/Б", "sepia": "🟤 Сепия", "film": "🎞️ Плёнка",
+    "highkey": "💡 Воздушный", "lowkey": "🌙 Драматичный", "pastel": "🌸 Пастель",
+    "retro": "🌈 Ретро 80-х", "cinema": "🎬 Кино", "painting": "🖼️ Картина",
+    "comics": "💥 Комикс", "anime": "🎌 Аниме", "aquarel": "🎨 Акварель",
+    "cyberpunk": "🔥 Киберпанк", "noir": "🖤 Нуар", "golden": "🌅 Золотой час",
+    "polaroid": "📷 Полароид", "vintage": "📜 Состаренное", "glitch": "👾 Глитч",
+    "neon": "💜 Неон", "popart": "🎭 Поп-арт", "gothic": "🦇 Готика",
+    "steampunk": "⚙️ Стимпанк", "vaporwave": "🌴 Вейпорвейв", "minimalism": "⬜ Минимализм",
+    "grunge": "🖤 Гранж",
+}
+
+MAIN_STYLES = ["bw", "golden", "film", "cinema", "anime", "cyberpunk"]
+
+STYLE_PROMPTS = {
+    "bw": "Переведи фото в чёрно-белый стиль. НЕ меняй позу, композицию.",
+    "sepia": "Переведи фото в сепию: тёплый коричневатый оттенок. НЕ меняй позу.",
+    "film": "Сделай фото в стиле плёночной фотографии: зернистость, винтаж. НЕ меняй позу.",
+    "highkey": "Сделай фото воздушным: светлые тона, минимум теней. НЕ меняй позу.",
+    "lowkey": "Сделай фото драматичным: тёмные тона, контраст. НЕ меняй позу.",
+    "pastel": "Добавь пастельные тона. НЕ меняй позу, композицию.",
+    "retro": "Сделай фото в стиле ретро 80-х: VHS, выцветшие цвета. НЕ меняй позу.",
+    "cinema": "Сделай фото кинематографичным. НЕ меняй позу, композицию.",
+    "painting": "Преврати фото в картину: живопись. НЕ меняй позу.",
+    "comics": "Преврати фото в комикс. НЕ меняй позу.",
+    "anime": "Преврати фото в аниме. НЕ меняй позу.",
+    "aquarel": "Преврати фото в акварель. НЕ меняй позу.",
+    "cyberpunk": "Сделай фото в стиле киберпанк: неон. НЕ меняй позу.",
+    "noir": "Сделай фото в стиле нуар: ч/б детектив. НЕ меняй позу.",
+    "golden": "Добавь эффект закатного солнца. НЕ меняй позу.",
+    "polaroid": "Сделай фото в стиле полароид. НЕ меняй позу.",
+    "vintage": "Состарь фото: потёртости, царапины. НЕ меняй позу.",
+    "glitch": "Добавь эффект глитч: цифровые помехи. НЕ меняй позу.",
+    "neon": "Добавь яркие неоновые цвета. НЕ меняй позу.",
+    "popart": "Преврати фото в поп-арт. НЕ меняй позу.",
+    "gothic": "Сделай фото в готическом стиле. НЕ меняй позу.",
+    "steampunk": "Добавь стимпанк-элементы. НЕ меняй позу.",
+    "vaporwave": "Сделай фото в стиле вейпорвейв. НЕ меняй позу.",
+    "minimalism": "Сделай фото минималистичным. НЕ меняй позу.",
+    "grunge": "Добавь гранж-эффект. НЕ меняй позу.",
+}
+
+@dp.callback_query(F.data.startswith("gen_style_menu_full_"))
+async def handle_gen_style_menu_full(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    if len(parts) < 6:
+        await callback.answer("Ошибка данных")
+        return
+    gen_type = parts[4]
+    user_id = int(parts[5])
+    await callback.answer()
+    
+    keyboard = []
+    for i in range(0, len(MAIN_STYLES), 2):
+        row = []
+        for style in MAIN_STYLES[i:i+2]:
+            row.append(InlineKeyboardButton(text=ALL_STYLES[style], callback_data=f"gen_style_{style}_{gen_type}_{user_id}"))
+        keyboard.append(row)
+    keyboard.append([InlineKeyboardButton(text="✨ Ещё стили...", callback_data=f"gen_style_more_{gen_type}_{user_id}")])
+    keyboard.append([InlineKeyboardButton(text="🔙 Назад", callback_data=f"gen_boost_back_{gen_type}_{user_id}")])
+    
+    await callback.message.answer("🎨 <b>Выбери стиль:</b>", parse_mode="HTML", reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard))
+
+@dp.callback_query(F.data.startswith("gen_style_more_"))
+async def handle_gen_style_more(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    if len(parts) < 5:
+        await callback.answer("Ошибка данных")
+        return
+    gen_type = parts[3]
+    user_id = int(parts[4])
+    await callback.answer()
+    
+    all_keys = list(ALL_STYLES.keys())
+    keyboard = []
+    for i in range(0, len(all_keys), 2):
+        row = []
+        for style in all_keys[i:i+2]:
+            row.append(InlineKeyboardButton(text=ALL_STYLES[style], callback_data=f"gen_style_{style}_{gen_type}_{user_id}"))
+        keyboard.append(row)
+    keyboard.append([InlineKeyboardButton(text="🔙 Назад", callback_data=f"gen_style_menu_full_{gen_type}_{user_id}")])
+    
+    await callback.message.answer("🎨 <b>Все стили:</b>", parse_mode="HTML", reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard))
+
+@dp.callback_query(F.data.startswith("gen_style_menu_"))
+async def handle_gen_style_menu(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    if len(parts) < 5:
+        await callback.answer("Ошибка данных")
+        return
+    gen_type = parts[3]
+    user_id = int(parts[4])
+    await callback.answer()
+    
+    keyboard = []
+    for i in range(0, len(MAIN_STYLES), 2):
+        row = []
+        for style in MAIN_STYLES[i:i+2]:
+            row.append(InlineKeyboardButton(text=ALL_STYLES[style], callback_data=f"gen_style_{style}_{gen_type}_{user_id}"))
+        keyboard.append(row)
+    keyboard.append([InlineKeyboardButton(text="✨ Ещё стили...", callback_data=f"gen_style_more_{gen_type}_{user_id}")])
+    
+    await callback.message.answer("🎨 <b>Стилизация</b>\n\nВыбери стиль:", parse_mode="HTML", reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard))
+
+@dp.callback_query(F.data.startswith("gen_style_"))
+async def handle_gen_style(callback: CallbackQuery):
+    if "menu" in callback.data or "more" in callback.data:
+        return
+    
+    parts = callback.data.split("_")
+    if len(parts) != 5:
+        await callback.answer("Ошибка данных")
+        return
+    
+    style = parts[2]
+    gen_type = parts[3]
+    
+    if style not in ALL_STYLES:
+        await callback.answer("Неизвестный стиль")
+        return
+    
+    try:
+        user_id = int(parts[4])
+    except ValueError:
+        await callback.answer("Ошибка данных")
+        return
+    
+    wish = STYLE_PROMPTS.get(style, "Примени художественный стиль.")
+    gen_wish[user_id] = wish
+    user_mode[user_id] = f"gen_wish_{gen_type}"
+    gen_format[user_id] = "original"
+    
+    await callback.answer("🎨 Применяю стиль...")
+    await do_generation(user_id, callback.message.chat.id, gen_type, check_diff=False)
+    user_mode[user_id] = "free"
+
+# ===== ЛОГИКА КУРСА =====
+def _is_trial(user_id: int) -> bool:
+    users = _load_users()
+    for key, data in users.items():
+        if isinstance(data, dict) and data.get("username") == str(user_id):
+            return data.get("trial", False)
+    return False
+
+async def handle_course_status_logic(user_id: int, chat_id: int):
+    effective = has_access(user_id) and not (user_id == 456504792 and test_mode)
+    if effective:
+        user_mode[user_id] = "course"
+        status = get_status(user_id)
+        if status:
+            if "День 0" in status or "Подготовка" in status:
+                await bot.send_message(chat_id, status, parse_mode="HTML",
+                    reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                        [InlineKeyboardButton(text="🚀 Начать курс", callback_data="start_course_btn")]]))
+                await send_photos(chat_id, 0)
+            elif "День 1" in status and _is_trial(user_id):
+                await bot.send_message(chat_id, status + "\n\n🆓 Это твой бесплатный день!", parse_mode="HTML")
+                await send_photos(chat_id, 1)
+            else:
+                await bot.send_message(chat_id, status, parse_mode="HTML")
+                users = _load_users()
+                uid = next((k for k, d in users.items() if isinstance(d, dict) and d.get("username") == str(user_id)), str(user_id))
+                if uid in users:
+                    await send_photos(chat_id, users[uid].get("day", 1))
+        return
+    await bot.send_message(chat_id,
+        "🎓 <b>Мини-курс по композиции (10 дней)</b>\n\n"
+        "10-дневный челлендж с проверкой заданий.\n"
+        "🆓 День 0 и 1 — бесплатно!\n💰 Полный доступ: 490 ₽",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🆓 Начать бесплатно", callback_data="start_trial")],
+            [InlineKeyboardButton(text="💳 Оплатить (490 ₽)", callback_data="pay_course")]]))
+
+@dp.callback_query(F.data == "start_trial")
+async def handle_start_trial(callback: CallbackQuery):
+    await callback.answer()
+    activate_free_trial(callback.from_user.id)
+    user_mode[callback.from_user.id] = "course"
+    status = get_status(callback.from_user.id)
+    if status:
+        await callback.message.answer(status, parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🚀 Начать курс", callback_data="start_course_btn")]]))
+        await send_photos(callback.message.chat.id, 0)
+
+@dp.callback_query(F.data == "pay_course")
+async def handle_pay_course(callback: CallbackQuery):
+    await callback.answer()
+    link = create_payment_link(490, "Оплата за мини-курс", callback.from_user.id) or "https://t.me/moy_razbor_bot"
+    await callback.message.answer("💳 <b>Оплата курса — 490 ₽</b>", parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="💳 Оплатить 490 ₽", url=link)]]))
+
+@dp.callback_query(F.data == "course_status")
+async def handle_course_status(callback: CallbackQuery):
+    await callback.answer()
+    await handle_course_status_logic(callback.from_user.id, callback.message.chat.id)
+
+@dp.callback_query(F.data == "start_course_btn")
+async def handle_start_course_btn(callback: CallbackQuery):
+    await callback.answer()
+    user_id = callback.from_user.id
+    user_mode[user_id] = "course"
+    add_text = add_photo(user_id)
+    if add_text:
+        if _is_trial(user_id) and "День 1" in add_text:
+            add_text += "\n\n🆓 Это твой бесплатный день!"
+        await callback.message.answer(add_text, parse_mode="HTML")
+        from course import get_next_day
+        if get_next_day(user_id) == 1:
+            await send_photos(callback.message.chat.id, 1)
+
+@dp.callback_query(F.data == "mode_course")
+async def handle_mode_course(callback: CallbackQuery):
+    user_mode[callback.from_user.id] = "course"
+    await callback.answer("✅ Режим курса")
+
+@dp.callback_query(F.data == "mode_free")
+async def handle_mode_free(callback: CallbackQuery):
+    user_mode[callback.from_user.id] = "free"
+    await callback.answer("🔍 Обычный анализ")
+
+# ===== ПРОМОКОДЫ =====
+@dp.message(Command("promo"))
+async def handle_promo(message: Message):
+    user_id = message.from_user.id
+    args = message.text.split()
+    if user_id == 456504792 and len(args) >= 2:
+        action = args[1].lower()
+        if action == "create" and len(args) >= 3:
+            code = args[2].upper()
+            if len(args) >= 4:
+                if args[-1].lower() == "course":
+                    ptype, amount = "course", 0
+                else:
+                    try:
+                        amount, ptype = int(args[3]), "gen"
+                    except ValueError:
+                        await message.answer("❌ Количество должно быть числом")
+                        return
+            else:
+                await message.answer("❌ Укажи количество или 'course'")
+                return
+            promo = _load_promo()
+            promo[code] = {"type": ptype, "amount": amount, "used_by": []}
+            _save_promo(promo)
+            await message.answer(f"✅ Промокод {code} создан")
+            return
+        elif action == "list":
+            promo = _load_promo()
+            text = "\n".join(f"• {c}: {d['type']} {d['amount']}" for c, d in promo.items())
+            await message.answer(text or "📭 Нет промокодов")
+            return
+        elif action == "delete" and len(args) >= 3:
+            promo = _load_promo()
+            if args[2].upper() in promo:
+                del promo[args[2].upper()]
+                _save_promo(promo)
+                await message.answer("🗑 Удалён")
+            return
+        elif action == "reset" and len(args) >= 3:
+            promo = _load_promo()
+            if args[2].upper() in promo:
+                promo[args[2].upper()]["used_by"] = []
+                _save_promo(promo)
+                await message.answer("🔄 Сброшен")
+            return
+    if len(args) == 2:
+        code = args[1].upper()
+        promo = _load_promo()
+        if code not in promo:
+            await message.answer("❌ Не существует")
+            return
+        d = promo[code]
+        if user_id in d.get("used_by", []):
+            await message.answer("❌ Уже использован")
+            return
+        if d["type"] == "gen":
+            paid_generations[user_id] = paid_generations.get(user_id, 0) + d["amount"]
+            _save_gen()
+        elif d["type"] == "course":
+            from course import activate_by_username
+            activate_by_username(str(user_id))
+            user_mode[user_id] = "course"
+        d["used_by"].append(user_id)
+        _save_promo(promo)
+        await message.answer("✅ Активирован!")
+        return
+    await message.answer("🎫 /promo КОД")
+
+# ===== ПРОМОКОДЫ - МЕНЮ =====
+@dp.callback_query(F.data == "promo_menu_create")
+async def promo_menu_create(callback: CallbackQuery):
+    user_mode[callback.from_user.id] = "promo_create_name"
+    await callback.message.answer(
+        "➕ <b>Создание промокода</b>\n\n"
+        "Введи название (латиницей, например: SALE, WELCOME, INSTA10):\n\n"
+        "Примеры:\n"
+        "• <code>START</code> — 5 генераций\n"
+        "• <code>VIP</code> — курс\n"
+        "• <code>SALE30</code> — 10 генераций",
+        parse_mode="HTML")
+    await callback.answer()
+
+@dp.callback_query(F.data == "promo_menu_list")
+async def promo_menu_list(callback: CallbackQuery):
+    promo = _load_promo()
+    if not promo:
+        await callback.message.answer("📭 Нет промокодов")
+    else:
+        text = "🎫 <b>Промокоды:</b>\n\n"
+        for c, d in promo.items():
+            ptype = "🎓 Курс" if d["type"] == "course" else f"⚡ {d['amount']} ген."
+            used = len(d.get("used_by", []))
+            text += f"• <code>{c}</code> — {ptype} (исп: {used})\n"
+        await callback.message.answer(text, parse_mode="HTML")
+    await callback.answer()
+
+@dp.callback_query(F.data == "promo_menu_delete")
+async def promo_menu_delete(callback: CallbackQuery):
+    user_mode[callback.from_user.id] = "promo_delete"
+    await callback.message.answer("🗑 Введи название промокода для удаления:")
+    await callback.answer()
+
+@dp.callback_query(F.data == "promo_menu_reset")
+async def promo_menu_reset(callback: CallbackQuery):
+    user_mode[callback.from_user.id] = "promo_reset"
+    await callback.message.answer("🔄 Введи название промокода для сброса:")
+    await callback.answer()
+
+# ===== АДМИН-ПАНЕЛЬ =====
+@dp.message(Command("admin"))
+async def handle_admin(message: Message):
+    if message.from_user.id != 456504792:
+        await message.answer("⛔ Нет доступа.")
+        return
+    args = message.text.split()
+    if len(args) == 1:
+        await message.answer(
+            "📊 <b>Админ-панель</b>\n\n"
+            "/admin stats — общая статистика\n"
+            "/admin users — список пользователей\n"
+            "/admin history — история действий\n"
+            "/admin gen — оплаченные генерации\n"
+            "/admin course — прогресс курса\n"
+            "/admin feedback — фидбек\n"
+            "/admin orders — заказы\n"
+            "/admin reset_orders — сбросить заказы",
+            parse_mode="HTML")
+        return
+    command = args[1].lower()
+    if command == "reset_orders":
+        _save_author_orders([])
+        await message.answer("✅ Заказы сброшены")
+        return
+    if command == "stats":
+        stats_data = load_stats_data()
+        history_data = _load_history()
+        total_users = len(stats_data)
+        total_analyses = sum(d.get("total", 0) for d in stats_data.values())
+        total_actions = sum(len(entries) for entries in history_data.values())
+        await message.answer(
+            f"📊 <b>Общая статистика</b>\n\n"
+            f"👤 Пользователей: {total_users}\n"
+            f"📸 Анализов: {total_analyses}\n"
+            f"📝 Действий: {total_actions}",
+            parse_mode="HTML")
+    elif command == "users":
+        stats_data = load_stats_data()
+        text = "👤 <b>Пользователи:</b>\n\n"
+        for uid, data in sorted(stats_data.items(), key=lambda x: x[1].get("total", 0), reverse=True):
+            text += f"• <code>{uid}</code> — {data.get('total', 0)} анализов\n"
+        await message.answer(text or "Нет пользователей", parse_mode="HTML")
+    elif command == "history":
+        history_data = _load_history()
+        text = "📝 <b>История действий:</b>\n\n"
+        count = 0
+        for uid, entries in reversed(history_data.items()):
+            for entry in reversed(entries[-3:]):
+                time_str = entry.get("time", "")[:16]
+                action = entry.get("action", "")
+                details = entry.get("details", "")
+                text += f"• <code>{uid}</code> | {time_str} | {action} | {details}\n"
+                count += 1
+                if count >= 30:
+                    await message.answer(text + "\n...", parse_mode="HTML")
+                    return
+        await message.answer(text or "Нет записей", parse_mode="HTML")
+    elif command == "gen":
+        text = "💎 <b>Оплаченные генерации:</b>\n\n"
+        for uid, c in paid_generations.items():
+            if c > 0:
+                text += f"• <code>{uid}</code>: {c} шт\n"
+        await message.answer(text or "Нет оплаченных генераций", parse_mode="HTML")
+    elif command == "course":
+        users = _load_users()
+        text = "🎓 <b>Прогресс курса:</b>\n\n"
+        for uid, d in users.items():
+            if isinstance(d, dict) and d.get("day", 0) > 0:
+                text += f"• <code>{uid}</code>: день {d.get('day', 0)}/10\n"
+        await message.answer(text or "Никто не начал", parse_mode="HTML")
+    elif command == "feedback":
+        if os.path.exists(FEEDBACK_FILE):
+            with open(FEEDBACK_FILE) as f:
+                fb = json.load(f)
+            reasons = {"horizon": "📐", "crop": "🪵", "face": "👤", "light": "💡", "pose": "📐", "other": "✏️"}
+            text = "📝 <b>Фидбек:</b>\n\n"
+            for e in fb[-20:]:
+                text += f"• {e.get('time','')[:10]} — {reasons.get(e.get('reason',''),'?')}\n"
+            await message.answer(text or "Нет записей", parse_mode="HTML")
+        else:
+            await message.answer("Нет записей")
+    elif command == "orders":
+        orders = _load_author_orders()
+        if not orders:
+            await message.answer("📭 Нет заказов")
+            return
+        text = "📸 <b>Заказы:</b>\n\n"
+        for i, o in enumerate(orders):
+            s = "✅" if o["status"] == "ready" else ("⏳" if o["status"] == "paid" else "✔️")
+            text += f"#{i} | <code>{o['user_id']}</code> | Фото: {len(o.get('photos',[]))} | {s}\n"
+        text += "\n/admin order НОМЕР — посмотреть"
+        await message.answer(text, parse_mode="HTML")
+    elif command == "order" and len(args) >= 3:
+        try:
+            idx = int(args[2])
+            orders = _load_author_orders()
+            if idx < 0 or idx >= len(orders):
+                await message.answer("❌ Неверный номер")
+                return
+            o = orders[idx]
+            username = o.get("username", f"id{o['user_id']}")
+            if username.startswith("id"):
+                user_link = f"tg://user?id={o['user_id']}"
+            else:
+                user_link = f"https://t.me/{username}"
+            await message.answer(f"📸 Заказ #{idx}\n<a href='{user_link}'>👤 Написать пользователю</a>\nСтатус: {o['status']}", parse_mode="HTML")
+            for filename in o.get("photos", []):
+                filepath = os.path.join(AUTHOR_PHOTOS_DIR, filename)
+                if os.path.exists(filepath):
+                    with open(filepath, "rb") as f:
+                        photo_bytes = f.read()
+                    await message.answer_photo(BufferedInputFile(photo_bytes, filename=filename))
+            await message.answer("Действия:", reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="✅ Выполнен", callback_data=f"author_done_{idx}")],
+            ]))
+        except ValueError:
+            await message.answer("❌ Номер должен быть числом")
+    else:
+        await message.answer("❌ Неизвестная команда")
+
+@dp.callback_query(F.data.startswith("author_done_"))
+async def handle_author_done(callback: CallbackQuery):
+    idx = int(callback.data.split("_")[-1])
+    orders = _load_author_orders()
+    if idx < len(orders):
+        orders[idx]["status"] = "done"
+        _save_author_orders(orders)
+        await callback.answer("✅ Отмечено!")
+        await callback.message.edit_text(callback.message.text + "\n\n✅ Выполнен")
+
+@dp.callback_query(F.data.startswith("author_ready_"))
+async def handle_author_ready(callback: CallbackQuery):
+    user_id = int(callback.data.split("_")[-1])
+    orders = _load_author_orders()
+    for order in orders:
+        if order["user_id"] == user_id and order["status"] == "paid" and len(order["photos"]) > 0:
+            order["status"] = "ready"
+            _save_author_orders(orders)
+            await callback.message.edit_text(f"✅ Принято {len(order['photos'])} фото. Разберу в течение 24 часов и напишу тебе лично.")
+            _send_telegram_message(-1004468971541, f"🔔 Заказ готов!\nПользователь: {user_id}\nФото: {len(order['photos'])} шт")
+            return
+    await callback.answer("Нет активного заказа.")
+
+# ===== АДМИН-МЕНЮ (CALLBACK) =====
+@dp.callback_query(F.data == "admin_menu_stats")
+async def admin_menu_stats(callback: CallbackQuery):
+    stats_data = load_stats_data()
+    total_users = len(stats_data)
+    total_analyses = sum(d.get("total", 0) for d in stats_data.values())
+    await callback.message.answer(f"👤 Пользователей: {total_users}\n📸 Анализов: {total_analyses}")
+    await callback.answer()
+
+@dp.callback_query(F.data == "admin_menu_users")
+async def admin_menu_users(callback: CallbackQuery):
+    stats_data = load_stats_data()
+    text = "\n".join(f"• {uid}: {d.get('total',0)} анализов" for uid, d in stats_data.items())
+    await callback.message.answer(text or "Нет пользователей")
+    await callback.answer()
+
+@dp.callback_query(F.data == "admin_menu_gen")
+async def admin_menu_gen(callback: CallbackQuery):
+    text = "\n".join(f"• {uid}: {c} шт" for uid, c in paid_generations.items() if c > 0)
+    await callback.message.answer(text or "Нет оплаченных генераций")
+    await callback.answer()
+
+@dp.callback_query(F.data == "admin_menu_course")
+async def admin_menu_course(callback: CallbackQuery):
+    users = _load_users()
+    text = "\n".join(f"• {d.get('username', uid)}: день {d.get('day',0)}/10" for uid, d in users.items() if d.get('day',0) > 0)
+    await callback.message.answer(text or "Никто не начал")
+    await callback.answer()
+
+@dp.callback_query(F.data == "admin_menu_feedback")
+async def admin_menu_feedback(callback: CallbackQuery):
+    if os.path.exists(FEEDBACK_FILE):
+        with open(FEEDBACK_FILE) as f:
+            fb = json.load(f)
+        reasons = {"horizon": "📐", "crop": "🪵", "face": "👤", "light": "💡", "pose": "📐", "other": "✏️"}
+        text = "\n".join(f"• {e.get('time','')[:10]} — {reasons.get(e.get('reason',''),'?')}" for e in fb[-20:])
+        await callback.message.answer(text or "Нет записей")
+    else:
+        await callback.message.answer("Нет записей")
+    await callback.answer()
+
 # ===== ЕЖЕДНЕВНЫЙ ОТЧЁТ =====
 async def daily_report():
     await asyncio.sleep(5)
