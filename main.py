@@ -405,16 +405,13 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
         if mode == "retry":
             # Перегенерация — совершенно другой вариант
             if flat_lay_active.get(user_id, False):
-                # Просто используем полный промпт стиля как при первой генерации
+                # Для Flat Lay: просто используем полный промпт стиля (как при первой генерации)
                 style_prompt = wish if wish and wish.lower() != "ок" else ""
                 prompt = (
                     f"{style_prompt} "
-                    f"Сделай другой вариант композиции с этими же предметами. "
+                    f"Сделай другой вариант композиции. "
                     f"Размер: {img_size}. "
                 )
-                # ВАЖНО: добавляем выбранный стиль
-                if wish and wish.lower() != "ок":
-                    prompt += f" Стиль оформления: {wish}"
             else:
                 # Для обычных фото
                 prompt += (
@@ -446,7 +443,7 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
             if "fill_frame" in error_type:
                 prompt += f"Улучши композицию. {what_is_wrong}"
         
-        if wish and wish.lower() != "ок":
+        if wish and wish.lower() != "ок" and not flat_lay_active.get(user_id, False):
             prompt += f"Дополнительное пожелание: {wish}"
         
         result = generate_image(image_bytes, prompt)
