@@ -1280,12 +1280,9 @@ async def handle_gen_retry(callback: CallbackQuery):
         await callback.answer("Лимит перегенераций исчерпан.", show_alert=True)
         return
     
-    # Для Flat Lay — берём ТЕКУЩЕЕ фото (уже обработанное)
-    # Для обычной генерации — ИСХОДНОЕ фото
-    if flat_lay_active.get(user_id, False):
-        # Ничего не меняем — last_photo уже содержит обработанное фото
-        pass
-    elif user_id in original_photo:
+    # ВАЖНО: перегенерация ВСЕГДА берёт ИСХОДНОЕ фото
+    # И делает совершенно новый вариант
+    if user_id in original_photo:
         last_photo[user_id] = original_photo[user_id]
     
     # Отмечаем, что была перегенерация (бесплатная)
