@@ -510,7 +510,12 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
             await bot.send_message(chat_id, "😕 Не получилось с первого раза. Пробую ещё раз...")
             result = generate_image(image_bytes, prompt)
             if result is None:
-                await bot.send_message(chat_id, "😕 Не удалось сгенерировать. Попробуй ещё раз.")
+                await bot.send_message(
+                    chat_id,
+                    "😕 Не удалось сгенерировать.\n\n"
+                    "✅ Генерация НЕ списалась!\n"
+                    "🔄 Нажми ту же кнопку ещё раз — обычно со второй попытки получается."
+                )
                 return
 
         if check_diff and not wish and not is_flat_lay:
