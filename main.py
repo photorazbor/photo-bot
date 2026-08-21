@@ -2394,6 +2394,35 @@ async def admin_menu_feedback(callback: CallbackQuery):
         await callback.message.answer("Нет записей")
     await callback.answer()
 
+# ===== ФИДБЕК =====
+@dp.callback_query(F.data.startswith("fb_good_"))
+async def handle_fb_good(callback: CallbackQuery):
+    await callback.answer("Спасибо! 🙏")
+    await callback.message.edit_text("👍 Спасибо за оценку!")
+
+@dp.callback_query(F.data.startswith("fb_bad_"))
+async def handle_fb_bad(callback: CallbackQuery):
+    await callback.answer()
+    user_id = int(callback.data.split("_")[-1])
+    await callback.message.edit_text("Что не понравилось?",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📐 Горизонт", callback_data=f"fb_reason_horizon_{user_id}")],
+            [InlineKeyboardButton(text="🪵 Обрезка", callback_data=f"fb_reason_crop_{user_id}")],
+            [InlineKeyboardButton(text="👤 Лицо", callback_data=f"fb_reason_face_{user_id}")],
+            [InlineKeyboardButton(text="💡 Свет", callback_data=f"fb_reason_light_{user_id}")],
+            [InlineKeyboardButton(text="📐 Поза", callback_data=f"fb_reason_pose_{user_id}")],
+            [InlineKeyboardButton(text="✏️ Другое", callback_data=f"fb_reason_other_{user_id}")],
+        ]))
+
+@dp.callback_query(F.data.startswith("fb_reason_"))
+async def handle_fb_reason(callback: CallbackQuery):
+    await callback.answer("Записал! 🔧")
+    parts = callback.data.split("_")
+    reason = parts[2]
+    user_id = int(parts[-1])
+    _save_feedback({"user_id": user_id, "reason": reason, "time": datetime.now().isoformat()})
+    await callback.message.edit_text("Спасибо! Я учту это. 📝")
+
 # ===== ЕЖЕДНЕВНЫЙ ОТЧЁТ =====
 async def daily_report():
     await asyncio.sleep(5)
