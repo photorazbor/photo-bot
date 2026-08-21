@@ -583,7 +583,12 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
         
     except Exception as e:
         logger.exception("Ошибка генерации")
-        await bot.send_message(chat_id, "😕 Что-то пошло не так при генерации.")
+        await bot.send_message(
+            chat_id,
+            "😕 Что-то пошло не так.\n\n"
+            "✅ Генерация НЕ списалась!\n"
+            "🔄 Нажми ту же кнопку ещё раз — обычно со второй попытки получается."
+        )
 
 # ===== СТАРТ =====
 @dp.message(CommandStart())
