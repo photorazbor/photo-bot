@@ -595,20 +595,36 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
         last_photo[user_id] = result
         
         format_name = dict(FORMATS).get(fmt, fmt)
-        await bot.send_photo(chat_id, BufferedInputFile(result, filename="generated.jpg"),
-            caption=f"✨ Вот результат!\nФормат: {format_name}",
-            reply_markup=get_keyboard(user_id))
+        # Отправляем фото
+        if is_flat_lay:
+            # Для Flat Lay — фото БЕЗ стандартных кнопок
+            await bot.send_photo(chat_id, BufferedInputFile(result, filename="generated.jpg"),
+                caption=f"✨ Вот результат!\nФормат: {format_name}")
+        else:
+            # Для обычных — со стандартными кнопками
+            await bot.send_photo(chat_id, BufferedInputFile(result, filename="generated.jpg"),
+                caption=f"✨ Вот результат!\nФормат: {format_name}",
+                reply_markup=get_keyboard(user_id))
 
         # Кнопки после генерации
         if is_flat_lay:
-            post_kb = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="✏️ Доработать Flat Lay", callback_data=f"flat_refine_{gen_type}_{user_id}")],
-                [InlineKeyboardButton(text="🔄 Перегенерировать (бесплатно)", callback_data=f"gen_retry_{gen_type}_{user_id}")],
+            # Специальные кнопки Flat Lay
+            free_left = 5 - free_generations.get(user_id, 0)
+            paid_left = paid_generations.get(user_id, 0)
+            total_left = free_left + paid_left
+            
+            flat_kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="✏️ Доработать", callback_data=f"flat_refine_{gen_type}_{user_id}")],
+                [InlineKeyboardButton(text="🔄 Перегенерировать", callback_data=f"gen_retry_{gen_type}_{user_id}")],
                 [InlineKeyboardButton(text="👍 Хорошо", callback_data=f"fb_good_{user_id}"),
                  InlineKeyboardButton(text="👎 Плохо", callback_data=f"fb_bad_{user_id}")],
+                [InlineKeyboardButton(text=f"💎 Мои генерации: {total_left}", callback_data="my_balance")],
+                [InlineKeyboardButton(text="📷 Новый Flat Lay", callback_data=f"flat_new_{user_id}")],
+                [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
             ])
-            await bot.send_message(chat_id, "Оцени результат или доработай:", reply_markup=post_kb)
+            await bot.send_message(chat_id, "Что дальше?", reply_markup=flat_kb)
         else:
+            # Стандартные кнопки
             post_kb = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="✏️ Доработать результат", callback_data=f"gen_refine_{gen_type}_{user_id}")],
                 [InlineKeyboardButton(text="🔄 Перегенерировать (бесплатно)", callback_data=f"gen_retry_{gen_type}_{user_id}")],
@@ -2473,6 +2489,34 @@ async def handle_fb_reason(callback: CallbackQuery):
     user_id = int(parts[-1])
     _save_feedback({"user_id": user_id, "reason": reason, "time": datetime.now().isoformat()})
     await callback.message.edit_text("Спасибо! Я учту это. 📝")
+
+@dp.callback_query(F.data.startswith("flat_new_"))
+async def handle_flat_new(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    user_id = int(parts[-1])
+    
+    user_mode[user_id] = "flat_lay_format"
+    flat_lay_active[user_id] = False
+    
+    free_left = 5 - free_generations.get(user_id, 0)
+    paid_left = paid_generations.get(user_id, 0)
+    total = free_left + paid_left
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📐 Исходный формат", callback_data=f"flatfmt_original_{user_id}")],
+        [InlineKeyboardButton(text="📱 1:1 (квадрат)", callback_data=f"flatfmt_1_1_{user_id}")],
+        [InlineKeyboardButton(text="📱 4:5 (Instagram пост)", callback_data=f"flatfmt_4_5_{user_id}")],
+        [InlineKeyboardButton(text="📱 9:16 (сториз)", callback_data=f"flatfmt_9_16_{user_id}")],
+    ])
+    
+    await callback.answer()
+    await callback.message.answer(
+        f"📷 <b>Новый Flat Lay</b>\n\n"
+        f"💎 Генераций осталось: {total}\n\n"
+        f"Выбери формат:",
+        parse_mode="HTML",
+        reply_markup=keyboard
+    )
 
 # ===== ЕЖЕДНЕВНЫЙ ОТЧЁТ =====
 async def daily_report():
