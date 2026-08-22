@@ -176,7 +176,6 @@ def draw_hints(image: Image.Image, drawings: list) -> Image.Image:
         x1, y1 = item.get("x1", 0), item.get("y1", 0)
         x2, y2 = item.get("x2", 0), item.get("y2", 0)
 
-        # Яркие маркерные цвета
         if color == "red":
             color = "#FF2222"
         elif color == "green":
@@ -189,70 +188,46 @@ def draw_hints(image: Image.Image, drawings: list) -> Image.Image:
         try:
             if shape_type == "line":
                 _draw_solid_line(draw, x1, y1, x2, y2, color, width=5, opacity=255)
-
             elif shape_type == "dashed_line":
                 _draw_dashed_line(draw, x1, y1, x2, y2, color, width=4, dash=12, gap=8, opacity=240)
-
             elif shape_type == "crop_frame":
                 _draw_crop_frame(draw, result, x1, y1, x2, y2, color)
-
             elif shape_type == "grid_thirds":
                 _draw_grid_thirds(draw, result, color)
-
             elif shape_type == "circle":
                 rx, ry = x2, y2
                 _draw_marker_circle(draw, x1, y1, rx, ry, "#FFB74D", width=6, opacity=255)
-
             elif shape_type == "frame":
                 _draw_marker_rect(draw, x1, y1, x2, y2, "#FFB74D", width=6, opacity=255)
-
             elif shape_type == "arrow":
                 _draw_arrow(draw, x1, y1, x2, y2, color, width=5, opacity=255)
-
         except Exception as e:
             print(f"Не удалось нарисовать {shape_type}: {e}")
             continue
 
     return result
 
-import cv2
+
+# ===== ВЫРАВНИВАНИЕ ИНТЕРЬЕРА =====
 import numpy as np
 
 def align_interior(image: Image.Image) -> Image.Image:
-    """Выравнивает вертикали через поиск длинных вертикальных линий."""
-    img = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    edges = cv2.Canny(gray, 50, 150)
-    
-    lines = cv2.HoughLinesP(edges, 1, np.pi/180, threshold=50, minLineLength=150, maxLineGap=30)
-    
-    if lines is None:
-        return image
-    
-    angles = []
-    for line in lines:
-        # Безопасная распаковка
-        try:
-            line_data = line[0]
-            if len(line_data) >= 4:
-                x1, y1, x2, y2 = int(line_data[0]), int(line_data[1]), int(line_data[2]), int(line_data[3])
-            else:
-                continue
-        except (TypeError, IndexError):
-            continue
+    """Выравнивание через deskew — автоматическое определение наклона."""
+    try:
+        from deskew import determine_skew
+        from scipy.ndimage import rotate as scipy_rotate
         
-        angle = np.degrees(np.arctan2(x2-x1, y2-y1))
-        if abs(angle) < 15:
-            angles.append(angle)
-    
-    if not angles:
+        img = np.array(image)
+        angle = determine_skew(img)
+        
+        if abs(angle) < 0.3:
+            return image
+        
+        rotated = scipy_rotate(img, angle, reshape=False, mode='nearest')
+        return Image.fromarray(rotated)
+    except ImportError:
+        print("deskew не установлен. Пропускаем выравнивание.")
         return image
-    
-    avg_tilt = np.median(angles)
-    
-    h, w = img.shape[:2]
-    center = (w // 2, h // 2)
-    M = cv2.getRotationMatrix2D(center, avg_tilt, 1.0)
-    rotated = cv2.warpAffine(img, M, (w, h), borderMode=cv2.BORDER_REPLICATE)
-    
-    return Image.fromarray(cv2.cvtColor(rotated, cv2.COLOR_BGR2RGB))
+    except Exception as e:
+        print(f"Ошибка выравнивания: {e}")
+        return image
