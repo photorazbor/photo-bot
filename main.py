@@ -559,7 +559,7 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
                 # Считаем неудачные попытки
                 gen_fail_count[user_id] = gen_fail_count.get(user_id, 0) + 1
                 
-                if gen_fail_count.get(user_id, 0) >= 2:
+                if gen_fail_count.get(user_id, 0) >= 3:
                     await bot.send_message(
                         chat_id,
                         "😔 Сервис временно недоступен.\n\n"
@@ -658,12 +658,24 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
         
     except Exception as e:
         logger.exception("Ошибка генерации")
-        await bot.send_message(
-            chat_id,
-            "😕 Что-то пошло не так.\n\n"
-            "✅ Генерация НЕ списалась!\n"
-            "🔄 Нажми ту же кнопку ещё раз — обычно со второй попытки получается."
-        )
+        gen_fail_count[user_id] = gen_fail_count.get(user_id, 0) + 1
+        
+        if gen_fail_count.get(user_id, 0) >= 3:
+            await bot.send_message(
+                chat_id,
+                "😔 Сервис временно недоступен.\n\n"
+                "Мы зафиксировали несколько неудачных попыток. "
+                "Похоже, проблемы на стороне нейросети.\n\n"
+                "✅ Генерации НЕ списываются!\n"
+                "🔄 Попробуйте вернуться через 10-15 минут."
+            )
+        else:
+            await bot.send_message(
+                chat_id,
+                "😔 Не удалось сгенерировать.\n\n"
+                "✅ Генерация НЕ списалась!\n"
+                "🔄 Нажми ту же кнопку ещё раз — возможно, сработает."
+            )
 
 # ===== СТАРТ =====
 @dp.message(CommandStart())
