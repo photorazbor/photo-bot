@@ -2667,11 +2667,6 @@ async def handle_int_fmt(callback: CallbackQuery):
     await callback.answer()
     await callback.message.answer("📷 Пришли фото комнаты!")
 
-@dp.callback_query(F.data.startswith("int_light_"))
-async def handle_int_light(callback: CallbackQuery):
-    parts = callback.data.split("_")
-    user_id = int(parts[-1])
-
 @dp.callback_query(F.data.startswith("int_geometry_"))
 async def handle_int_geometry(callback: CallbackQuery):
     parts = callback.data.split("_")
