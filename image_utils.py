@@ -214,3 +214,41 @@ def draw_hints(image: Image.Image, drawings: list) -> Image.Image:
             continue
 
     return result
+
+import cv2
+import numpy as np
+
+def align_interior(image: Image.Image) -> Image.Image:
+    """Выравнивает вертикали и горизонтали на фото интерьера."""
+    img = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+    
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    edges = cv2.Canny(gray, 50, 150)
+    lines = cv2.HoughLinesP(edges, 1, np.pi/180, threshold=100, minLineLength=100, maxLineGap=10)
+    
+    if lines is None:
+        return image
+    
+    vertical_lines = []
+    for line in lines:
+        x1, y1, x2, y2 = line[0]
+        angle = abs(np.degrees(np.arctan2(y2-y1, x2-x1)))
+        if 70 < angle < 110:
+            vertical_lines.append((x1, y1, x2, y2))
+    
+    if not vertical_lines:
+        return image
+    
+    angles = []
+    for x1, y1, x2, y2 in vertical_lines[:5]:
+        angle = np.degrees(np.arctan2(x2-x1, y2-y1))
+        angles.append(angle)
+    
+    avg_angle = np.mean(angles)
+    
+    h, w = img.shape[:2]
+    center = (w // 2, h // 2)
+    M = cv2.getRotationMatrix2D(center, avg_angle, 1.0)
+    rotated = cv2.warpAffine(img, M, (w, h), borderMode=cv2.BORDER_REPLICATE)
+    
+    return Image.fromarray(cv2.cvtColor(rotated, cv2.COLOR_BGR2RGB))
