@@ -207,68 +207,27 @@ def draw_hints(image: Image.Image, drawings: list) -> Image.Image:
 
     return result
 
-
 # ===== ВЫРАВНИВАНИЕ ИНТЕРЬЕРА =====
 import numpy as np
 
 def align_interior(image: Image.Image) -> Image.Image:
-    """Исправляет перспективу через поиск углов комнаты."""
+    """Простое выравнивание через deskew."""
     try:
-        import cv2
-        import numpy as np
+        from deskew import determine_skew
+        from scipy.ndimage import rotate as scipy_rotate
         
-        img = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        edges = cv2.Canny(gray, 30, 100)
+        img = np.array(image)
+        angle = determine_skew(img)
         
-        contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        
-        if not contours:
+        # Мягкое выравнивание
+        if abs(angle) < 0.5:
             return image
         
-        # Берём самый большой контур
-        biggest = max(contours, key=cv2.contourArea)
+        # Не переусердствуем
+        angle = angle * 2.5
         
-        # Пробуем найти 4 угла
-        peri = cv2.arcLength(biggest, True)
-        approx = cv2.approxPolyDP(biggest, 0.02 * peri, True)
-        
-        if len(approx) != 4:
-            rect = cv2.minAreaRect(biggest)
-            box = cv2.boxPoints(rect)
-            approx = np.int32(box)
-        
-        pts = approx.reshape(4, 2)
-        
-        # Сортируем точки
-        s = pts.sum(axis=1)
-        rect_pts = np.zeros((4, 2), dtype="float32")
-        rect_pts[0] = pts[np.argmin(s)]
-        rect_pts[2] = pts[np.argmax(s)]
-        diff = np.diff(pts, axis=1)
-        rect_pts[1] = pts[np.argmin(diff)]
-        rect_pts[3] = pts[np.argmax(diff)]
-        
-        # Размеры
-        w1 = np.linalg.norm(rect_pts[1] - rect_pts[0])
-        w2 = np.linalg.norm(rect_pts[2] - rect_pts[3])
-        h1 = np.linalg.norm(rect_pts[3] - rect_pts[0])
-        h2 = np.linalg.norm(rect_pts[2] - rect_pts[1])
-        
-        max_w = int(max(w1, w2))
-        max_h = int(max(h1, h2))
-        
-        dst = np.array([
-            [0, 0],
-            [max_w - 1, 0],
-            [max_w - 1, max_h - 1],
-            [0, max_h - 1]
-        ], dtype="float32")
-        
-        M = cv2.getPerspectiveTransform(rect_pts, dst)
-        warped = cv2.warpPerspective(img, M, (max_w, max_h))
-        
-        return Image.fromarray(cv2.cvtColor(warped, cv2.COLOR_BGR2RGB))
+        rotated = scipy_rotate(img, angle, reshape=False, mode='nearest')
+        return Image.fromarray(rotated)
     except Exception as e:
-        print(f"Ошибка перспективы: {e}")
+        print(f"Ошибка выравнивания: {e}")
         return image
