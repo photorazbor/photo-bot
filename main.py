@@ -1671,7 +1671,10 @@ async def handle_photo(message: Message):
         
         await message.answer_photo(
             BufferedInputFile(aligned_bytes, filename="aligned.jpg"),
-            caption="✨ Геометрия выровнена!\n\nЧто улучшить?",
+            caption="✨ Геометрия выровнена!\n\n"
+                    "⚠️ По краям возможны искажения — это нормально. "
+                    "При генерации нейросеть дорисует их автоматически.\n\n"
+                    "Что улучшить?",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="💡 Свет (1 ген)", callback_data=f"int_light_{user_id}")],
                 [InlineKeyboardButton(text="🧹 Убрать лишнее (1 ген)", callback_data=f"int_clean_{user_id}")],
@@ -2634,6 +2637,7 @@ async def handle_interior_text(message: Message):
         "🏠 <b>Интерьер</b>\n\n"
         "Сфотографируй комнату сейчас или прикрепи готовое фото из галереи.\n"
         "Я выровняю геометрию и улучшу кадр.\n\n"
+        "⚠️ При смене формата нейросеть может дорисовывать или обрезать части фото.\n\n"
         "Выбери формат:",
         parse_mode="HTML",
         reply_markup=keyboard
