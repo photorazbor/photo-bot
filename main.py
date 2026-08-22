@@ -2660,6 +2660,7 @@ async def handle_int_fmt(callback: CallbackQuery):
         user_id = int(parts[3])
     
     interior_format[user_id] = fmt
+    gen_format[user_id] = fmt  # ← ДОБАВЬ ЭТО!
     user_mode[user_id] = "interior_photo"
     
     await callback.answer()
