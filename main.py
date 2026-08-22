@@ -75,6 +75,7 @@ gen_wish = {}
 gen_format = {}
 gen_retry_count = {}
 gen_used_count = {}
+gen_fail_count = {}  # НОВОЕ: счётчик неудачных генераций
 flat_lay_active = {}
 flat_lay_style = {}  # НОВОЕ: хранит выбранный стиль Flat Lay
 change_format_warnings = {}
@@ -510,12 +511,25 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
             await bot.send_message(chat_id, "😕 Не получилось с первого раза. Пробую ещё раз...")
             result = generate_image(image_bytes, prompt)
             if result is None:
-                await bot.send_message(
-                    chat_id,
-                    "😕 Не удалось сгенерировать.\n\n"
-                    "✅ Генерация НЕ списалась!\n"
-                    "🔄 Нажми ту же кнопку ещё раз — обычно со второй попытки получается."
-                )
+                # Считаем неудачные попытки
+                gen_fail_count[user_id] = gen_fail_count.get(user_id, 0) + 1
+                
+                if gen_fail_count.get(user_id, 0) >= 2:
+                    await bot.send_message(
+                        chat_id,
+                        "😔 Сервис временно недоступен.\n\n"
+                        "Мы зафиксировали несколько неудачных попыток. "
+                        "Похоже, проблемы на стороне нейросети.\n\n"
+                        "✅ Генерации НЕ списываются!\n"
+                        "🔄 Попробуйте вернуться через 10-15 минут."
+                    )
+                else:
+                    await bot.send_message(
+                        chat_id,
+                        "😔 Не удалось сгенерировать.\n\n"
+                        "✅ Генерация НЕ списалась!\n"
+                        "🔄 Нажми ту же кнопку ещё раз — возможно, сработает."
+                    )
                 return
 
         if check_diff and not wish and not is_flat_lay:
@@ -1451,10 +1465,16 @@ async def handle_gen_retry(callback: CallbackQuery):
     if user_id in original_photo:
         last_photo[user_id] = original_photo[user_id]
     
-    gen_retry_count[user_id] = 1
+    # Запоминаем фото до генерации
+    old_photo = last_photo.get(user_id)
     
     await callback.answer("🔄 Генерирую другой вариант...")
     await do_generation(user_id, callback.message.chat.id, gen_type, check_diff=False, mode="retry")
+    
+    # Отмечаем попытку ТОЛЬКО если генерация удалась
+    new_photo = last_photo.get(user_id)
+    if new_photo != old_photo:
+        gen_retry_count[user_id] = 1
 
 # ===== КНОПКИ ГЕНЕРАЦИИ =====
 @dp.callback_query(F.data == "gen_free")
@@ -1497,6 +1517,7 @@ async def handle_photo(message: Message):
     original_photo[user_id] = image_bytes
     gen_retry_count[user_id] = 0
     gen_used_count[user_id] = 0
+    gen_fail_count[user_id] = 0  # Сбрасываем счётчик неудач
 
     # Custom prompt для обычной генерации
     if mode in ("gen_wish_free", "gen_wish_paid"):
