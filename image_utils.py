@@ -219,35 +219,32 @@ import cv2
 import numpy as np
 
 def align_interior(image: Image.Image) -> Image.Image:
-    """Выравнивает вертикали на фото интерьера."""
+    """Упрощённое выравнивание: находит наклон через края."""
     img = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     edges = cv2.Canny(gray, 50, 150)
-    lines = cv2.HoughLinesP(edges, 1, np.pi/180, threshold=100, minLineLength=100, maxLineGap=10)
+    
+    lines = cv2.HoughLines(edges, 1, np.pi/180, threshold=100)
     
     if lines is None:
         return image
     
-    vertical_lines = []
-    for line in lines:
-        x1, y1, x2, y2 = line[0]
-        angle = abs(np.degrees(np.arctan2(y2-y1, x2-x1)))
-        if 70 < angle < 110:
-            vertical_lines.append((x1, y1, x2, y2))
+    angles = []
+    for line in lines[:10]:
+        rho, theta = line[0]
+        angle = np.degrees(theta)
+        if angle < 10 or angle > 170:
+            tilt = angle if angle < 10 else angle - 180
+            angles.append(tilt)
     
-    if not vertical_lines:
+    if not angles:
         return image
     
-    angles = []
-    for x1, y1, x2, y2 in vertical_lines[:5]:
-        angle = np.degrees(np.arctan2(x2-x1, y2-y1))
-        angles.append(angle)
-    
-    avg_angle = np.mean(angles)
+    avg_tilt = np.mean(angles)
     
     h, w = img.shape[:2]
     center = (w // 2, h // 2)
-    M = cv2.getRotationMatrix2D(center, avg_angle, 1.0)
+    M = cv2.getRotationMatrix2D(center, avg_tilt, 1.0)
     rotated = cv2.warpAffine(img, M, (w, h), borderMode=cv2.BORDER_REPLICATE)
     
     return Image.fromarray(cv2.cvtColor(rotated, cv2.COLOR_BGR2RGB))
