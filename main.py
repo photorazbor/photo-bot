@@ -80,6 +80,7 @@ flat_lay_active = {}
 flat_lay_style = {}  # НОВОЕ: хранит выбранный стиль Flat Lay
 interior_active = {}
 interior_format = {}
+interior_light = {}  # НОВОЕ: выбор освещения
 change_format_warnings = {}
 test_mode = False
 
@@ -1672,15 +1673,11 @@ async def handle_photo(message: Message):
         await message.answer_photo(
             BufferedInputFile(aligned_bytes, filename="aligned.jpg"),
             caption="✨ Геометрия выровнена!\n\n"
-                    "⚠️ По краям возможны искажения — это нормально. "
-                    "При генерации нейросеть дорисует их автоматически.\n\n"
-                    "Что улучшить?",
+                    "Теперь выбери, какой свет должен быть на фото:",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="📐 Геометрия и края (1 ген)", callback_data=f"int_geometry_{user_id}")],
-                [InlineKeyboardButton(text="💡 Свет (1 ген)", callback_data=f"int_light_{user_id}")],
-                [InlineKeyboardButton(text="🧹 Убрать лишнее (1 ген)", callback_data=f"int_clean_{user_id}")],
-                [InlineKeyboardButton(text="🛋️ Добавить декор (1 ген)", callback_data=f"int_decor_{user_id}")],
-                [InlineKeyboardButton(text="✨ Всё сразу (1 ген)", callback_data=f"int_full_{user_id}")],
+                [InlineKeyboardButton(text="☀️ Дневной свет (лампы выключены)", callback_data=f"int_setlight_natural_{user_id}")],
+                [InlineKeyboardButton(text="💡 С лампами (светильники включены)", callback_data=f"int_setlight_lights_{user_id}")],
+                [InlineKeyboardButton(text="🔄 Как на фото (не менять)", callback_data=f"int_setlight_keep_{user_id}")],
             ])
         )
         return
@@ -2667,14 +2664,42 @@ async def handle_int_fmt(callback: CallbackQuery):
     await callback.answer()
     await callback.message.answer("📷 Пришли фото комнаты!")
 
+@dp.callback_query(F.data.startswith("int_setlight_"))
+async def handle_int_setlight(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    light_type = parts[2]  # natural, lights, keep
+    user_id = int(parts[-1])
+    
+    interior_light[user_id] = light_type
+    
+    await callback.answer("✅ Запомнил!")
+    await callback.message.answer(
+        "Что сделать?",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📐 Геометрия и края (1 ген)", callback_data=f"int_geometry_{user_id}")],
+            [InlineKeyboardButton(text="🧹 Убрать лишнее (1 ген)", callback_data=f"int_clean_{user_id}")],
+            [InlineKeyboardButton(text="🛋️ Добавить декор (1 ген)", callback_data=f"int_decor_{user_id}")],
+            [InlineKeyboardButton(text="✨ Всё сразу (1 ген)", callback_data=f"int_full_{user_id}")],
+        ])
+    )
+
 @dp.callback_query(F.data.startswith("int_geometry_"))
 async def handle_int_geometry(callback: CallbackQuery):
     parts = callback.data.split("_")
     user_id = int(parts[-1])
     
+    light_type = interior_light.get(user_id, "keep")
+    if light_type == "natural":
+        light_prompt = "Освещение — только естественный дневной свет. Лампы выключены. "
+    elif light_type == "lights":
+        light_prompt = "Включи светильники. Тёплый свет. "
+    else:
+        light_prompt = "Освещение как на фото. "
+    
     gen_wish[user_id] = (
         "Выровняй геометрию до конца: вертикали и горизонтали должны быть идеально ровными. "
         "Дорисуй недостающие края после выравнивания. "
+        f"{light_prompt}"
         "НЕ меняй архитектуру: потолок, стены, ниши, перегородки. "
         "В кадре НЕ должно быть людей, ног, рук, силуэтов. "
         "НЕ дорисовывай части тела, кроссовки, обувь. "
@@ -2693,9 +2718,18 @@ async def handle_int_light(callback: CallbackQuery):
     parts = callback.data.split("_")
     user_id = int(parts[-1])
     
+    light_type = interior_light.get(user_id, "keep")
+    if light_type == "natural":
+        light_prompt = "Освещение — только естественный дневной свет. Лампы выключены. "
+    elif light_type == "lights":
+        light_prompt = "Включи светильники. Тёплый свет. "
+    else:
+        light_prompt = "Освещение как на фото. "
+    
     gen_wish[user_id] = (
         "Выровняй геометрию до конца. "
         "Дорисуй края фото. "
+        f"{light_prompt}"
         "НЕ меняй архитектуру: потолок, стены, ниши, перегородки. "
         "В кадре НЕ должно быть людей, ног, рук, силуэтов. "
         "Только интерьер без человека. "
@@ -2715,9 +2749,18 @@ async def handle_int_clean(callback: CallbackQuery):
     parts = callback.data.split("_")
     user_id = int(parts[-1])
     
+    light_type = interior_light.get(user_id, "keep")
+    if light_type == "natural":
+        light_prompt = "Освещение — только естественный дневной свет. Лампы выключены. "
+    elif light_type == "lights":
+        light_prompt = "Включи светильники. Тёплый свет. "
+    else:
+        light_prompt = "Освещение как на фото. "
+    
     gen_wish[user_id] = (
         "Выровняй геометрию до конца. "
         "Дорисуй края фото. "
+        f"{light_prompt}"
         "НЕ меняй архитектуру: потолок, стены, ниши, перегородки. "
         "В кадре НЕ должно быть людей, ног, рук, силуэтов. "
         "Только интерьер без человека. "
@@ -2740,9 +2783,18 @@ async def handle_int_decor(callback: CallbackQuery):
     parts = callback.data.split("_")
     user_id = int(parts[-1])
     
+    light_type = interior_light.get(user_id, "keep")
+    if light_type == "natural":
+        light_prompt = "Освещение — только естественный дневной свет. Лампы выключены. "
+    elif light_type == "lights":
+        light_prompt = "Включи светильники. Тёплый свет. "
+    else:
+        light_prompt = "Освещение как на фото. "
+    
     gen_wish[user_id] = (
         "Выровняй геометрию до конца. "
         "Дорисуй края фото. "
+        f"{light_prompt}"
         "НЕ меняй архитектуру: потолок, стены, ниши, перегородки. "
         "В кадре НЕ должно быть людей, ног, рук, силуэтов. "
         "Только интерьер без человека. "
@@ -2763,9 +2815,18 @@ async def handle_int_full(callback: CallbackQuery):
     parts = callback.data.split("_")
     user_id = int(parts[-1])
     
+    light_type = interior_light.get(user_id, "keep")
+    if light_type == "natural":
+        light_prompt = "Освещение — только естественный дневной свет. Лампы выключены. "
+    elif light_type == "lights":
+        light_prompt = "Включи светильники. Тёплый свет. "
+    else:
+        light_prompt = "Освещение как на фото. "
+    
     gen_wish[user_id] = (
         "Выровняй геометрию до конца. "
         "Дорисуй края фото. "
+        f"{light_prompt}"
         "НЕ меняй архитектуру: потолок, стены, ниши, перегородки. "
         "В кадре НЕ должно быть людей, ног, рук, силуэтов. "
         "Только интерьер без человека. "
