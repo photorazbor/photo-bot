@@ -240,7 +240,7 @@ def align_interior(image: Image.Image) -> Image.Image:
     if not angles:
         return image
     
-    avg_tilt = np.mean(angles) * 1.5  # Усиливаем выравнивание
+    avg_tilt = np.mean(angles) * 1.8  # Усиливаем выравнивание
     
     h, w = img.shape[:2]
     center = (w // 2, h // 2)
