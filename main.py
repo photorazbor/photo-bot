@@ -1664,13 +1664,15 @@ async def handle_photo(message: Message):
         return
 
     if mode == "interior_photo":
-        # Без OpenCV — нейросеть сама выровняет
-        last_photo[user_id] = image_bytes
+        # Выравниваем через OpenCV
+        aligned = align_interior(image)
+        aligned_bytes = image_to_bytes(aligned)
+        last_photo[user_id] = aligned_bytes
         original_photo[user_id] = image_bytes
         
         await message.answer_photo(
-            BufferedInputFile(image_bytes, filename="photo.jpg"),
-            caption="✨ Теперь выбери, какой свет должен быть на фото:",
+            BufferedInputFile(aligned_bytes, filename="aligned.jpg"),
+            caption="✨ Выбери, какой свет должен быть на фото:",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="☀️ Дневной свет (лампы выключены)", callback_data=f"int_setlight_natural_{user_id}")],
                 [InlineKeyboardButton(text="💡 С лампами (светильники включены)", callback_data=f"int_setlight_lights_{user_id}")],
