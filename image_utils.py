@@ -223,6 +223,9 @@ def align_interior(image: Image.Image) -> Image.Image:
         if abs(angle) < 0.3:
             return image
         
+        # Усиливаем угол в 1.5 раза
+        angle = angle * 1.5
+        
         rotated = scipy_rotate(img, angle, reshape=False, mode='nearest')
         return Image.fromarray(rotated)
     except ImportError:
