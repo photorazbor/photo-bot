@@ -224,27 +224,32 @@ def align_interior(image: Image.Image) -> Image.Image:
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     edges = cv2.Canny(gray, 50, 150)
     
-    # Ищем ТОЛЬКО длинные вертикальные линии (стены, углы)
-    lines = cv2.HoughLinesP(edges, 1, np.pi/180, threshold=100, minLineLength=200, maxLineGap=50)
+    lines = cv2.HoughLinesP(edges, 1, np.pi/180, threshold=50, minLineLength=150, maxLineGap=30)
     
     if lines is None:
         return image
     
     angles = []
     for line in lines:
-        x1, y1, x2, y2 = line[0]
+        # Безопасная распаковка
+        try:
+            line_data = line[0]
+            if len(line_data) >= 4:
+                x1, y1, x2, y2 = int(line_data[0]), int(line_data[1]), int(line_data[2]), int(line_data[3])
+            else:
+                continue
+        except (TypeError, IndexError):
+            continue
+        
         angle = np.degrees(np.arctan2(x2-x1, y2-y1))
-        # Только почти вертикальные линии (от -10 до +10 градусов от вертикали)
         if abs(angle) < 15:
             angles.append(angle)
     
     if not angles:
         return image
     
-    # Берём медианный угол — он надёжнее среднего
     avg_tilt = np.median(angles)
     
-    # Поворачиваем НЕМНОГО — не переусердствуем
     h, w = img.shape[:2]
     center = (w // 2, h // 2)
     M = cv2.getRotationMatrix2D(center, avg_tilt, 1.0)
