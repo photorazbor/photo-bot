@@ -1676,6 +1676,7 @@ async def handle_photo(message: Message):
                     "При генерации нейросеть дорисует их автоматически.\n\n"
                     "Что улучшить?",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="📐 Геометрия и края (1 ген)", callback_data=f"int_geometry_{user_id}")],
                 [InlineKeyboardButton(text="💡 Свет (1 ген)", callback_data=f"int_light_{user_id}")],
                 [InlineKeyboardButton(text="🧹 Убрать лишнее (1 ген)", callback_data=f"int_clean_{user_id}")],
                 [InlineKeyboardButton(text="🛋️ Добавить декор (1 ген)", callback_data=f"int_decor_{user_id}")],
@@ -2670,8 +2671,28 @@ async def handle_int_fmt(callback: CallbackQuery):
 async def handle_int_light(callback: CallbackQuery):
     parts = callback.data.split("_")
     user_id = int(parts[-1])
+
+@dp.callback_query(F.data.startswith("int_geometry_"))
+async def handle_int_geometry(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    user_id = int(parts[-1])
     
     gen_wish[user_id] = (
+        "Довыровняй геометрию до идеала: "
+        "вертикали и горизонтали должны быть строго ровными. "
+        "Дорисуй недостающие края после выравнивания. "
+        "НЕ меняй мебель, светильники, декор. "
+        "Только геометрия и края."
+    )
+    interior_active[user_id] = True
+    gen_used_count[user_id] = 0
+    
+    await callback.answer("📐 Выравниваю геометрию...")
+    await do_generation(user_id, callback.message.chat.id, "free" if free_generations.get(user_id, 0) < 5 else "paid", check_diff=False)
+    user_mode[user_id] = "free"
+    
+    gen_wish[user_id] = (
+        "Довыровняй геометрию: вертикали и горизонтали должны быть идеально ровными. "
         "Сначала ИСПРАВЬ края фото: дорисуй недостающие части, убери смазы и искажения по краям. "
         "Улучши освещение интерьера: сделай свет тёплым, мягким, как дневной. "
         "Убери тёмные углы, пересветы. "
@@ -2692,6 +2713,7 @@ async def handle_int_clean(callback: CallbackQuery):
     user_id = int(parts[-1])
     
     gen_wish[user_id] = (
+        "Довыровняй геометрию: вертикали и горизонтали должны быть идеально ровными. "
         "Сначала ИСПРАВЬ края фото: дорисуй недостающие части, убери смазы и искажения по краям. "
         "Убери ВЕСЬ мусор и беспорядок из интерьера: "
         "скомканные вещи, случайные сумки, лишние предметы на столах и полу, "
@@ -2713,6 +2735,7 @@ async def handle_int_decor(callback: CallbackQuery):
     user_id = int(parts[-1])
     
     gen_wish[user_id] = (
+        "Довыровняй геометрию: вертикали и горизонтали должны быть идеально ровными. "
         "Сначала ИСПРАВЬ края фото: дорисуй недостающие части, убери смазы и искажения по краям. "
         "Добавь УМЕСТНЫЙ декор в интерьер: "
         "подушки на диван, плед на кресло, вазу с цветами на стол, "
@@ -2735,6 +2758,7 @@ async def handle_int_full(callback: CallbackQuery):
     user_id = int(parts[-1])
     
     gen_wish[user_id] = (
+        "Довыровняй геометрию: вертикали и горизонтали должны быть идеально ровными. "
         "Сначала ИСПРАВЬ края фото: дорисуй недостающие части, убери смазы и искажения по краям. "
         "Сделай фото как для дорогого объявления о продаже: "
         "убери весь мусор и беспорядок, "
