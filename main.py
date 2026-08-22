@@ -29,7 +29,7 @@ from aiogram.types import (
 
 from config import TELEGRAM_BOT_TOKEN
 from ai_service import analyze_photo, generate_image, create_payment_link, _load_pending_payments
-from image_utils import download_and_resize, image_to_bytes, draw_hints
+from image_utils import download_and_resize, image_to_bytes, draw_hints, align_interior
 from stats import add_analysis, get_stats, add_history as stats_add_history, _load_stats as load_stats_data
 from course import get_status, add_photo, check_day, has_access, get_day_photos, _load_users, activate_free_trial
 
@@ -78,6 +78,8 @@ gen_used_count = {}
 gen_fail_count = {}  # НОВОЕ: счётчик неудачных генераций
 flat_lay_active = {}
 flat_lay_style = {}  # НОВОЕ: хранит выбранный стиль Flat Lay
+interior_active = {}
+interior_format = {}
 change_format_warnings = {}
 test_mode = False
 
@@ -765,7 +767,16 @@ async def handle_test(message: Message):
         return
     test_mode = not test_mode
     if test_mode:
-        await message.answer("🧪 Тестовый режим ВКЛ", reply_markup=USER_KEYBOARD)
+        test_keyboard = ReplyKeyboardMarkup(
+            keyboard=[
+                [KeyboardButton(text="📸 Анализ фото"), KeyboardButton(text="✂️ Редактор")],
+                [KeyboardButton(text="📷 Flat Lay"), KeyboardButton(text="🎨 Стилизация")],
+                [KeyboardButton(text="🏠 Интерьер"), KeyboardButton(text="🎯 Авторский разбор")],
+                [KeyboardButton(text="🎓 Мини-курс"), KeyboardButton(text="🏠 Главное меню")],
+            ],
+            resize_keyboard=True
+        )
+        await message.answer("🧪 Тестовый режим ВКЛ", reply_markup=test_keyboard)
     else:
         await message.answer("👑 Режим автора ВКЛ", reply_markup=ADMIN_KEYBOARD)
 
@@ -1648,6 +1659,25 @@ async def handle_photo(message: Message):
             "🎨 <b>Выбери стиль оформления:</b>",
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard)
+        )
+        return
+
+    if mode == "interior_photo":
+        # Выравниваем фото
+        aligned = align_interior(image)
+        aligned_bytes = image_to_bytes(aligned)
+        last_photo[user_id] = aligned_bytes
+        original_photo[user_id] = image_bytes
+        
+        await message.answer_photo(
+            BufferedInputFile(aligned_bytes, filename="aligned.jpg"),
+            caption="✨ Геометрия выровнена!\n\nЧто улучшить?",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="💡 Свет (1 ген)", callback_data=f"int_light_{user_id}")],
+                [InlineKeyboardButton(text="🧹 Убрать лишнее (1 ген)", callback_data=f"int_clean_{user_id}")],
+                [InlineKeyboardButton(text="🛋️ Добавить декор (1 ген)", callback_data=f"int_decor_{user_id}")],
+                [InlineKeyboardButton(text="✨ Всё сразу (1 ген)", callback_data=f"int_full_{user_id}")],
+            ])
         )
         return
 
@@ -2550,6 +2580,110 @@ async def handle_flat_new(callback: CallbackQuery):
         parse_mode="HTML",
         reply_markup=keyboard
     )
+
+# ===== ИНТЕРЬЕР (ТЕСТОВЫЙ РЕЖИМ) =====
+INTERIOR_FORMATS = [
+    ("original", "📐 Исходный"),
+    ("3_4", "📱 3:4 вертикаль"),
+    ("9_16", "📱 9:16 сториз"),
+    ("1_1", "📱 1:1 квадрат"),
+    ("4_5", "📱 4:5 Instagram"),
+    ("4_3", "🖼️ 4:3 горизонт"),
+    ("16_9", "🖼️ 16:9 панорама"),
+]
+
+@dp.message(lambda message: message.text == "🏠 Интерьер" and message.from_user.id == 456504792)
+async def handle_interior_text(message: Message):
+    user_id = message.from_user.id
+    user_mode[user_id] = "interior_format"
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=name, callback_data=f"intfmt_{fmt}_{user_id}")]
+        for fmt, name in INTERIOR_FORMATS
+    ])
+    
+    await message.answer(
+        "🏠 <b>Интерьер</b>\n\n"
+        "Сфотографируй комнату сейчас или прикрепи готовое фото из галереи.\n"
+        "Я выровняю геометрию и улучшу кадр.\n\n"
+        "Выбери формат:",
+        parse_mode="HTML",
+        reply_markup=keyboard
+    )
+
+@dp.callback_query(F.data.startswith("intfmt_"))
+async def handle_int_fmt(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    # intfmt_original_123456
+    # intfmt_3_4_123456
+    if len(parts) < 3:
+        await callback.answer("Ошибка данных")
+        return
+    
+    if parts[1] == "original":
+        fmt = "original"
+        user_id = int(parts[2])
+    else:
+        fmt = parts[1] + "_" + parts[2]
+        user_id = int(parts[3])
+    
+    interior_format[user_id] = fmt
+    user_mode[user_id] = "interior_photo"
+    
+    await callback.answer()
+    await callback.message.answer("📷 Пришли фото комнаты!")
+
+@dp.callback_query(F.data.startswith("int_light_"))
+async def handle_int_light(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    user_id = int(parts[-1])
+    
+    gen_wish[user_id] = "Улучши освещение: сделай свет тёплым, мягким, как дневной. Убери тёмные углы. Сохрани геометрию."
+    interior_active[user_id] = True
+    gen_used_count[user_id] = 0
+    
+    await callback.answer("💡 Улучшаю свет...")
+    await do_generation(user_id, callback.message.chat.id, "free" if free_generations.get(user_id, 0) < 5 else "paid", check_diff=False)
+    user_mode[user_id] = "free"
+
+@dp.callback_query(F.data.startswith("int_clean_"))
+async def handle_int_clean(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    user_id = int(parts[-1])
+    
+    gen_wish[user_id] = "Убери всё лишнее: провода, мусор, случайные предметы. Сделай комнату чистой. Сохрани геометрию."
+    interior_active[user_id] = True
+    gen_used_count[user_id] = 0
+    
+    await callback.answer("🧹 Убираю лишнее...")
+    await do_generation(user_id, callback.message.chat.id, "free" if free_generations.get(user_id, 0) < 5 else "paid", check_diff=False)
+    user_mode[user_id] = "free"
+
+@dp.callback_query(F.data.startswith("int_decor_"))
+async def handle_int_decor(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    user_id = int(parts[-1])
+    
+    gen_wish[user_id] = "Добавь уместный декор: подушки, растение, картину, плед. Сделай комнату уютной. Сохрани геометрию."
+    interior_active[user_id] = True
+    gen_used_count[user_id] = 0
+    
+    await callback.answer("🛋️ Добавляю декор...")
+    await do_generation(user_id, callback.message.chat.id, "free" if free_generations.get(user_id, 0) < 5 else "paid", check_diff=False)
+    user_mode[user_id] = "free"
+
+@dp.callback_query(F.data.startswith("int_full_"))
+async def handle_int_full(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    user_id = int(parts[-1])
+    
+    gen_wish[user_id] = "Сделай фото как для дорогого объявления: свет, декор, чистота. Комната должна выглядеть идеально. Сохрани геометрию."
+    interior_active[user_id] = True
+    gen_used_count[user_id] = 0
+    
+    await callback.answer("✨ Улучшаю...")
+    await do_generation(user_id, callback.message.chat.id, "free" if free_generations.get(user_id, 0) < 5 else "paid", check_diff=False)
+    user_mode[user_id] = "free"
 
 # ===== ЕЖЕДНЕВНЫЙ ОТЧЁТ =====
 async def daily_report():
