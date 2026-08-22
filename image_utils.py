@@ -219,29 +219,32 @@ import cv2
 import numpy as np
 
 def align_interior(image: Image.Image) -> Image.Image:
-    """Упрощённое выравнивание: находит наклон через края."""
+    """Выравнивает вертикали через поиск длинных вертикальных линий."""
     img = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     edges = cv2.Canny(gray, 50, 150)
     
-    lines = cv2.HoughLines(edges, 1, np.pi/180, threshold=100)
+    # Ищем ТОЛЬКО длинные вертикальные линии (стены, углы)
+    lines = cv2.HoughLinesP(edges, 1, np.pi/180, threshold=100, minLineLength=200, maxLineGap=50)
     
     if lines is None:
         return image
     
     angles = []
-    for line in lines[:10]:
-        rho, theta = line[0]
-        angle = np.degrees(theta)
-        if angle < 10 or angle > 170:
-            tilt = angle if angle < 10 else angle - 180
-            angles.append(tilt)
+    for line in lines:
+        x1, y1, x2, y2 = line[0]
+        angle = np.degrees(np.arctan2(x2-x1, y2-y1))
+        # Только почти вертикальные линии (от -10 до +10 градусов от вертикали)
+        if abs(angle) < 15:
+            angles.append(angle)
     
     if not angles:
         return image
     
-    avg_tilt = np.mean(angles) * 1.8  # Усиливаем выравнивание
+    # Берём медианный угол — он надёжнее среднего
+    avg_tilt = np.median(angles)
     
+    # Поворачиваем НЕМНОГО — не переусердствуем
     h, w = img.shape[:2]
     center = (w // 2, h // 2)
     M = cv2.getRotationMatrix2D(center, avg_tilt, 1.0)
