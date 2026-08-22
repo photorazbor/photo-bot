@@ -48,8 +48,8 @@ USER_KEYBOARD = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text="📸 Анализ фото"), KeyboardButton(text="✂️ Редактор")],
         [KeyboardButton(text="📷 Flat Lay"), KeyboardButton(text="🎨 Стилизация")],
-        [KeyboardButton(text="🎯 Авторский разбор"), KeyboardButton(text="🎓 Мини-курс")],
-        [KeyboardButton(text="🏠 Главное меню")],
+        [KeyboardButton(text="🏠 Интерьер"), KeyboardButton(text="🎯 Авторский разбор")],
+        [KeyboardButton(text="🎓 Мини-курс"), KeyboardButton(text="🏠 Главное меню")],
     ],
     resize_keyboard=True
 )
@@ -1920,6 +1920,34 @@ async def handle_non_photo(message: Message):
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="📸 Загрузить фото", callback_data="new_photo")]]))
+        return
+
+    if text == "🏠 Интерьер" and user_id == 456504792:
+        user_mode[user_id] = "interior_format"
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📐 Исходный", callback_data=f"intfmt_original_{user_id}")],
+            [InlineKeyboardButton(text="📱 3:4 вертикаль", callback_data=f"intfmt_3_4_{user_id}")],
+            [InlineKeyboardButton(text="📱 9:16 сториз", callback_data=f"intfmt_9_16_{user_id}")],
+            [InlineKeyboardButton(text="📱 1:1 квадрат", callback_data=f"intfmt_1_1_{user_id}")],
+            [InlineKeyboardButton(text="📱 4:5 Instagram", callback_data=f"intfmt_4_5_{user_id}")],
+            [InlineKeyboardButton(text="🖼️ 4:3 горизонт", callback_data=f"intfmt_4_3_{user_id}")],
+            [InlineKeyboardButton(text="🖼️ 16:9 панорама", callback_data=f"intfmt_16_9_{user_id}")],
+        ])
+        
+        await message.answer(
+            "🏠 <b>Интерьер</b>\n\n"
+            "Сфотографируй комнату сейчас или прикрепи готовое фото из галереи.\n"
+            "Я выровняю геометрию и улучшу кадр.\n\n"
+            "Для кого:\n"
+            "• Дизайнеры — показать работу клиентам\n"
+            "• Риэлторы — фото для продажи\n"
+            "• Владельцы — сдать квартиру\n"
+            "• Блогеры — контент про дом\n\n"
+            "Выбери формат:",
+            parse_mode="HTML",
+            reply_markup=keyboard
+        )
         return
 
     if text == "📷 Flat Lay":
