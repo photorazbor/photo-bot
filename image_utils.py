@@ -219,9 +219,8 @@ import cv2
 import numpy as np
 
 def align_interior(image: Image.Image) -> Image.Image:
-    """Выравнивает вертикали и горизонтали на фото интерьера."""
+    """Выравнивает вертикали на фото интерьера."""
     img = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
-    
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     edges = cv2.Canny(gray, 50, 150)
     lines = cv2.HoughLinesP(edges, 1, np.pi/180, threshold=100, minLineLength=100, maxLineGap=10)
