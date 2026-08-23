@@ -159,12 +159,12 @@ Drawings: line, dashed_line, circle, frame, arrow, grid_thirds, crop_frame.
         system_prompt = SYSTEM_PROMPT
 
     headers = {
-        "Authorization": f"Bearer {KODIK_API_KEY}",
+        "Authorization": f"Bearer {OPENAI_API_KEY}",
         "Content-Type": "application/json",
     }
 
     payload = {
-        "model": "google/gemini-3.5-flash",
+        "model": "gemini-3.5-flash",
         "stream": False,
         "messages": [
             {
@@ -178,7 +178,7 @@ Drawings: line, dashed_line, circle, frame, arrow, grid_thirds, crop_frame.
         "max_tokens": 1000,
     }
 
-    response = requests.post(f"{KODIK_BASE_URL}/chat/completions", headers=headers, json=payload, timeout=60)
+    response = requests.post(f"{BASE_URL}/chat/completions", headers=headers, json=payload, timeout=60)
 
     if response.status_code != 200:
         print(f"Ошибка API: {response.status_code} {response.text}")
@@ -203,7 +203,7 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
     }
 
     payload = {
-        "model": "google/gemini-3.1-flash-image-preview",
+        "model": "gemini-3.1-flash-image-preview",
         "modalities": ["image", "text"],
         "messages": [
             {
