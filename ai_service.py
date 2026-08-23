@@ -9,9 +9,9 @@ import requests
 import os as _os
 from datetime import datetime
 
-from config import OPENAI_API_KEY, TOCHKA_API_TOKEN, SPESHU_API_KEY
+from config import OPENAI_API_KEY, TOCHKA_API_TOKEN, SPESHU_API_KEY, KODIK_API_KEY, KODIK_BASE_URL
 
-BASE_URL = "https://cheapai.io/v1"
+BASE_URL = "https://cheapai.io/v1"  # Старый CheapAI — не удаляем
 
 PENDING_PAYMENTS_FILE = "pending_payments.json"
 
@@ -159,12 +159,12 @@ Drawings: line, dashed_line, circle, frame, arrow, grid_thirds, crop_frame.
         system_prompt = SYSTEM_PROMPT
 
     headers = {
-        "Authorization": f"Bearer {OPENAI_API_KEY}",
+        "Authorization": f"Bearer {KODIK_API_KEY}",
         "Content-Type": "application/json",
     }
 
     payload = {
-        "model": "gemini-3.5-flash",
+        "model": "google/gemini-3.5-flash",
         "stream": False,
         "messages": [
             {
@@ -178,7 +178,7 @@ Drawings: line, dashed_line, circle, frame, arrow, grid_thirds, crop_frame.
         "max_tokens": 1000,
     }
 
-    response = requests.post(f"{BASE_URL}/chat/completions", headers=headers, json=payload, timeout=60)
+    response = requests.post(f"{KODIK_BASE_URL}/chat/completions", headers=headers, json=payload, timeout=60)
 
     if response.status_code != 200:
         print(f"Ошибка API: {response.status_code} {response.text}")
@@ -198,12 +198,12 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
     data_url = _image_bytes_to_data_url(image_bytes)
 
     headers = {
-        "Authorization": f"Bearer {OPENAI_API_KEY}",
+        "Authorization": f"Bearer {KODIK_API_KEY}",
         "Content-Type": "application/json",
     }
 
     payload = {
-        "model": "gemini-3.1-flash-image-preview",
+        "model": "google/gemini-3.1-flash-image-preview",
         "modalities": ["image", "text"],
         "messages": [
             {
@@ -217,7 +217,7 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
         "max_tokens": 2000,
     }
 
-    response = requests.post(f"{BASE_URL}/chat/completions", headers=headers, json=payload, timeout=45)
+    response = requests.post(f"{KODIK_BASE_URL}/chat/completions", headers=headers, json=payload, timeout=45)
 
     # if response.status_code != 200:
     #     print("CheapAI не ответил, пробую SpeShu...")
