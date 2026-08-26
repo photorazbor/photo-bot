@@ -2331,7 +2331,7 @@ def _is_trial(user_id: int) -> bool:
     return False
 
 async def handle_course_status_logic(user_id: int, chat_id: int):
-    effective = has_access(user_id) and not (user_id == 456504792 and test_mode)
+    effective = has_access(user_id)
     if effective:
         user_mode[user_id] = "course"
         status = get_status(user_id)
