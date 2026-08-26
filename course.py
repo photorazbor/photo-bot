@@ -246,18 +246,27 @@ def _find_uid(user_id: int) -> str | None:
     return None
 
 
-def has_access(user_id: int) -> bool:
-    """Проверяет, есть ли у пользователя доступ к курсу (платный или пробный)."""
-    uid = _find_uid(user_id)
-    if uid is None:
-        return False
+def get_status(user_id: int) -> str | None:
+    if user_id == 456504792:
+        return _day_text(0)
+    if not has_access(user_id):
+        return None
     users = _load_users()
-    data = users.get(uid, {})
-    if data.get("trial") and data.get("day", 0) <= 1:
-        return True
-    if not data.get("trial") and data.get("day", 0) >= 0:
-        return True
-    return False
+    uid = str(user_id)
+    if uid not in users:
+        for key, data in users.items():
+            if isinstance(data, dict) and data.get("username") == str(user_id):
+                uid = key
+                break
+        else:
+            return None
+
+    day = users[uid].get("day", 1)
+    if day == 0:
+        return _day_text(0)
+    if day > 10:
+        return _course_result(uid)
+    return _day_text(day)
 
 
 def activate_free_trial(user_id: int):
