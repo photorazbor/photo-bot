@@ -46,10 +46,10 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 
 USER_KEYBOARD = ReplyKeyboardMarkup(
     keyboard=[
-        [KeyboardButton(text="📸 Анализ фото"), KeyboardButton(text="✂️ Редактор")],
-        [KeyboardButton(text="📷 Flat Lay"), KeyboardButton(text="🎨 Стилизация")],
-        [KeyboardButton(text="🏠 Интерьер"), KeyboardButton(text="🎯 Авторский разбор")],
-        [KeyboardButton(text="🎓 Мини-курс"), KeyboardButton(text="🏠 Главное меню")],
+        [KeyboardButton(text="📸 Разобрать фото"), KeyboardButton(text="🛠 Инструменты")],
+        [KeyboardButton(text="🎓 Мини-курс"), KeyboardButton(text="🎯 Авторский разбор")],
+        [KeyboardButton(text="💎 Баланс"), KeyboardButton(text="💛 Поддержать проект")],
+        [KeyboardButton(text="👤 Об авторе")],
     ],
     resize_keyboard=True
 )
@@ -723,12 +723,11 @@ async def handle_start(message: Message):
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="📸 Разобрать фото", callback_data="new_photo")],
-            [InlineKeyboardButton(text="✂️ Редактор", callback_data="change_format")],
-            [InlineKeyboardButton(text="📷 Flat Lay (предметная съёмка)", callback_data="flat_lay")],
-            [InlineKeyboardButton(text="💎 Мои генерации", callback_data="my_balance")],
+            [InlineKeyboardButton(text="🛠 Инструменты", callback_data="tools_menu")],
             [InlineKeyboardButton(text="🎯 Авторский разбор", callback_data="author_review")],
             [InlineKeyboardButton(text="🎓 Мини-курс", callback_data="course_status")],
-            [InlineKeyboardButton(text="💰 Цены и поддержка", callback_data="donate_menu")],
+            [InlineKeyboardButton(text="💎 Баланс", callback_data="my_balance")],
+            [InlineKeyboardButton(text="💛 Поддержать проект", callback_data="donate_menu")],
             [InlineKeyboardButton(text="👤 Об авторе", callback_data="author_info")],
         ])
     )
@@ -783,10 +782,10 @@ async def handle_test(message: Message):
     if test_mode:
         test_keyboard = ReplyKeyboardMarkup(
             keyboard=[
-                [KeyboardButton(text="📸 Анализ фото"), KeyboardButton(text="✂️ Редактор")],
-                [KeyboardButton(text="📷 Flat Lay"), KeyboardButton(text="🎨 Стилизация")],
-                [KeyboardButton(text="🏠 Интерьер"), KeyboardButton(text="🎯 Авторский разбор")],
-                [KeyboardButton(text="🎓 Мини-курс"), KeyboardButton(text="🏠 Главное меню")],
+                [KeyboardButton(text="📸 Разобрать фото"), KeyboardButton(text="🛠 Инструменты")],
+                [KeyboardButton(text="🎓 Мини-курс"), KeyboardButton(text="🎯 Авторский разбор")],
+                [KeyboardButton(text="💎 Баланс"), KeyboardButton(text="💛 Поддержать проект")],
+                [KeyboardButton(text="👤 Об авторе"), KeyboardButton(text="🏠 Интерьер")],
             ],
             resize_keyboard=True
         )
@@ -896,6 +895,18 @@ async def handle_my_balance(callback: CallbackQuery):
     await callback.answer()
 
 # ===== РЕДАКТОР =====
+
+@dp.callback_query(F.data == "style_photo")
+async def handle_style_photo_inline(callback: CallbackQuery):
+    await callback.answer()
+    user_id = callback.from_user.id
+    user_mode[user_id] = "style_photo"
+    flat_lay_active[user_id] = False
+    await callback.message.answer(
+        "🎨 Пришли фото для стилизации.",
+        parse_mode="HTML"
+    )
+
 @dp.callback_query(F.data == "change_format")
 async def handle_change_format(callback: CallbackQuery):
     await callback.answer()
@@ -1938,8 +1949,64 @@ async def handle_non_photo(message: Message):
         user_mode[user_id] = "free"
         return
     
+    if text == "🛠 Инструменты":
+        await message.answer(
+            "🛠 <b>Инструменты</b>\n\n"
+            "Выбери инструмент:",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="✂️ Редактор", callback_data="change_format")],
+                [InlineKeyboardButton(text="📷 Flat Lay", callback_data="flat_lay")],
+                [InlineKeyboardButton(text="🎨 Стилизация", callback_data="style_photo")],
+                [InlineKeyboardButton(text="🔒 В разработке: Интерьер, Документы, Праздничные", callback_data="none")],
+            ])
+        )
+        return
+
     # Пользовательские кнопки
-    if text == "📸 Анализ фото":
+    if text == "💛 Поддержать проект":
+        await message.answer("💛 Выбери сумму:", reply_markup=donate_keyboard())
+        return
+
+    if text == "👤 Об авторе":
+        await message.answer(
+            "📸 <b>Евгений Севостьянов</b>\n"
+            "Фотограф, преподаватель мобильной фотографии.\n\n"
+            "📷 Instagram: @sevosphoto\n"
+            "💬 Telegram: @sevosphoto\n"
+            "🌐 VK: @cevoc",
+            parse_mode="HTML"
+        )
+        return
+
+    if text == "💎 Баланс":
+        free_left = 5 - free_generations.get(user_id, 0)
+        paid_left = paid_generations.get(user_id, 0)
+        total = free_left + paid_left
+        await message.answer(
+            f"💎 <b>Мои генерации</b>\n\n"
+            f"🆓 Бесплатных: {free_left} из 5\n"
+            f"⚡ Оплаченных: {paid_left}\n"
+            f"💰 Всего: {total}",
+            parse_mode="HTML"
+        )
+        return
+
+    if text == "🛠 Инструменты":
+        await message.answer(
+            "🛠 <b>Инструменты</b>\n\n"
+            "Выбери инструмент:",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="✂️ Редактор", callback_data="change_format")],
+                [InlineKeyboardButton(text="📷 Flat Lay", callback_data="flat_lay")],
+                [InlineKeyboardButton(text="🎨 Стилизация", callback_data="style_photo")],
+                [InlineKeyboardButton(text="🔒 В разработке: Интерьер, Документы, Праздничные", callback_data="none")],
+            ])
+        )
+        return
+        
+    if text == "📸 Разобрать фото":
         user_mode[user_id] = "free"
         flat_lay_active[user_id] = False
         await message.answer("Присылай фото — я проанализирую композицию! 📷")
@@ -2879,6 +2946,21 @@ async def handle_int_full(callback: CallbackQuery):
     await callback.answer("✨ Улучшаю...")
     await do_generation(user_id, callback.message.chat.id, "free" if free_generations.get(user_id, 0) < 5 else "paid", check_diff=False)
     user_mode[user_id] = "free"
+
+@dp.callback_query(F.data == "tools_menu")
+async def handle_tools_menu(callback: CallbackQuery):
+    await callback.answer()
+    await callback.message.answer(
+        "🛠 <b>Инструменты</b>\n\n"
+        "Выбери инструмент:",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="✂️ Редактор", callback_data="change_format")],
+            [InlineKeyboardButton(text="📷 Flat Lay", callback_data="flat_lay")],
+            [InlineKeyboardButton(text="🎨 Стилизация", callback_data="style_photo")],
+            [InlineKeyboardButton(text="🔒 В разработке: Интерьер, Документы, Праздничные", callback_data="none")],
+        ])
+    )
     
 # ===== ЕЖЕДНЕВНЫЙ ОТЧЁТ =====
 async def daily_report():
