@@ -2049,21 +2049,6 @@ async def handle_non_photo(message: Message):
             parse_mode="HTML"
         )
         return
-
-    if text == "🛠 Инструменты":
-        await message.answer(
-            "🛠 <b>Инструменты</b>\n\n"
-            "Выбери инструмент:",
-            parse_mode="HTML",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="✂️ Редактор", callback_data="change_format")],
-                [InlineKeyboardButton(text="📐 Сменить формат", callback_data="change_format_same")],
-                [InlineKeyboardButton(text="📷 Flat Lay", callback_data="flat_lay")],
-                [InlineKeyboardButton(text="🎨 Стилизация", callback_data="style_photo")],
-                [InlineKeyboardButton(text="🔒 В разработке: Интерьер, Документы, Праздничные", callback_data="none")],
-            ])
-        )
-        return
         
     if text == "📸 Разобрать фото":
         user_mode[user_id] = "free"
