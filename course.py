@@ -248,8 +248,6 @@ def _find_uid(user_id: int) -> str | None:
 
 def has_access(user_id: int) -> bool:
     """Проверяет, есть ли у пользователя доступ к курсу (платный или пробный)."""
-    if user_id == 456504792:
-        return True
     uid = _find_uid(user_id)
     if uid is None:
         return False
@@ -302,8 +300,6 @@ def activate_by_username(username: str):
 
 
 def get_status(user_id: int) -> str | None:
-    if user_id == 456504792:
-        return _day_text(0)
     if not has_access(user_id):
         return None
     users = _load_users()
