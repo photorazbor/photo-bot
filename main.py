@@ -660,9 +660,9 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
             total_left = free_left + paid_left
             
             post_kb = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="✏️ Доработать", callback_data=f"gen_refine_{gen_type}_{user_id}")],
-                [InlineKeyboardButton(text="🔄 Перегенерировать", callback_data=f"gen_retry_{gen_type}_{user_id}")],
-                [InlineKeyboardButton(text="⚡ Усилить", callback_data=f"gen_boost_menu_{gen_type}_{user_id}")],
+                [InlineKeyboardButton(text="✏️ Доработать результат", callback_data=f"gen_refine_{gen_type}_{user_id}")],
+                [InlineKeyboardButton(text="🔄 Перегенерировать (бесплатно)", callback_data=f"gen_retry_{gen_type}_{user_id}")],
+                [InlineKeyboardButton(text="⚡ Усилить (-1 ген.)", callback_data=f"gen_boost_menu_{gen_type}_{user_id}")],
                 [InlineKeyboardButton(text="👍 Хорошо", callback_data=f"fb_good_{user_id}"),
                  InlineKeyboardButton(text="👎 Плохо", callback_data=f"fb_bad_{user_id}")],
                 [InlineKeyboardButton(text=f"💎 Мои генерации: {total_left}", callback_data="my_balance")],
@@ -813,13 +813,12 @@ async def handle_new_photo_change(callback: CallbackQuery):
     parts = callback.data.split("_")
     user_id = int(parts[-1])
     
-    # Остаёмся в режиме редактора
+    # Остаёмся в текущем режиме (редактор или стилизация)
     user_mode[user_id] = "change_format"
     flat_lay_active[user_id] = False
     
     await callback.answer()
     await callback.message.answer(
-        "✂️ <b>Редактор</b>\n\n"
         "Просто пришли новое фото.",
         parse_mode="HTML"
     )
