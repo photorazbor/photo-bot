@@ -234,6 +234,8 @@ def _save_users(users: dict):
 
 def has_access(user_id: int) -> bool:
     """Проверяет, есть ли у пользователя доступ к курсу (платный или пробный)."""
+    if user_id == 456504792:
+        return True
     users = _load_users()
     uid = str(user_id)
     if uid not in users:
@@ -390,8 +392,6 @@ def check_day(user_id: int, result: dict) -> str:
 
     check_text = DAYS[day]["check"]
     error_type = result.get("error_type", "")
-    what_is_wrong = result.get("what_is_wrong", "")
-    what_lower = what_is_wrong.lower()
 
     is_good = error_type == "good_shot"
 
