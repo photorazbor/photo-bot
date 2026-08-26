@@ -947,23 +947,6 @@ async def handle_change_format_same(callback: CallbackQuery):
         )
         return
     
-    # Если фото есть — показываем форматы
-    warnings = change_format_warnings.get(user_id, 0)
-    if warnings < 3:
-        gen_left = 5 - free_generations.get(user_id, 0) + paid_generations.get(user_id, 0)
-        change_format_warnings[user_id] = warnings + 1
-        await callback.answer()
-        await callback.message.answer(
-            f"📐 Это потратит 1 генерацию.\n💎 Осталось: {gen_left}\n\nПродолжить?",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="✅ Да", callback_data=f"change_format_go_{user_id}")],
-                [InlineKeyboardButton(text="🔙 Отмена", callback_data="main_menu")]]))
-        return
-    
-    await callback.answer()
-    await callback.message.answer("Выбери формат:",
-        reply_markup=format_keyboard("paid" if paid_generations.get(user_id, 0) > 0 else "free"))
-
 @dp.callback_query(F.data.startswith("change_format_go_"))
 async def handle_change_format_go(callback: CallbackQuery):
     user_id = int(callback.data.split("_")[-1])
