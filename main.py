@@ -439,16 +439,10 @@ def get_keyboard(user_id: int) -> InlineKeyboardMarkup:
     else:
         buttons.append([InlineKeyboardButton(text="⚡ 10 улучшений — 99 ₽", callback_data="buy_10_gen")])
         buttons.append([InlineKeyboardButton(text="⚡ 30 улучшений — 249 ₽", callback_data="buy_30_gen")])
-    if has_access(user_id) and user_mode.get(user_id) == "course" and not test_mode:
-        buttons.append([InlineKeyboardButton(text="📸 Продолжить курс", callback_data="mode_course")])
-        buttons.append([InlineKeyboardButton(text="🔍 Просто анализ", callback_data="mode_free")])
-    else:
-        buttons.append([InlineKeyboardButton(text="💛 Поддержать проект", callback_data="donate_menu")])
-        buttons.append([InlineKeyboardButton(text="🎓 Мини-курс по композиции (490 ₽)", callback_data="course_status")])
-    buttons.append([InlineKeyboardButton(text=f"💎 Мои генерации: {total_left}", callback_data="my_balance")])
+    
     buttons.append([InlineKeyboardButton(text="📷 Разобрать другое фото", callback_data="new_photo")])
-    buttons.append([InlineKeyboardButton(text="📐 Сменить формат этого фото", callback_data="change_format_same")])
     buttons.append([InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")])
+    
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 # ===== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =====
@@ -666,7 +660,7 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
                 [InlineKeyboardButton(text="👍 Хорошо", callback_data=f"fb_good_{user_id}"),
                  InlineKeyboardButton(text="👎 Плохо", callback_data=f"fb_bad_{user_id}")],
                 [InlineKeyboardButton(text=f"💎 Мои генерации: {total_left}", callback_data="my_balance")],
-                [InlineKeyboardButton(text="📷 Новое фото", callback_data=f"new_photo_change_{user_id}")],
+                [InlineKeyboardButton(text="📷 Новое фото", callback_data=f"new_photo_same_{user_id}")],
                 [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
             ])
             await bot.send_message(chat_id, "Что дальше?", reply_markup=post_kb)
@@ -807,6 +801,21 @@ async def handle_done(message: Message):
     await message.answer("У тебя нет активного заказа с фото. Сначала оплати авторский разбор и пришли фото.")
 
 # ===== ОСНОВНЫЕ КНОПКИ =====
+
+@dp.callback_query(F.data.startswith("new_photo_same_"))
+async def handle_new_photo_same(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    user_id = int(parts[-1])
+    
+    # НЕ меняем user_mode — остаёмся в текущем режиме
+    flat_lay_active[user_id] = False
+    
+    await callback.answer()
+    await callback.message.answer(
+        "Просто пришли новое фото.",
+        parse_mode="HTML"
+    )
+
 @dp.callback_query(F.data.startswith("new_photo_change_"))
 async def handle_new_photo_change(callback: CallbackQuery):
     parts = callback.data.split("_")
