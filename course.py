@@ -234,8 +234,6 @@ def _save_users(users: dict):
 
 def has_access(user_id: int) -> bool:
     """Проверяет, есть ли у пользователя доступ к курсу (платный или пробный)."""
-    if user_id == 456504792:
-        return True
     users = _load_users()
     uid = str(user_id)
     if uid not in users:
