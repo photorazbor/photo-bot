@@ -965,9 +965,18 @@ async def handle_change_format_same(callback: CallbackQuery):
 @dp.callback_query(F.data.startswith("change_format_go_"))
 async def handle_change_format_go(callback: CallbackQuery):
     user_id = int(callback.data.split("_")[-1])
+    gen_format[user_id] = "original"
+    user_mode[user_id] = "change_format"
+    
     await callback.answer()
-    await callback.message.answer("Выбери формат:",
-        reply_markup=format_keyboard("paid" if paid_generations.get(user_id, 0) > 0 else "free"))
+    await callback.message.answer(
+        "📐 <b>Смена формата</b>\n\n"
+        "Нейросеть может дорисовать или обрезать края фото, "
+        "чтобы подогнать под новый формат.\n\n"
+        "Выбери формат:",
+        parse_mode="HTML",
+        reply_markup=format_keyboard("paid" if paid_generations.get(user_id, 0) > 0 else "free")
+    )
 
 # ===== АВТОРСКИЙ РАЗБОР =====
 @dp.callback_query(F.data == "author_review")
@@ -1054,6 +1063,20 @@ def register_format_handlers():
                 user_id = callback.from_user.id
                 gen_format[user_id] = fmt
                 flat_lay_active[user_id] = False
+                
+                # Если режим смены формата — сразу генерируем
+                if user_mode.get(user_id) == "change_format":
+                    gen_wish[user_id] = (
+                        "Только измени формат фото. "
+                        "НЕ меняй позу человека, его положение, лицо, одежду. "
+                        "Дорисуй или обрежь края, чтобы подогнать под новый формат. "
+                        "Если нужно дорисовать тело — дорисовывай минимально, только недостающие края."
+                    )
+                    await callback.answer("📐 Меняю формат...")
+                    await do_generation(user_id, callback.message.chat.id, "free", check_diff=False)
+                    user_mode[user_id] = "free"
+                    return
+                
                 await callback.answer()
                 await callback.message.answer(
                     f"✨ Выбран формат: <b>{name}</b>\n\nЧто делаем?",
@@ -1077,6 +1100,20 @@ def register_format_handlers():
                 user_id = callback.from_user.id
                 gen_format[user_id] = fmt
                 flat_lay_active[user_id] = False
+                
+                # Если режим смены формата — сразу генерируем
+                if user_mode.get(user_id) == "change_format":
+                    gen_wish[user_id] = (
+                        "Только измени формат фото. "
+                        "НЕ меняй позу человека, его положение, лицо, одежду. "
+                        "Дорисуй или обрежь края, чтобы подогнать под новый формат. "
+                        "Если нужно дорисовать тело — дорисовывай минимально, только недостающие края."
+                    )
+                    await callback.answer("📐 Меняю формат...")
+                    await do_generation(user_id, callback.message.chat.id, "paid", check_diff=False)
+                    user_mode[user_id] = "free"
+                    return
+                
                 await callback.answer()
                 await callback.message.answer(
                     f"✨ Выбран формат: <b>{name}</b>\n\nЧто делаем?",
