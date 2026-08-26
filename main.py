@@ -877,12 +877,11 @@ async def handle_change_format(callback: CallbackQuery):
     await callback.message.answer(
         "✂️ <b>Редактор</b>\n\n"
         "Загрузи фото и работай без анализа: меняй формат под соцсети, улучшай, ретушируй, стилизуй.\n\n"
-        "1 генерация.",
-        parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="📸 Загрузить фото", callback_data="new_photo")]]))
-    user_mode[user_id] = "change_format"
-
+        "1 генерация.\n\n"
+        "Просто пришли фото.",
+        parse_mode="HTML"
+    )
+    
 @dp.callback_query(F.data == "change_format_same")
 async def handle_change_format_same(callback: CallbackQuery):
     user_id = callback.from_user.id
