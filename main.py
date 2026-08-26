@@ -76,6 +76,7 @@ gen_format = {}
 gen_retry_count = {}
 gen_used_count = {}
 gen_fail_count = {}  # НОВОЕ: счётчик неудачных генераций
+gen_fail_time = {}  # НОВОЕ: время последней неудачной генерации
 flat_lay_active = {}
 flat_lay_style = {}  # НОВОЕ: хранит выбранный стиль Flat Lay
 interior_active = {}
@@ -561,8 +562,14 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
             await bot.send_message(chat_id, "😕 Не получилось с первого раза. Пробую ещё раз...")
             result = generate_image(image_bytes, prompt)
             if result is None:
+                # Если прошло больше 15 минут с последней неудачи — сбрасываем счётчик
+                last_fail_time = gen_fail_time.get(user_id)
+                if last_fail_time and (datetime.now() - last_fail_time).total_seconds() > 900:
+                    gen_fail_count[user_id] = 0
+
                 # Считаем неудачные попытки
                 gen_fail_count[user_id] = gen_fail_count.get(user_id, 0) + 1
+                gen_fail_time[user_id] = datetime.now()
                 
                 if gen_fail_count.get(user_id, 0) >= 3:
                     await bot.send_message(
@@ -571,7 +578,8 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
                         "Мы зафиксировали несколько неудачных попыток. "
                         "Похоже, проблемы на стороне нейросети.\n\n"
                         "✅ Генерации НЕ списываются!\n"
-                        "🔄 Попробуйте вернуться через 10-15 минут."
+                        "🔄 Попробуйте вернуться через 10-15 минут.\n"
+                        "После перерыва просто нажмите ту же кнопку ещё раз."
                     )
                 else:
                     await bot.send_message(
@@ -618,6 +626,8 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
                 gen_used_count[user_id] = 1
 
         last_photo[user_id] = result
+        gen_fail_count[user_id] = 0  # Сбрасываем счётчик неудач после успеха
+        gen_fail_time[user_id] = None  # Сбрасываем время последней неудачи
         
         format_name = dict(FORMATS).get(fmt, fmt)
         # Отправляем фото
@@ -1690,6 +1700,7 @@ async def handle_photo(message: Message):
     gen_retry_count[user_id] = 0
     gen_used_count[user_id] = 0
     gen_fail_count[user_id] = 0  # Сбрасываем счётчик неудач
+    gen_fail_time[user_id] = None  # Сбрасываем время последней неудачи
 
     # Custom prompt для обычной генерации
     if mode in ("gen_wish_free", "gen_wish_paid"):
@@ -2008,7 +2019,7 @@ async def handle_non_photo(message: Message):
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="✂️ Редактор", callback_data="change_format")],
                 [InlineKeyboardButton(text="📐 Сменить формат", callback_data="change_format_same")],
-                [InlineKeyboardButton(text="📷 Flat Lay", callback_data="flat_lay")],
+                [InlineKeyboardButton(text="📷 Flat Lay (предметная съёмка)", callback_data="flat_lay")],
                 [InlineKeyboardButton(text="🎨 Стилизация", callback_data="style_photo")],
                 [InlineKeyboardButton(text="🔒 В разработке: Интерьер, Документы, Праздничные", callback_data="none")],
             ])
@@ -2994,7 +3005,7 @@ async def handle_tools_menu(callback: CallbackQuery):
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="✂️ Редактор", callback_data="change_format")],
             [InlineKeyboardButton(text="📐 Сменить формат", callback_data="change_format_same")],
-            [InlineKeyboardButton(text="📷 Flat Lay", callback_data="flat_lay")],
+            [InlineKeyboardButton(text="📷 Flat Lay (предметная съёмка)", callback_data="flat_lay")],
             [InlineKeyboardButton(text="🎨 Стилизация", callback_data="style_photo")],
             [InlineKeyboardButton(text="🔒 В разработке: Интерьер, Документы, Праздничные", callback_data="none")],
         ])
