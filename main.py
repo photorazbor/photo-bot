@@ -1712,6 +1712,17 @@ async def handle_photo(message: Message):
             reply_markup=format_keyboard("paid" if paid_generations.get(user_id, 0) > 0 else "free"))
         return
 
+        # Смена формата — сразу выбор формата
+    if mode == "change_format_only":
+        await message.answer(
+            "📐 <b>Смена формата</b>\n\n"
+            "Нейросеть может дорисовать или обрезать края фото.\n\n"
+            "Выбери формат:",
+            parse_mode="HTML",
+            reply_markup=format_keyboard("paid" if paid_generations.get(user_id, 0) > 0 else "free")
+        )
+        return
+
     # Стилизация — выбор стиля
     if mode == "style_photo":
         keyboard = []
