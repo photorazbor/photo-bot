@@ -935,7 +935,7 @@ async def handle_change_format_same(callback: CallbackQuery):
     
     # Если фото нет — просим прислать
     if user_id not in last_photo:
-        user_mode[user_id] = "change_format"
+        user_mode[user_id] = "change_format_only"
         flat_lay_active[user_id] = False
         await callback.answer()
         await callback.message.answer(
@@ -968,7 +968,7 @@ async def handle_change_format_same(callback: CallbackQuery):
 async def handle_change_format_go(callback: CallbackQuery):
     user_id = int(callback.data.split("_")[-1])
     gen_format[user_id] = "original"
-    user_mode[user_id] = "change_format"
+    user_mode[user_id] = "change_format_only"
     
     await callback.answer()
     await callback.message.answer(
@@ -1067,7 +1067,7 @@ def register_format_handlers():
                 flat_lay_active[user_id] = False
                 
                 # Если режим смены формата — сразу генерируем
-                if user_mode.get(user_id) == "change_format":
+                if user_mode.get(user_id) == "change_format_only":
                     gen_wish[user_id] = (
                         "Только измени формат фото. "
                         "НЕ меняй позу человека, его положение, лицо, одежду. "
@@ -1103,7 +1103,7 @@ def register_format_handlers():
                 flat_lay_active[user_id] = False
                 
                 # Если режим смены формата — сразу генерируем
-                if user_mode.get(user_id) == "change_format":
+                if user_mode.get(user_id) == "change_format_only":
                     gen_wish[user_id] = (
                         "Только измени формат фото. "
                         "НЕ меняй позу человека, его положение, лицо, одежду. "
