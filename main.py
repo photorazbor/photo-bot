@@ -625,11 +625,10 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
             await bot.send_photo(chat_id, BufferedInputFile(result, filename="generated.jpg"),
                 caption=f"✨ Вот результат!\nФормат: {format_name}")
         else:
-            # Для обычных — со стандартными кнопками
+            # Для обычных — фото БЕЗ стандартных кнопок
             await bot.send_photo(chat_id, BufferedInputFile(result, filename="generated.jpg"),
-                caption=f"✨ Вот результат!\nФормат: {format_name}",
-                reply_markup=get_keyboard(user_id))
-
+                caption=f"✨ Вот результат!\nФормат: {format_name}")
+            
         # Кнопки после генерации
         if is_flat_lay:
             # Специальные кнопки Flat Lay
