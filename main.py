@@ -649,14 +649,21 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
             await bot.send_message(chat_id, "Что дальше?", reply_markup=flat_kb)
         else:
             # Стандартные кнопки
+            free_left = 5 - free_generations.get(user_id, 0)
+            paid_left = paid_generations.get(user_id, 0)
+            total_left = free_left + paid_left
+            
             post_kb = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="✏️ Доработать результат", callback_data=f"gen_refine_{gen_type}_{user_id}")],
-                [InlineKeyboardButton(text="🔄 Перегенерировать (бесплатно)", callback_data=f"gen_retry_{gen_type}_{user_id}")],
-                [InlineKeyboardButton(text="⚡ Усилить (-1 ген.)", callback_data=f"gen_boost_menu_{gen_type}_{user_id}")],
+                [InlineKeyboardButton(text="✏️ Доработать", callback_data=f"gen_refine_{gen_type}_{user_id}")],
+                [InlineKeyboardButton(text="🔄 Перегенерировать", callback_data=f"gen_retry_{gen_type}_{user_id}")],
+                [InlineKeyboardButton(text="⚡ Усилить", callback_data=f"gen_boost_menu_{gen_type}_{user_id}")],
                 [InlineKeyboardButton(text="👍 Хорошо", callback_data=f"fb_good_{user_id}"),
                  InlineKeyboardButton(text="👎 Плохо", callback_data=f"fb_bad_{user_id}")],
+                [InlineKeyboardButton(text=f"💎 Мои генерации: {total_left}", callback_data="my_balance")],
+                [InlineKeyboardButton(text="📷 Новое фото", callback_data=f"new_photo")],
+                [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
             ])
-            await bot.send_message(chat_id, "Оцени результат или попробуй ещё раз:", reply_markup=post_kb)
+            await bot.send_message(chat_id, "Что дальше?", reply_markup=post_kb)
         
         gen_wish[user_id] = ""
         
