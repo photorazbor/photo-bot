@@ -940,6 +940,8 @@ async def handle_change_format_same(callback: CallbackQuery):
         await callback.answer()
         await callback.message.answer(
             "📐 <b>Сменить формат</b>\n\n"
+            "Нейросеть может дорисовать или обрезать края фото, "
+            "чтобы подогнать под новый формат.\n\n"
             "Просто пришли фото — покажу доступные форматы.",
             parse_mode="HTML"
         )
