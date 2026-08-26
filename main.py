@@ -1823,7 +1823,7 @@ async def handle_photo(message: Message):
 
     try:
         course_topic = None
-        effective_has_access = has_access(user_id) and not (user_id == 456504792 and test_mode)
+        effective_has_access = has_access(user_id)
         if effective_has_access and user_mode.get(user_id) == "course":
             from course import get_current_topic
             course_topic = get_current_topic(user_id)
