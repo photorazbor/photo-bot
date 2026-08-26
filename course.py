@@ -236,15 +236,10 @@ def has_access(user_id: int) -> bool:
     """Проверяет, есть ли у пользователя доступ к курсу (платный или пробный)."""
     if user_id == 456504792:
         return True
+    uid = _find_uid(user_id)
+    if uid is None:
+        return False
     users = _load_users()
-    uid = str(user_id)
-    if uid not in users:
-        for key, data in users.items():
-            if isinstance(data, dict) and data.get("username") == str(user_id):
-                uid = key
-                break
-        else:
-            return False
     data = users.get(uid, {})
     if data.get("trial") and data.get("day", 0) <= 1:
         return True
@@ -275,6 +270,8 @@ def activate_by_username(username: str):
     """Активирует полный доступ по username (для ручного добавления)."""
     users = _load_users()
     if username in users:
+        users[username]["trial"] = False
+        _save_users(users)
         return
     users[username] = {
         "day": 0,
@@ -294,30 +291,9 @@ def get_status(user_id: int) -> str | None:
     if not has_access(user_id):
         return None
     users = _load_users()
-    uid = str(user_id)
-    if uid not in users:
-        found = False
-        for key, data in users.items():
-            if isinstance(data, dict) and data.get("username") == str(user_id):
-                found = True
-                uid = key
-                break
-        if not found and user_id == 456504792:
-            users["456504792"] = {
-                "day": 0,
-                "completed": [],
-                "photos_today": [],
-                "good_photos": 0,
-                "bad_photos": 0,
-                "attempts": 0,
-                "username": "sevosphoto",
-                "trial": False,
-                "total": 0,
-            }
-            _save_users(users)
-            return _day_text(0)
-        elif not found:
-            return None
+    uid = _find_uid(user_id)
+    if uid is None:
+        return None
 
     day = users[uid].get("day", 1)
     if day == 0:
@@ -331,29 +307,10 @@ def add_photo(user_id: int) -> str:
     if not has_access(user_id):
         return ""
     users = _load_users()
-    uid = str(user_id)
-    if uid not in users:
-        for key, data in users.items():
-            if isinstance(data, dict) and data.get("username") == str(user_id):
-                uid = key
-                break
-        else:
-            if user_id == 456504792:
-                users["456504792"] = {
-                    "day": 0,
-                    "completed": [],
-                    "photos_today": [],
-                    "good_photos": 0,
-                    "bad_photos": 0,
-                    "attempts": 0,
-                    "username": "sevosphoto",
-                    "trial": False,
-                    "total": 0,
-                }
-                _save_users(users)
-                return ""
-            return ""
-
+    uid = _find_uid(user_id)
+    if uid is None:
+        return ""
+        
     day = users[uid]["day"]
     if day == 0:
         users[uid]["day"] = 1
@@ -370,19 +327,26 @@ def add_photo(user_id: int) -> str:
     _save_users(users)
     return ""
 
+def _find_uid(user_id: int) -> str | None:
+    """Находит ключ пользователя в базе по ID или username."""
+    users = _load_users()
+    uid = str(user_id)
+    if uid in users:
+        return uid
+    for key, data in users.items():
+        if isinstance(data, dict) and data.get("username") == str(user_id):
+            return key
+    if user_id == 456504792:
+        return "456504792"
+    return None
 
 def check_day(user_id: int, result: dict) -> str:
     if not has_access(user_id):
         return ""
     users = _load_users()
-    uid = str(user_id)
-    if uid not in users:
-        for key, data in users.items():
-            if isinstance(data, dict) and data.get("username") == str(user_id):
-                uid = key
-                break
-        else:
-            return ""
+    uid = _find_uid(user_id)
+    if uid is None:
+        return ""
 
     day = users[uid]["day"]
     if day == 0 or day > 10:
@@ -393,10 +357,7 @@ def check_day(user_id: int, result: dict) -> str:
     what_is_wrong = result.get("what_is_wrong", "")
     what_lower = what_is_wrong.lower()
 
-    is_good = (
-        error_type == "good_shot" or
-        "не выполнено" not in what_lower
-    )
+    is_good = error_type == "good_shot"
 
     if is_good:
         users[uid]["good_photos"] = users[uid].get("good_photos", 0) + 1
@@ -438,14 +399,9 @@ def get_current_topic(user_id: int) -> str | None:
     if not has_access(user_id):
         return None
     users = _load_users()
-    uid = str(user_id)
-    if uid not in users:
-        for key, data in users.items():
-            if isinstance(data, dict) and data.get("username") == str(user_id):
-                uid = key
-                break
-        else:
-            return None
+    uid = _find_uid(user_id)
+    if uid is None:
+        return None
     day = users[uid]["day"]
     if day == 0 or day > 10:
         return None
@@ -460,14 +416,9 @@ def get_next_day(user_id: int) -> int:
     if not has_access(user_id):
         return 0
     users = _load_users()
-    uid = str(user_id)
-    if uid not in users:
-        for key, data in users.items():
-            if isinstance(data, dict) and data.get("username") == str(user_id):
-                uid = key
-                break
-        else:
-            return 0
+    uid = _find_uid(user_id)
+    if uid is None:
+        return 0
     return users[uid].get("day", 1)
 
 
