@@ -324,8 +324,21 @@ def add_photo(user_id: int) -> str:
         return ""
     users = _load_users()
     uid = _find_uid(user_id)
-    if uid is None or uid not in users:
+    if uid is None:
         return ""
+    if uid not in users:
+        users[uid] = {
+            "day": 0,
+            "completed": [],
+            "photos_today": [],
+            "good_photos": 0,
+            "bad_photos": 0,
+            "attempts": 0,
+            "username": str(user_id),
+            "trial": False,
+            "total": 0,
+        }
+        _save_users(users)
         
     day = users[uid]["day"]
     if day == 0:
