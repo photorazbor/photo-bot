@@ -1964,8 +1964,8 @@ async def handle_non_photo(message: Message):
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="✂️ Редактор", callback_data="change_format")],
-                [InlineKeyboardButton(text="📷 Flat Lay", callback_data="flat_lay")],
                 [InlineKeyboardButton(text="📐 Сменить формат", callback_data="change_format_same")],
+                [InlineKeyboardButton(text="📷 Flat Lay", callback_data="flat_lay")],
                 [InlineKeyboardButton(text="🎨 Стилизация", callback_data="style_photo")],
                 [InlineKeyboardButton(text="🔒 В разработке: Интерьер, Документы, Праздничные", callback_data="none")],
             ])
@@ -2008,8 +2008,8 @@ async def handle_non_photo(message: Message):
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="✂️ Редактор", callback_data="change_format")],
-                [InlineKeyboardButton(text="📷 Flat Lay", callback_data="flat_lay")],
                 [InlineKeyboardButton(text="📐 Сменить формат", callback_data="change_format_same")],
+                [InlineKeyboardButton(text="📷 Flat Lay", callback_data="flat_lay")],
                 [InlineKeyboardButton(text="🎨 Стилизация", callback_data="style_photo")],
                 [InlineKeyboardButton(text="🔒 В разработке: Интерьер, Документы, Праздничные", callback_data="none")],
             ])
@@ -2965,6 +2965,7 @@ async def handle_tools_menu(callback: CallbackQuery):
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="✂️ Редактор", callback_data="change_format")],
+            [InlineKeyboardButton(text="📐 Сменить формат", callback_data="change_format_same")],
             [InlineKeyboardButton(text="📷 Flat Lay", callback_data="flat_lay")],
             [InlineKeyboardButton(text="🎨 Стилизация", callback_data="style_photo")],
             [InlineKeyboardButton(text="🔒 В разработке: Интерьер, Документы, Праздничные", callback_data="none")],
