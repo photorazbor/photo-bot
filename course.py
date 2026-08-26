@@ -324,7 +324,7 @@ def add_photo(user_id: int) -> str:
         return ""
     users = _load_users()
     uid = _find_uid(user_id)
-    if uid is None:
+    if uid is None or uid not in users:
         return ""
         
     day = users[uid]["day"]
