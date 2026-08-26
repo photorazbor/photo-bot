@@ -779,7 +779,7 @@ async def handle_test(message: Message):
                 [KeyboardButton(text="📸 Разобрать фото"), KeyboardButton(text="🛠 Инструменты")],
                 [KeyboardButton(text="🎓 Мини-курс"), KeyboardButton(text="🎯 Авторский разбор")],
                 [KeyboardButton(text="💎 Баланс"), KeyboardButton(text="💛 Поддержать проект")],
-                [KeyboardButton(text="👤 Об авторе"), KeyboardButton(text="🏠 Интерьер")],
+                [KeyboardButton(text="👤 Об авторе"), KeyboardButton(text="🏠 Главное меню")],
             ],
             resize_keyboard=True
         )
