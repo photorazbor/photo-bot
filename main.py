@@ -49,7 +49,7 @@ USER_KEYBOARD = ReplyKeyboardMarkup(
         [KeyboardButton(text="📸 Разобрать фото"), KeyboardButton(text="🛠 Инструменты")],
         [KeyboardButton(text="🎓 Мини-курс"), KeyboardButton(text="🎯 Авторский разбор")],
         [KeyboardButton(text="💎 Баланс"), KeyboardButton(text="💛 Поддержать проект")],
-        [KeyboardButton(text="👤 Об авторе")],
+        [KeyboardButton(text="👤 Об авторе"), KeyboardButton(text="🏠 Главное меню")],
     ],
     resize_keyboard=True
 )
@@ -851,12 +851,11 @@ async def handle_main_menu(callback: CallbackQuery):
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="📸 Разобрать фото", callback_data="new_photo")],
-            [InlineKeyboardButton(text="✂️ Редактор", callback_data="change_format")],
-            [InlineKeyboardButton(text="📷 Flat Lay (предметная съёмка)", callback_data="flat_lay")],
-            [InlineKeyboardButton(text="💎 Мои генерации", callback_data="my_balance")],
+            [InlineKeyboardButton(text="🛠 Инструменты", callback_data="tools_menu")],
             [InlineKeyboardButton(text="🎯 Авторский разбор", callback_data="author_review")],
             [InlineKeyboardButton(text="🎓 Мини-курс", callback_data="course_status")],
-            [InlineKeyboardButton(text="💰 Цены и поддержка", callback_data="donate_menu")],
+            [InlineKeyboardButton(text="💎 Баланс", callback_data="my_balance")],
+            [InlineKeyboardButton(text="💛 Поддержать проект", callback_data="donate_menu")],
             [InlineKeyboardButton(text="👤 Об авторе", callback_data="author_info")],
         ])
     )
