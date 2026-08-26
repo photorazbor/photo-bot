@@ -1911,14 +1911,14 @@ async def handle_non_photo(message: Message):
     
     if text == "✂️ Редактор":
         user_mode[user_id] = "change_format"
-        flat_lay_active[user_id] = False  # Сбрасываем Flat Lay
+        flat_lay_active[user_id] = False
         await message.answer(
             "✂️ <b>Редактор</b>\n\n"
             "Загрузи фото и работай без анализа: меняй формат, улучшай, ретушируй, стилизуй.\n"
-            "1 генерация.",
-            parse_mode="HTML",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="📸 Загрузить фото", callback_data="new_photo")]]))
+            "1 генерация.\n\n"
+            "Просто пришли фото.",
+            parse_mode="HTML"
+        )
         return
 
     if text == "🏠 Интерьер" and user_id == 456504792:
