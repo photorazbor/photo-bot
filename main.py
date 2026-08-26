@@ -2119,12 +2119,11 @@ async def handle_non_photo(message: Message):
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="📸 Разобрать фото", callback_data="new_photo")],
-                [InlineKeyboardButton(text="✂️ Редактор", callback_data="change_format")],
-                [InlineKeyboardButton(text="📷 Flat Lay (предметная съёмка)", callback_data="flat_lay")],
-                [InlineKeyboardButton(text="💎 Мои генерации", callback_data="my_balance")],
+                [InlineKeyboardButton(text="🛠 Инструменты", callback_data="tools_menu")],
                 [InlineKeyboardButton(text="🎯 Авторский разбор", callback_data="author_review")],
                 [InlineKeyboardButton(text="🎓 Мини-курс", callback_data="course_status")],
-                [InlineKeyboardButton(text="💰 Цены и поддержка", callback_data="donate_menu")],
+                [InlineKeyboardButton(text="💎 Баланс", callback_data="my_balance")],
+                [InlineKeyboardButton(text="💛 Поддержать проект", callback_data="donate_menu")],
                 [InlineKeyboardButton(text="👤 Об авторе", callback_data="author_info")],
             ]))
         return
