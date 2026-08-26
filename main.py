@@ -2374,7 +2374,7 @@ async def handle_start_trial(callback: CallbackQuery):
 
 @dp.callback_query(F.data == "pay_course")
 async def handle_pay_course(callback: CallbackQuery):
-    await callback.answer()
+    await callback.answer("Создаю ссылку...")
     link = create_payment_link(1, "Оплата за мини-курс", callback.from_user.id) or "https://t.me/moy_razbor_bot"
     await callback.message.answer("💳 <b>Оплата курса — 490 ₽</b>", parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
