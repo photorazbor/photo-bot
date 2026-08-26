@@ -232,6 +232,20 @@ def _save_users(users: dict):
         json.dump(users, f, ensure_ascii=False, indent=2)
 
 
+def _find_uid(user_id: int) -> str | None:
+    """Находит ключ пользователя в базе по ID или username."""
+    users = _load_users()
+    uid = str(user_id)
+    if uid in users:
+        return uid
+    for key, data in users.items():
+        if isinstance(data, dict) and data.get("username") == str(user_id):
+            return key
+    if user_id == 456504792:
+        return "456504792"
+    return None
+
+
 def has_access(user_id: int) -> bool:
     """Проверяет, есть ли у пользователя доступ к курсу (платный или пробный)."""
     if user_id == 456504792:
@@ -326,19 +340,6 @@ def add_photo(user_id: int) -> str:
     users[uid]["photos_today"] = users[uid].get("photos_today", []) + [None]
     _save_users(users)
     return ""
-
-def _find_uid(user_id: int) -> str | None:
-    """Находит ключ пользователя в базе по ID или username."""
-    users = _load_users()
-    uid = str(user_id)
-    if uid in users:
-        return uid
-    for key, data in users.items():
-        if isinstance(data, dict) and data.get("username") == str(user_id):
-            return key
-    if user_id == 456504792:
-        return "456504792"
-    return None
 
 def check_day(user_id: int, result: dict) -> str:
     if not has_access(user_id):
