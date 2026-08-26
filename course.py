@@ -234,8 +234,6 @@ def _save_users(users: dict):
 
 def has_access(user_id: int) -> bool:
     """Проверяет, есть ли у пользователя доступ к курсу (платный или пробный)."""
-    if user_id == 456504792:
-        return True
     users = _load_users()
     uid = str(user_id)
     if uid not in users:
@@ -304,21 +302,7 @@ def get_status(user_id: int) -> str | None:
                 found = True
                 uid = key
                 break
-        if not found and user_id == 456504792:
-            users["456504792"] = {
-                "day": 0,
-                "completed": [],
-                "photos_today": [],
-                "good_photos": 0,
-                "bad_photos": 0,
-                "attempts": 0,
-                "username": "sevosphoto",
-                "trial": False,
-                "total": 0,
-            }
-            _save_users(users)
-            return _day_text(0)
-        elif not found:
+        if not found:
             return None
 
     day = users[uid].get("day", 1)
