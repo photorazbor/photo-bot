@@ -932,9 +932,20 @@ async def handle_change_format(callback: CallbackQuery):
 @dp.callback_query(F.data == "change_format_same")
 async def handle_change_format_same(callback: CallbackQuery):
     user_id = callback.from_user.id
+    
+    # Если фото нет — просим прислать
     if user_id not in last_photo:
-        await callback.answer("Сначала пришли фото!")
+        user_mode[user_id] = "change_format"
+        flat_lay_active[user_id] = False
+        await callback.answer()
+        await callback.message.answer(
+            "📐 <b>Сменить формат</b>\n\n"
+            "Просто пришли фото — покажу доступные форматы.",
+            parse_mode="HTML"
+        )
         return
+    
+    # Если фото есть — показываем форматы
     warnings = change_format_warnings.get(user_id, 0)
     if warnings < 3:
         gen_left = 5 - free_generations.get(user_id, 0) + paid_generations.get(user_id, 0)
@@ -946,6 +957,7 @@ async def handle_change_format_same(callback: CallbackQuery):
                 [InlineKeyboardButton(text="✅ Да", callback_data=f"change_format_go_{user_id}")],
                 [InlineKeyboardButton(text="🔙 Отмена", callback_data="main_menu")]]))
         return
+    
     await callback.answer()
     await callback.message.answer("Выбери формат:",
         reply_markup=format_keyboard("paid" if paid_generations.get(user_id, 0) > 0 else "free"))
