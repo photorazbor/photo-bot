@@ -1074,7 +1074,6 @@ def register_format_handlers():
                     )
                     await callback.answer("📐 Меняю формат...")
                     await do_generation(user_id, callback.message.chat.id, "free", check_diff=False)
-                    user_mode[user_id] = "free"
                     return
                 
                 await callback.answer()
@@ -1111,7 +1110,6 @@ def register_format_handlers():
                     )
                     await callback.answer("📐 Меняю формат...")
                     await do_generation(user_id, callback.message.chat.id, "paid", check_diff=False)
-                    user_mode[user_id] = "free"
                     return
                 
                 await callback.answer()
