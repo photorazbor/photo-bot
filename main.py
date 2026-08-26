@@ -2387,7 +2387,7 @@ async def handle_course_status(callback: CallbackQuery):
 
 @dp.callback_query(F.data == "start_course_btn")
 async def handle_start_course_btn(callback: CallbackQuery):
-    await callback.answer()
+    await callback.answer("Кнопка нажата")
     user_id = callback.from_user.id
     user_mode[user_id] = "course"
     add_text = add_photo(user_id)
