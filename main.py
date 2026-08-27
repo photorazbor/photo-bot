@@ -1070,6 +1070,7 @@ async def handle_buy_10_gen(callback: CallbackQuery):
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="💳 Оплатить 99 ₽", url=link)]]
         )
+    )
     
 @dp.callback_query(F.data == "buy_30_gen")
 async def handle_buy_30_gen(callback: CallbackQuery):
@@ -1085,7 +1086,8 @@ async def handle_buy_30_gen(callback: CallbackQuery):
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="💳 Оплатить 249 ₽", url=link)],
-        ]))
+        ])
+    )
 
 # ===== ГЕНЕРАЦИЯ С ФОРМАТАМИ =====
 def register_format_handlers():
