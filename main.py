@@ -1038,15 +1038,22 @@ async def _handle_donate(callback: CallbackQuery, amount: int):
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text=f"💳 Оплатить {amount} ₽", url=link)]]
         )
+    )
+
 
 @dp.callback_query(F.data == "donate_100")
-async def d100(c: CallbackQuery): await _handle_donate(c, 100)
+async def d100(c: CallbackQuery):
+    await _handle_donate(c, 100)
+
 
 @dp.callback_query(F.data == "donate_300")
-async def d300(c: CallbackQuery): await _handle_donate(c, 300)
+async def d300(c: CallbackQuery):
+    await _handle_donate(c, 300)
+
 
 @dp.callback_query(F.data == "donate_500")
-async def d500(c: CallbackQuery): await _handle_donate(c, 500)
+async def d500(c: CallbackQuery):
+    await _handle_donate(c, 500)
 
 @dp.callback_query(F.data == "buy_10_gen")
 async def handle_buy_10_gen(callback: CallbackQuery):
