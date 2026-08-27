@@ -1033,7 +1033,8 @@ async def _handle_donate(callback: CallbackQuery, amount: int):
         "Это связано с сертификатами Минцифры.",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text=f"💳 Оплатить {amount} ₽", url=link)]))
+            [InlineKeyboardButton(text=f"💳 Оплатить {amount} ₽", url=link)]]
+        )
 
 @dp.callback_query(F.data == "donate_100")
 async def d100(c: CallbackQuery): await _handle_donate(c, 100)
@@ -1057,7 +1058,8 @@ async def handle_buy_10_gen(callback: CallbackQuery):
         "Это связано с сертификатами Минцифры.",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="💳 Оплатить 99 ₽", url=link)]))
+            [InlineKeyboardButton(text="💳 Оплатить 99 ₽", url=link)]]
+        )
     
 @dp.callback_query(F.data == "buy_30_gen")
 async def handle_buy_30_gen(callback: CallbackQuery):
