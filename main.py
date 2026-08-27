@@ -997,7 +997,9 @@ async def handle_author_review(callback: CallbackQuery):
         "💰 500 ₽",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="💳 Оплатить (500 ₽)", callback_data="pay_author_review")]]))
+            [InlineKeyboardButton(text="💳 Оплатить (500 ₽)", callback_data="pay_author_review")]]
+        )
+    )
 
 @dp.callback_query(F.data == "pay_author_review")
 async def handle_pay_author_review(callback: CallbackQuery):
@@ -1014,6 +1016,7 @@ async def handle_pay_author_review(callback: CallbackQuery):
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="💳 Оплатить 500 ₽", url=link)]]
         )
+    )
 
 # ===== ПОДДЕРЖКА =====
 @dp.callback_query(F.data == "donate_menu")
