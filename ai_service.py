@@ -309,7 +309,7 @@ def create_payment_link(amount: float, purpose: str, user_id: int = None) -> str
             "redirectUrl": "https://t.me/moy_razbor_bot",
             "failRedirectUrl": "https://t.me/moy_razbor_bot",
             "webhookUrl": "https://photo-bot-6koz.onrender.com/webhook/tochka",
-            "paymentMode": ["sbp"],
+            "paymentMode": ["sbp", "card"],
             "saveCard": False,
             "preAuthorization": False,
             "ttl": 10080,
