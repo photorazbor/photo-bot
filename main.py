@@ -890,26 +890,25 @@ async def handle_my_balance(callback: CallbackQuery):
     free_left = 5 - free_generations.get(user_id, 0)
     paid_left = paid_generations.get(user_id, 0)
     total = free_left + paid_left
-    
+
     text = (
         f"💎 <b>Мои генерации</b>\n\n"
         f"🆓 Бесплатных осталось: {free_left} из 5\n"
         f"⚡ Оплаченных осталось: {paid_left}\n"
         f"━━━━━━━━━━━━━━━\n"
         f"💰 <b>Всего: {total}</b>\n\n"
+        f"Пополнить генерации:"
     )
-    
-    if total <= 0:
-        text += "У тебя закончились генерации. Купи пакет:"
-        await callback.message.answer(text, parse_mode="HTML",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="⚡ 10 улучшений — 99 ₽", callback_data="buy_10_gen")],
-                [InlineKeyboardButton(text="⚡ 30 улучшений — 249 ₽", callback_data="buy_30_gen")],
-            ]))
-    else:
-        text += "Отлично! Можешь продолжать улучшать фото."
-        await callback.message.answer(text, parse_mode="HTML")
-    
+
+    await callback.message.answer(
+        text,
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="⚡ 10 улучшений — 99 ₽", callback_data="buy_10_gen")],
+            [InlineKeyboardButton(text="⚡ 30 улучшений — 249 ₽", callback_data="buy_30_gen")],
+        ])
+    )
+
     await callback.answer()
 
 # ===== РЕДАКТОР =====
