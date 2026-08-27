@@ -324,7 +324,7 @@ def create_payment_link(amount: float, purpose: str, user_id: int = None) -> str
     }
 
     try:
-        response = requests.post(url, json=payload, headers=headers, timeout=30)
+        response = requests.post(url, json=payload, headers=headers, timeout=30, verify="russian_certs.pem")
         if response.status_code not in (200, 201):
             print(f"Ошибка API Точки: {response.status_code} {response.text[:300]}")
             return None
