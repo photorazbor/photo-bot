@@ -881,7 +881,18 @@ async def handle_main_menu(callback: CallbackQuery):
 
 @dp.callback_query(F.data == "author_info")
 async def handle_author_info(callback: CallbackQuery):
-    await callback.message.answer("📸 <b>Евгений Севостьянов</b>\nФотограф, преподаватель.\nInstagram: @sevosphoto\nTelegram: @sevosphoto\nVK: @cevoc", parse_mode="HTML")
+    await callback.message.answer(
+        "📸 <b>Евгений Севостьянов</b>\n"
+        "Фотограф, преподаватель.\n\n"
+        "📷 Instagram: @sevosphoto\n"
+        "💬 Telegram: @sevosphoto\n"
+        "🌐 VK: @cevoc\n\n"
+        "━━━━━━━━━━━━━━━\n"
+        "ИП Севостьянов Евгений Александрович\n"
+        "ИНН: 701741776350\n"
+        "Оплата через банк Точка",
+        parse_mode="HTML"
+    )
     await callback.answer()
 
 @dp.callback_query(F.data == "my_balance")
@@ -2057,7 +2068,11 @@ async def handle_non_photo(message: Message):
             "Фотограф, преподаватель мобильной фотографии.\n\n"
             "📷 Instagram: @sevosphoto\n"
             "💬 Telegram: @sevosphoto\n"
-            "🌐 VK: @cevoc",
+            "🌐 VK: @cevoc\n\n"
+            "━━━━━━━━━━━━━━━\n"
+            "ИП Севостьянов Евгений Александрович\n"
+            "ИНН: 701741776350\n"
+            "Оплата через банк Точка",
             parse_mode="HTML"
         )
         return
