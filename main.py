@@ -995,10 +995,13 @@ async def handle_pay_author_review(callback: CallbackQuery):
     if not link:
         await callback.message.answer("⚠️ Не удалось создать ссылку.")
         return
-    await callback.message.answer("💳 <b>Авторский разбор — 500 ₽</b>\nНажми кнопку чтобы оплатить.",
+    await callback.message.answer(
+        "💳 <b>Авторский разбор — 500 ₽</b>\n\n"
+        "Если Chrome не открывает страницу — используйте Яндекс Браузер.\n"
+        "Это связано с сертификатами Минцифры.",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="💳 Оплатить 500 ₽", url=link)]]))
+            [InlineKeyboardButton(text="💳 Оплатить 500 ₽", url=link)]))
 
 # ===== ПОДДЕРЖКА =====
 @dp.callback_query(F.data == "donate_menu")
@@ -1012,9 +1015,13 @@ async def _handle_donate(callback: CallbackQuery, amount: int):
     if not link:
         await callback.message.answer("⚠️ Не удалось создать ссылку.")
         return
-    await callback.message.answer(f"💛 <b>Поддержать на {amount} ₽</b>", parse_mode="HTML",
+    await callback.message.answer(
+        f"💛 <b>Поддержать на {amount} ₽</b>\n\n"
+        "Если Chrome не открывает страницу — используйте Яндекс Браузер.\n"
+        "Это связано с сертификатами Минцифры.",
+        parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text=f"💳 Оплатить {amount} ₽", url=link)]]))
+            [InlineKeyboardButton(text=f"💳 Оплатить {amount} ₽", url=link)]))
 
 @dp.callback_query(F.data == "donate_100")
 async def d100(c: CallbackQuery): await _handle_donate(c, 100)
@@ -1032,10 +1039,14 @@ async def handle_buy_10_gen(callback: CallbackQuery):
     if not link:
         await callback.message.answer("⚠️ Ошибка.")
         return
-    await callback.message.answer("⚡ <b>10 генераций — 99 ₽</b>", parse_mode="HTML",
+    await callback.message.answer(
+        "⚡ <b>10 генераций — 99 ₽</b>\n\n"
+        "Если Chrome не открывает страницу — используйте Яндекс Браузер.\n"
+        "Это связано с сертификатами Минцифры.",
+        parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="💳 Оплатить 99 ₽", url=link)]]))
-
+            [InlineKeyboardButton(text="💳 Оплатить 99 ₽", url=link)]))
+    
 @dp.callback_query(F.data == "buy_30_gen")
 async def handle_buy_30_gen(callback: CallbackQuery):
     await callback.answer()
@@ -1043,7 +1054,11 @@ async def handle_buy_30_gen(callback: CallbackQuery):
     if not link:
         await callback.message.answer("⚠️ Ошибка.")
         return
-    await callback.message.answer("⚡ <b>30 генераций — 249 ₽</b>", parse_mode="HTML",
+    await callback.message.answer(
+        "⚡ <b>30 генераций — 249 ₽</b>\n\n"
+        "Если Chrome не открывает страницу — используйте Яндекс Браузер.\n"
+        "Это связано с сертификатами Минцифры.",
+        parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="💳 Оплатить 249 ₽", url=link)],
         ]))
