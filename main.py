@@ -1876,7 +1876,12 @@ async def handle_photo(message: Message):
                 if check_text:
                     if _is_trial(user_id) and "задание выполнено" in check_text.lower():
                         link = create_payment_link(490, "Оплата за мини-курс", user_id) or "https://t.me/moy_razbor_bot"
-                        check_text += "\n\n🎉 Пробный день пройден!\n💳 Оплати 490 ₽ и продолжай!"
+                        check_text += (
+                            "\n\n🎉 Пробный день пройден!\n"
+                            "💳 Оплати 490 ₽ и продолжай!\n\n"
+                            "Если Chrome не открывает страницу — используйте Яндекс Браузер.\n"
+                            "Это связано с сертификатами Минцифры."
+                        )
                         await message.answer(check_text, parse_mode="HTML",
                             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                                 [InlineKeyboardButton(text="💳 Оплатить 490 ₽", url=link)]]))
@@ -2374,11 +2379,16 @@ async def handle_start_trial(callback: CallbackQuery):
 
 @dp.callback_query(F.data == "pay_course")
 async def handle_pay_course(callback: CallbackQuery):
-    await callback.answer("Создаю ссылку...")
+    await callback.answer()
     link = create_payment_link(490, "Оплата за мини-курс", callback.from_user.id) or "https://t.me/moy_razbor_bot"
-    await callback.message.answer("💳 <b>Оплата курса — 490 ₽</b>", parse_mode="HTML",
+    await callback.message.answer(
+        "💳 <b>Оплата курса — 490 ₽</b>\n\n"
+        "Если Chrome не открывает страницу — используйте Яндекс Браузер.\n"
+        "Это связано с сертификатами Минцифры.",
+        parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="💳 Оплатить 490 ₽", url=link)]]))
+            [InlineKeyboardButton(text="💳 Оплатить 490 ₽", url=link)]])
+    )
 
 @dp.callback_query(F.data == "course_status")
 async def handle_course_status(callback: CallbackQuery):
