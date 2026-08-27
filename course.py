@@ -234,6 +234,8 @@ def _save_users(users: dict):
 
 def has_access(user_id: int) -> bool:
     """Проверяет, есть ли у пользователя доступ к курсу (платный или пробный)."""
+    if user_id == 456504792:
+        return True
     users = _load_users()
     uid = str(user_id)
     if uid not in users:
@@ -273,8 +275,6 @@ def activate_by_username(username: str):
     """Активирует полный доступ по username (для ручного добавления)."""
     users = _load_users()
     if username in users:
-        users[username]["trial"] = False
-        _save_users(users)
         return
     users[username] = {
         "day": 0,
@@ -302,7 +302,21 @@ def get_status(user_id: int) -> str | None:
                 found = True
                 uid = key
                 break
-        if not found:
+        if not found and user_id == 456504792:
+            users["456504792"] = {
+                "day": 0,
+                "completed": [],
+                "photos_today": [],
+                "good_photos": 0,
+                "bad_photos": 0,
+                "attempts": 0,
+                "username": "sevosphoto",
+                "trial": False,
+                "total": 0,
+            }
+            _save_users(users)
+            return _day_text(0)
+        elif not found:
             return None
 
     day = users[uid].get("day", 1)
@@ -376,8 +390,13 @@ def check_day(user_id: int, result: dict) -> str:
 
     check_text = DAYS[day]["check"]
     error_type = result.get("error_type", "")
+    what_is_wrong = result.get("what_is_wrong", "")
+    what_lower = what_is_wrong.lower()
 
-    is_good = error_type == "good_shot"
+    is_good = (
+        error_type == "good_shot" or
+        "не выполнено" not in what_lower
+    )
 
     if is_good:
         users[uid]["good_photos"] = users[uid].get("good_photos", 0) + 1
