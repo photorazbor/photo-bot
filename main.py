@@ -1001,7 +1001,8 @@ async def handle_pay_author_review(callback: CallbackQuery):
         "Это связано с сертификатами Минцифры.",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="💳 Оплатить 500 ₽", url=link)]))
+            [InlineKeyboardButton(text="💳 Оплатить 500 ₽", url=link)]]
+        )
 
 # ===== ПОДДЕРЖКА =====
 @dp.callback_query(F.data == "donate_menu")
