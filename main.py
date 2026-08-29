@@ -68,7 +68,10 @@ last_analysis = {}
 user_mode = {}
 free_generations = {}
 paid_generations = {}
+doc_attempts = {}
+DOC_ATTEMPTS_FILE = "doc_attempts.json"
 GEN_FILE = "generations.json"
+doc_type_last = {}
 last_photo = {}
 original_photo = {}
 gen_wish = {}
@@ -196,6 +199,19 @@ def _save_gen():
         }, f)
 
 _load_gen()
+
+def _load_doc_attempts():
+    global doc_attempts
+    if os.path.exists(DOC_ATTEMPTS_FILE):
+        with open(DOC_ATTEMPTS_FILE, "r") as f:
+            data = json.load(f)
+            doc_attempts = {int(k): v for k, v in data.items()}
+
+def _save_doc_attempts():
+    with open(DOC_ATTEMPTS_FILE, "w") as f:
+        json.dump({str(k): v for k, v in doc_attempts.items()}, f, ensure_ascii=False, indent=2)
+
+_load_doc_attempts()
 
 # ===== FLAT LAY ДАННЫЕ =====
 FLAT_LAY_STYLES = {
@@ -382,6 +398,13 @@ def tochka_webhook():
                         activate_by_username(str(uid))
                         user_mode[uid] = "course"
                         asyncio.run_coroutine_threadsafe(bot.send_message(uid, "✅ Оплата получена! Мини-курс активирован. Напиши /course"), MAIN_LOOP)
+                    elif "Фото на документы" in purp:
+                        doc_attempts[uid] = doc_attempts.get(uid, 0) + 5
+                        _save_doc_attempts()
+                        asyncio.run_coroutine_threadsafe(
+                            bot.send_message(uid, "✅ Оплата получена! 5 документов начислены."),
+                            MAIN_LOOP
+                        )
                     else:
                         asyncio.run_coroutine_threadsafe(bot.send_message(uid, "💛 Спасибо за поддержку проекта!"), MAIN_LOOP)
                     del pending[payment_link_id]
@@ -933,6 +956,105 @@ async def handle_style_photo_inline(callback: CallbackQuery):
     await callback.message.answer(
         "🎨 Пришли фото для стилизации.",
         parse_mode="HTML"
+    )
+
+@dp.callback_query(F.data == "doc_photo")
+async def handle_doc_photo(callback: CallbackQuery):
+    await callback.answer()
+    user_id = callback.from_user.id
+    user_mode[user_id] = "doc_photo"
+    await callback.message.answer(
+        "📄 <b>Фото на документы</b>\n\n"
+        "Перед съёмкой ознакомьтесь с инструкцией.",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📖 Показать инструкцию", callback_data="doc_instruction")],
+            [InlineKeyboardButton(text="📸 Я готов — загрузить фото", callback_data="doc_ready")],
+        ])
+    )
+
+@dp.callback_query(F.data == "doc_instruction")
+async def handle_doc_instruction(callback: CallbackQuery):
+    await callback.answer()
+    PHOTO_BASE = "https://raw.githubusercontent.com/photorazbor/photo-bot/main"
+    await callback.message.answer_photo(
+        URLInputFile(f"{PHOTO_BASE}/doc_instruction.jpg"),
+        caption=(
+            "📸 <b>Как сфотографировать себя на телефон:</b>\n\n"
+            "1. Встаньте напротив окна, свет на лицо\n"
+            "2. Телефон на уровне глаз\n"
+            "3. Смотрите прямо в камеру\n"
+            "4. Уберите волосы с лица\n"
+            "5. Нейтральное выражение, рот закрыт\n"
+            "6. Очки — только прозрачные линзы"
+        ),
+        parse_mode="HTML",
+    )
+
+@dp.callback_query(F.data == "doc_ready")
+async def handle_doc_ready(callback: CallbackQuery):
+    await callback.answer()
+    user_id = callback.from_user.id
+    attempts = doc_attempts.get(user_id, 0)
+
+    if attempts <= 0:
+        await callback.message.answer(
+            "📄 <b>Фото на документы</b>\n\n"
+            "💳 Стоимость: 300 ₽ — 5 документов\n\n"
+            "Что входит:\n"
+            "• Белый фон\n"
+            "• Лёгкая ретушь\n"
+            "• Смена костюма\n"
+            "• Выбор причёски\n"
+            "• Студийный свет",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="💳 Оплатить 300 ₽", callback_data="pay_doc_photo")],
+                [InlineKeyboardButton(text="🔙 Назад", callback_data="doc_photo")],
+            ])
+        )
+        return
+
+    user_mode[user_id] = "doc_type"
+    await callback.message.answer(
+        f"✅ У вас осталось документов: {attempts}\n\n"
+        "📄 <b>Выберите тип документа:</b>",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🇷🇺 Паспорт РФ (35×45)", callback_data="doctype_passport")],
+            [InlineKeyboardButton(text="🌍 Виза (35×45)", callback_data="doctype_visa")],
+            [InlineKeyboardButton(text="📇 Документы (3×4)", callback_data="doctype_3x4")],
+            [InlineKeyboardButton(text="💼 Резюме (3:4)", callback_data="doctype_resume")],
+        ])
+    )
+
+@dp.callback_query(F.data == "pay_doc_photo")
+async def handle_pay_doc_photo(callback: CallbackQuery):
+    await callback.answer()
+    link = create_payment_link(300, "Фото на документы — 5 попыток", callback.from_user.id)
+    if not link:
+        await callback.message.answer("⚠️ Не удалось создать ссылку.")
+        return
+    await callback.message.answer(
+        "💳 <b>Фото на документы — 300 ₽</b>\n\n"
+        "5 готовых документов.\n\n"
+        "Если Chrome не открывает страницу — используйте Яндекс Браузер.\n"
+        "Это связано с сертификатами Минцифры.",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="💳 Оплатить 300 ₽", url=link)]
+        ])
+    )
+
+@dp.callback_query(F.data.startswith("doctype_"))
+async def handle_doctype(callback: CallbackQuery):
+    doc_type = callback.data.split("_", 1)[1]
+    user_id = callback.from_user.id
+    user_mode[user_id] = f"doc_photo_{doc_type}"
+    await callback.answer()
+    await callback.message.answer(
+        "📸 Пришлите фото в анфас.\n\n"
+        "Очки оставим без изменений."
     )
 
 @dp.callback_query(F.data == "change_format")
@@ -1724,6 +1846,128 @@ async def handle_gen_paid(callback: CallbackQuery):
     await callback.message.answer(f"✨ <b>Улучшение фото</b>\n\nОсталось: {paid_generations.get(user_id, 0)}\n\nВыбери формат:", parse_mode="HTML", reply_markup=format_keyboard("paid"))
 
 # ===== ОБРАБОТКА ФОТО =====
+@dp.callback_query(F.data.startswith("outfitcat_"))
+async def handle_outfitcat(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    category = parts[1]
+    doc_type = parts[2]
+    user_id = callback.from_user.id
+    await callback.answer()
+
+    if category == "regular":
+        user_mode[user_id] = f"doc_outfit_regular_{doc_type}"
+        await callback.message.answer(
+            "👔 <b>Выберите костюм:</b>",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="Классический пиджак", callback_data=f"outfit_jacket_{doc_type}")],
+                [InlineKeyboardButton(text="Белая рубашка", callback_data=f"outfit_shirt_{doc_type}")],
+                [InlineKeyboardButton(text="Тёмная водолазка", callback_data=f"outfit_turtleneck_{doc_type}")],
+            ])
+        )
+    elif category == "special":
+        user_mode[user_id] = f"doc_outfit_special_{doc_type}"
+        await callback.message.answer(
+            "🎖 <b>Выберите специализированный костюм:</b>",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🪖 Военный", callback_data=f"outfit_military_{doc_type}")],
+                [InlineKeyboardButton(text="🚆 РЖД", callback_data=f"outfit_rzd_{doc_type}")],
+                [InlineKeyboardButton(text="👮 Полиция", callback_data=f"outfit_police_{doc_type}")],
+            ])
+        )
+    elif category == "original":
+        user_mode[user_id] = f"doc_hair_original_{doc_type}"
+        await callback.message.answer(
+            "💇 <b>Выберите причёску:</b>",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="Оставить как есть", callback_data=f"hair_keep_{doc_type}")],
+                [InlineKeyboardButton(text="Аккуратная укладка", callback_data=f"hair_neat_{doc_type}")],
+            ])
+        )
+
+@dp.callback_query(F.data.startswith("outfit_"))
+async def handle_outfit(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    outfit = parts[1]
+    doc_type = parts[2]
+    user_id = callback.from_user.id
+    await callback.answer()
+    gen_wish[user_id] = outfit
+    user_mode[user_id] = f"doc_hair_{outfit}_{doc_type}"
+    await callback.message.answer(
+        "💇 <b>Выберите причёску:</b>",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="Оставить как есть", callback_data=f"hair_keep_{outfit}_{doc_type}")],
+            [InlineKeyboardButton(text="Аккуратная укладка", callback_data=f"hair_neat_{outfit}_{doc_type}")],
+            [InlineKeyboardButton(text="Лёгкая коррекция", callback_data=f"hair_fix_{outfit}_{doc_type}")],
+        ])
+    )
+
+@dp.callback_query(F.data.startswith("hair_"))
+async def handle_hair(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    hair = parts[1]
+    outfit = parts[2]
+    doc_type = parts[3]
+    user_id = callback.from_user.id
+    await callback.answer()
+
+    doc_names = {
+        "passport": "Паспорт РФ (35×45 мм)",
+        "visa": "Виза (35×45 мм)",
+        "3x4": "Документы (3×4)",
+        "resume": "Резюме (3:4)",
+    }
+
+    doc_name = doc_names.get(doc_type, doc_type)
+
+    outfit_names = {
+        "jacket": "классический пиджак",
+        "shirt": "белая рубашка",
+        "turtleneck": "тёмная водолазка",
+        "original": "оставить свою одежду",
+        "military": "военная форма",
+        "rzd": "форма РЖД",
+        "police": "полицейская форма",
+    }
+
+    outfit_name = outfit_names.get(outfit, outfit)
+
+    hair_names = {
+        "keep": "оставить причёску как есть",
+        "neat": "аккуратная укладка",
+        "fix": "лёгкая коррекция причёски",
+    }
+
+    hair_name = hair_names.get(hair, hair)
+
+    prompt = (
+        f"Сделай фото на документ: {doc_name}. "
+        f"Белый фон без теней, полос и орнаментов. "
+        f"Лицо анфас, занимает 70-80% кадра, верхняя линия плеч видна. "
+        f"Нейтральное выражение лица, рот закрыт, глаза широко открыты, взгляд прямо в камеру. "
+        f"Очки оставить без изменений, если они есть. "
+        f"Одежда: {outfit_name}. "
+        f"Причёска: {hair_name}. "
+        f"Лёгкая естественная ретушь кожи: убери покраснения и мелкие дефекты, сохрани текстуру кожи и черты лица. "
+        f"Студийное освещение, мягкий ровный свет, без резких теней и бликов. "
+        f"Чёткое изображение, 300 dpi. "
+        f"НЕ меняй черты лица. НЕ добавляй новых людей или объектов."
+    )
+
+    gen_wish[user_id] = prompt
+    gen_format[user_id] = "3_4"
+    flat_lay_active[user_id] = False
+
+    if doc_attempts.get(user_id, 0) > 0:
+        # списание будет после нажатия «Готово», а не сейчас
+        pass
+
+    await do_generation(user_id, callback.message.chat.id, "free", check_diff=False)
+
 @dp.message(F.photo)
 async def handle_photo(message: Message):
     user_id = message.from_user.id
@@ -1794,6 +2038,22 @@ async def handle_photo(message: Message):
         )
         return
 
+        # Фото на документы — загрузка
+    if mode.startswith("doc_photo_"):
+        doc_type = mode.replace("doc_photo_", "")
+        user_id = message.from_user.id
+        user_mode[user_id] = f"doc_outfit_{doc_type}"
+        await message.answer(
+            "👔 <b>Выберите категорию костюма:</b>",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="👔 Обычные костюмы", callback_data=f"outfitcat_regular_{doc_type}")],
+                [InlineKeyboardButton(text="🎖 Специализированные", callback_data=f"outfitcat_special_{doc_type}")],
+                [InlineKeyboardButton(text="👕 Оставить свою одежду", callback_data=f"outfitcat_original_{doc_type}")],
+            ])
+        )
+        return
+
     # Flat Lay — выбор стиля
     if mode == "flat_lay_photo":
         keyboard = []
@@ -1828,6 +2088,43 @@ async def handle_photo(message: Message):
             ])
         )
         return
+
+    @dp.callback_query(F.data.startswith("doc_save_"))
+async def handle_doc_save(callback: CallbackQuery):
+    user_id = int(callback.data.split("_")[-1])
+    await callback.answer()
+
+    if doc_attempts.get(user_id, 0) <= 0:
+        await callback.message.answer("❌ У вас нет попыток. Купите пакет документов.")
+        return
+
+    doc_attempts[user_id] -= 1
+    _save_doc_attempts()
+    await callback.message.answer(
+        f"✅ Документ сохранён!\n\n"
+        f"Осталось попыток: {doc_attempts[user_id]}"
+    )
+
+    @dp.callback_query(F.data.startswith("doc_change_outfit_"))
+async def handle_doc_change_outfit(callback: CallbackQuery):
+    user_id = int(callback.data.split("_")[-1])
+    await callback.answer()
+    user_mode[user_id] = f"doc_outfit_{doc_type_last.get(user_id, 'passport')}"
+    await callback.message.answer(
+        "👔 <b>Выберите категорию костюма:</b>",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="👔 Обычные костюмы", callback_data=f"outfitcat_regular_{doc_type_last.get(user_id, 'passport')}")],
+            [InlineKeyboardButton(text="🎖 Специализированные", callback_data=f"outfitcat_special_{doc_type_last.get(user_id, 'passport')}")],
+            [InlineKeyboardButton(text="👕 Оставить свою одежду", callback_data=f"outfitcat_original_{doc_type_last.get(user_id, 'passport')}")],
+        ])
+    )
+
+    @dp.callback_query(F.data.startswith("doc_retry_"))
+async def handle_doc_retry(callback: CallbackQuery):
+    user_id = int(callback.data.split("_")[-1])
+    await callback.answer("🔄 Генерирую новый вариант...")
+    await do_generation(user_id, callback.message.chat.id, "free", check_diff=False, mode="retry")
 
     # Проверка активного заказа на авторский разбор
     orders = _load_author_orders()
@@ -1965,6 +2262,16 @@ async def handle_non_photo(message: Message):
         user_mode[user_id] = "free"
         return
 
+        if user_mode.get(user_id, "").startswith("doc_"):
+            doc_kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="👔 Другой костюм", callback_data=f"doc_change_outfit_{user_id}")],
+                [InlineKeyboardButton(text="💇 Другая причёска", callback_data=f"doc_change_hair_{user_id}")],
+                [InlineKeyboardButton(text="🔄 Перегенерировать", callback_data=f"doc_retry_{user_id}")],
+                [InlineKeyboardButton(text="✅ Готово — сохранить (-1 документ)", callback_data=f"doc_save_{user_id}")],
+            ])
+            await bot.send_message(chat_id, "Что дальше?", reply_markup=doc_kb)
+            return
+
     # Админские кнопки
     if text == "📊 Админка":
         await message.answer("📊 <b>Админ-панель</b>", parse_mode="HTML",
@@ -2066,7 +2373,8 @@ async def handle_non_photo(message: Message):
                 [InlineKeyboardButton(text="📐 Сменить формат", callback_data="change_format_same")],
                 [InlineKeyboardButton(text="📷 Flat Lay (предметная съёмка)", callback_data="flat_lay")],
                 [InlineKeyboardButton(text="🎨 Стилизация", callback_data="style_photo")],
-                [InlineKeyboardButton(text="🔒 В разработке: Интерьер, Документы, Праздничные", callback_data="none")],
+                [InlineKeyboardButton(text="📄 Фото на документы", callback_data="doc_photo")],
+                [InlineKeyboardButton(text="🔒 В разработке: Интерьер, Праздничные", callback_data="none")],
             ])
         )
         return
