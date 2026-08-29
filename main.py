@@ -3373,6 +3373,7 @@ async def handle_tools_menu(callback: CallbackQuery):
             [InlineKeyboardButton(text="📐 Сменить формат", callback_data="change_format_same")],
             [InlineKeyboardButton(text="📷 Flat Lay (предметная съёмка)", callback_data="flat_lay")],
             [InlineKeyboardButton(text="🎨 Стилизация", callback_data="style_photo")],
+            [InlineKeyboardButton(text="📄 Фото на документы", callback_data="doc_photo")],
             [InlineKeyboardButton(text="🔒 В разработке: Интерьер, Документы, Праздничные", callback_data="none")],
         ])
     )
