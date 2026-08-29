@@ -981,12 +981,13 @@ async def handle_doc_instruction(callback: CallbackQuery):
         URLInputFile(f"{PHOTO_BASE}/doc_instruction.jpg"),
         caption=(
             "📸 <b>Как сфотографировать себя на телефон:</b>\n\n"
-            "1. Встаньте напротив окна, свет на лицо\n"
-            "2. Телефон на уровне глаз\n"
-            "3. Смотрите прямо в камеру\n"
-            "4. Уберите волосы с лица\n"
-            "5. Нейтральное выражение, рот закрыт\n"
-            "6. Очки — только прозрачные линзы"
+            "1. Протрите объектив камеры мягкой тканью\n"
+            "2. Встаньте напротив окна, свет на лицо\n"
+            "3. Телефон на уровне глаз\n"
+            "4. Смотрите прямо в камеру\n"
+            "5. Уберите волосы с лица\n"
+            "6. Нейтральное выражение, рот закрыт\n"
+            "7. Очки — только прозрачные линзы"
         ),
         parse_mode="HTML",
     )
@@ -995,6 +996,9 @@ async def handle_doc_instruction(callback: CallbackQuery):
 async def handle_doc_ready(callback: CallbackQuery):
     await callback.answer()
     user_id = callback.from_user.id
+    if user_id == 456504792 and test_mode:
+        doc_attempts[user_id] = 5
+
     attempts = doc_attempts.get(user_id, 0)
 
     if attempts <= 0:
