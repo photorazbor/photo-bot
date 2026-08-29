@@ -521,12 +521,12 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
     is_flat_lay = flat_lay_active.get(user_id, False)
     
     # Определяем, какое фото использовать
-    if is_flat_lay:
-        # Для Flat Lay: перегенерация берёт исходное, доработка — текущее
-        if mode == "retry" and user_id in original_photo:
-            image_bytes = original_photo[user_id]
-        else:
-            image_bytes = last_photo[user_id]
+    if mode == "retry" and user_id in original_photo:
+        # Перегенерация ВСЕГДА берёт исходное фото
+        image_bytes = original_photo[user_id]
+    elif is_flat_lay:
+        # Для Flat Lay: доработка — текущее
+        image_bytes = last_photo[user_id]
     elif use_original and user_id in original_photo:
         image_bytes = original_photo[user_id]
     else:
@@ -557,6 +557,21 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
                 prompt = f"{wish} Размер: {img_size}. "
             else:
                 prompt = f"Создай стильный Flat Lay. Размер: {img_size}. "
+            
+            if mode == "retry":
+                prompt += " Сделай ДРУГОЙ вариант. Не повторяй предыдущий результат. "
+            elif mode == "boost":
+                prompt += " Усиль обработку ЗНАЧИТЕЛЬНО. Изменения должны быть очень заметными. "
+        
+        elif wish and wish.lower() != "ок":
+            # Если есть пожелание (студийный портрет, документы, стилизация)
+            prompt = wish
+            
+            if mode == "retry":
+                prompt += " Сделай ДРУГОЙ вариант. Не повторяй предыдущий результат. "
+            elif mode == "boost":
+                prompt += " Усиль обработку ЗНАЧИТЕЛЬНО. Изменения должны быть очень заметными. "
+        
         else:
             # Обычный промпт для портретов/фото
             prompt = (
