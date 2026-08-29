@@ -1157,53 +1157,6 @@ async def handle_change_format_go(callback: CallbackQuery):
         reply_markup=format_keyboard("paid" if paid_generations.get(user_id, 0) > 0 else "free")
     )
 
-@dp.callback_query(F.data.startswith("studio_outfit_"))
-async def handle_studio_outfit(callback: CallbackQuery):
-    outfit = callback.data.split("_")[2]
-    user_id = callback.from_user.id
-    studio_outfit_choice[user_id] = outfit
-
-    angle = studio_angle_choice.get(user_id, "front")
-    bg = studio_bg_choice.get(user_id, "white")
-
-    angle_names = {
-        "front": "анфас",
-        "half": "полуоборот",
-    }
-
-    bg_names = {
-        "white": "белый",
-        "lightgray": "светло-серый",
-        "blue": "голубой",
-        "darkblue": "синий",
-        "black": "чёрный",
-    }
-
-    outfit_names = {
-        "own": "оставить свою одежду",
-        "business": "деловой стиль",
-        "casual": "свободный стиль",
-    }
-
-    prompt = (
-        f"Студийный портрет по грудь. "
-        f"Ракурс: {angle_names.get(angle, angle)}. "
-        f"Фон: {bg_names.get(bg, bg)} с мягкой красивой тенью. "
-        f"Одежда: {outfit_names.get(outfit, outfit)}. "
-        f"Лёгкая естественная ретушь кожи. "
-        f"Студийный свет, объём, мягкие тени. "
-        f"При полуобороте взгляд направлен в камеру. "
-        f"Сохранить черты лица. Не менять лицо. "
-        f"Портрет по грудь: голова и верхняя часть плеч."
-    )
-
-    gen_wish[user_id] = prompt
-    gen_format[user_id] = "3_4"
-    flat_lay_active[user_id] = False
-
-    await callback.answer("🎨 Создаю портрет...")
-    await do_generation(user_id, callback.message.chat.id, "free", check_diff=False)
-
 # ===== АВТОРСКИЙ РАЗБОР =====
 @dp.callback_query(F.data == "author_review")
 async def handle_author_review(callback: CallbackQuery):
@@ -2037,6 +1990,7 @@ async def handle_studio_hair(callback: CallbackQuery):
         "fix": "лёгкая коррекция причёски",
     }
 
+    # Формируем промпт с учётом причёски
     prompt = (
         f"Студийный портрет по грудь. "
         f"Ракурс: {angle_names.get(angle, angle)}. "
