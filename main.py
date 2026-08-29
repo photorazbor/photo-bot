@@ -2089,7 +2089,7 @@ async def handle_photo(message: Message):
         )
         return
 
-    @dp.callback_query(F.data.startswith("doc_save_"))
+@dp.callback_query(F.data.startswith("doc_save_"))
 async def handle_doc_save(callback: CallbackQuery):
     user_id = int(callback.data.split("_")[-1])
     await callback.answer()
@@ -2105,7 +2105,7 @@ async def handle_doc_save(callback: CallbackQuery):
         f"Осталось попыток: {doc_attempts[user_id]}"
     )
 
-    @dp.callback_query(F.data.startswith("doc_change_outfit_"))
+@dp.callback_query(F.data.startswith("doc_change_outfit_"))
 async def handle_doc_change_outfit(callback: CallbackQuery):
     user_id = int(callback.data.split("_")[-1])
     await callback.answer()
@@ -2120,7 +2120,7 @@ async def handle_doc_change_outfit(callback: CallbackQuery):
         ])
     )
 
-    @dp.callback_query(F.data.startswith("doc_retry_"))
+@dp.callback_query(F.data.startswith("doc_retry_"))
 async def handle_doc_retry(callback: CallbackQuery):
     user_id = int(callback.data.split("_")[-1])
     await callback.answer("🔄 Генерирую новый вариант...")
