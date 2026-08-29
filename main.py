@@ -68,6 +68,11 @@ last_analysis = {}
 user_mode = {}
 free_generations = {}
 paid_generations = {}
+studio_angle_choice = {}
+studio_bg_choice = {}
+studio_outfit_choice = {}
+portrait_attempts = {}
+PORTRAIT_ATTEMPTS_FILE = "portrait_attempts.json"
 doc_attempts = {}
 DOC_ATTEMPTS_FILE = "doc_attempts.json"
 GEN_FILE = "generations.json"
@@ -212,6 +217,19 @@ def _save_doc_attempts():
         json.dump({str(k): v for k, v in doc_attempts.items()}, f, ensure_ascii=False, indent=2)
 
 _load_doc_attempts()
+
+def _load_portrait_attempts():
+    global portrait_attempts
+    if os.path.exists(PORTRAIT_ATTEMPTS_FILE):
+        with open(PORTRAIT_ATTEMPTS_FILE, "r") as f:
+            data = json.load(f)
+            portrait_attempts = {int(k): v for k, v in data.items()}
+
+def _save_portrait_attempts():
+    with open(PORTRAIT_ATTEMPTS_FILE, "w") as f:
+        json.dump({str(k): v for k, v in portrait_attempts.items()}, f, ensure_ascii=False, indent=2)
+
+_load_portrait_attempts()
 
 # ===== FLAT LAY ДАННЫЕ =====
 FLAT_LAY_STYLES = {
@@ -403,6 +421,13 @@ def tochka_webhook():
                         _save_doc_attempts()
                         asyncio.run_coroutine_threadsafe(
                             bot.send_message(uid, "✅ Оплата получена! 5 документов начислены."),
+                            MAIN_LOOP
+                        )
+                    elif "Студийный портрет" in purp:
+                        portrait_attempts[uid] = portrait_attempts.get(uid, 0) + 5
+                        _save_portrait_attempts()
+                        asyncio.run_coroutine_threadsafe(
+                            bot.send_message(uid, "✅ Оплата получена! 5 портретов начислены."),
                             MAIN_LOOP
                         )
                     else:
@@ -664,6 +689,16 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
                 caption=f"✨ Вот результат!\nФормат: {format_name}")
             
         # Кнопки после генерации
+        if user_mode.get(user_id, "").startswith("studio_"):
+            attempts = portrait_attempts.get(user_id, 0)
+            studio_kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🔄 Перегенерировать — бесплатно", callback_data=f"studio_retry_{user_id}")],
+                [InlineKeyboardButton(text=f"📸 Создать ещё портрет — осталось {attempts}", callback_data=f"studio_next_{user_id}")],
+                [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
+            ])
+            await bot.send_message(chat_id, "Что дальше?", reply_markup=studio_kb)
+            return
+            
         if is_flat_lay:
             # Специальные кнопки Flat Lay
             free_left = 5 - free_generations.get(user_id, 0)
@@ -1108,6 +1143,52 @@ async def handle_change_format_go(callback: CallbackQuery):
         parse_mode="HTML",
         reply_markup=format_keyboard("paid" if paid_generations.get(user_id, 0) > 0 else "free")
     )
+
+@dp.callback_query(F.data.startswith("studio_outfit_"))
+async def handle_studio_outfit(callback: CallbackQuery):
+    outfit = callback.data.split("_")[2]
+    user_id = callback.from_user.id
+    studio_outfit_choice[user_id] = outfit
+
+    angle = studio_angle_choice.get(user_id, "front")
+    bg = studio_bg_choice.get(user_id, "white")
+
+    angle_names = {
+        "front": "анфас",
+        "half": "полуоборот",
+    }
+
+    bg_names = {
+        "white": "белый",
+        "lightgray": "светло-серый",
+        "blue": "голубой",
+        "darkblue": "синий",
+        "black": "чёрный",
+    }
+
+    outfit_names = {
+        "own": "оставить свою одежду",
+        "business": "деловой стиль",
+        "casual": "свободный стиль",
+    }
+
+    prompt = (
+        f"Студийный портрет по грудь. "
+        f"Ракурс: {angle_names.get(angle, angle)}. "
+        f"Фон: {bg_names.get(bg, bg)} с мягкой красивой тенью. "
+        f"Одежда: {outfit_names.get(outfit, outfit)}. "
+        f"Лёгкая естественная ретушь кожи. "
+        f"Студийный свет, объём, мягкие тени. "
+        f"Сохранить черты лица. Не менять лицо. "
+        f"Портрет по грудь: голова и верхняя часть плеч."
+    )
+
+    gen_wish[user_id] = prompt
+    gen_format[user_id] = "3_4"
+    flat_lay_active[user_id] = False
+
+    await callback.answer("🎨 Создаю портрет...")
+    await do_generation(user_id, callback.message.chat.id, "free", check_diff=False)
 
 # ===== АВТОРСКИЙ РАЗБОР =====
 @dp.callback_query(F.data == "author_review")
@@ -1972,6 +2053,50 @@ async def handle_hair(callback: CallbackQuery):
 
     await do_generation(user_id, callback.message.chat.id, "free", check_diff=False)
 
+@dp.callback_query(F.data.startswith("studio_retry_"))
+async def handle_studio_retry(callback: CallbackQuery):
+    user_id = int(callback.data.split("_")[-1])
+    await callback.answer("🔄 Перегенерирую...")
+    await do_generation(user_id, callback.message.chat.id, "free", check_diff=False, mode="retry")
+
+
+@dp.callback_query(F.data.startswith("studio_next_"))
+async def handle_studio_next(callback: CallbackQuery):
+    user_id = int(callback.data.split("_")[-1])
+    await callback.answer()
+
+    if portrait_attempts.get(user_id, 0) <= 0:
+        await callback.message.answer("❌ У вас нет попыток. Купите пакет портретов.")
+        return
+
+    portrait_attempts[user_id] -= 1
+    _save_portrait_attempts()
+
+    user_mode[user_id] = "studio_angle"
+    await callback.message.answer(
+        f"✅ Осталось портретов: {portrait_attempts[user_id]}\n\n"
+        "Пришлите новое фото или используйте то же.",
+        parse_mode="HTML"
+    )
+
+@dp.callback_query(F.data == "pay_studio_portrait")
+async def handle_pay_studio_portrait(callback: CallbackQuery):
+    await callback.answer()
+    link = create_payment_link(300, "Студийный портрет — 5 попыток", callback.from_user.id)
+    if not link:
+        await callback.message.answer("⚠️ Не удалось создать ссылку.")
+        return
+    await callback.message.answer(
+        "💳 <b>Студийный портрет — 300 ₽</b>\n\n"
+        "5 готовых портретов.\n\n"
+        "Если Chrome не открывает страницу — используйте Яндекс Браузер.\n"
+        "Это связано с сертификатами Минцифры.",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="💳 Оплатить 300 ₽", url=link)]
+        ])
+    )
+
 @dp.message(F.photo)
 async def handle_photo(message: Message):
     user_id = message.from_user.id
@@ -2042,6 +2167,19 @@ async def handle_photo(message: Message):
         )
         return
 
+        # Студийный портрет — загрузка фото
+    if mode == "studio_angle":
+        user_mode[user_id] = "studio_bg"
+        await message.answer(
+            "🧑💼 <b>Выберите ракурс:</b>",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="Анфас", callback_data="angle_front")],
+                [InlineKeyboardButton(text="Полуоборот", callback_data="angle_half")],
+            ])
+        )
+        return
+
         # Фото на документы — загрузка
     if mode.startswith("doc_photo_"):
         doc_type = mode.replace("doc_photo_", "")
@@ -2093,73 +2231,7 @@ async def handle_photo(message: Message):
         )
         return
 
-@dp.callback_query(F.data.startswith("doc_save_"))
-async def handle_doc_save(callback: CallbackQuery):
-    user_id = int(callback.data.split("_")[-1])
-    await callback.answer()
-
-    if doc_attempts.get(user_id, 0) <= 0:
-        await callback.message.answer("❌ У вас нет попыток. Купите пакет документов.")
-        return
-
-    doc_attempts[user_id] -= 1
-    _save_doc_attempts()
-    await callback.message.answer(
-        f"✅ Документ сохранён!\n\n"
-        f"Осталось попыток: {doc_attempts[user_id]}"
-    )
-
-@dp.callback_query(F.data.startswith("doc_change_outfit_"))
-async def handle_doc_change_outfit(callback: CallbackQuery):
-    user_id = int(callback.data.split("_")[-1])
-    await callback.answer()
-    user_mode[user_id] = f"doc_outfit_{doc_type_last.get(user_id, 'passport')}"
-    await callback.message.answer(
-        "👔 <b>Выберите категорию костюма:</b>",
-        parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="👔 Обычные костюмы", callback_data=f"outfitcat_regular_{doc_type_last.get(user_id, 'passport')}")],
-            [InlineKeyboardButton(text="🎖 Специализированные", callback_data=f"outfitcat_special_{doc_type_last.get(user_id, 'passport')}")],
-            [InlineKeyboardButton(text="👕 Оставить свою одежду", callback_data=f"outfitcat_original_{doc_type_last.get(user_id, 'passport')}")],
-        ])
-    )
-
-@dp.callback_query(F.data.startswith("doc_retry_"))
-async def handle_doc_retry(callback: CallbackQuery):
-    user_id = int(callback.data.split("_")[-1])
-    await callback.answer("🔄 Генерирую новый вариант...")
-    await do_generation(user_id, callback.message.chat.id, "free", check_diff=False, mode="retry")
-
-    # Проверка активного заказа на авторский разбор
-    orders = _load_author_orders()
-    active_order = None
-    for order in orders:
-        if order["user_id"] == user_id and order["status"] == "paid" and len(order["photos"]) < 5:
-            active_order = order
-            break
-            
-    if active_order and (not active_order.get("username") or active_order["username"].startswith("id")):
-        active_order["username"] = message.from_user.username or f"id{user_id}"
-    
-    if active_order:
-        photo_index = len(active_order["photos"])
-        filename = _save_author_photo(active_order["time"], photo_index, image_bytes)
-        active_order["photos"].append(filename)
-        photo_count = len(active_order["photos"])
-        if photo_count >= 5:
-            active_order["status"] = "ready"
-        _save_author_orders(orders)
-        if photo_count >= 5:
-            await message.answer("✅ Все 5 фото получены! Разберу в течение 24 часов и напишу тебе лично.")
-            _send_telegram_message(-1004468971541, f"🔔 Заказ готов!\n<a href='tg://user?id={user_id}'>👤 Пользователь</a>\nФото: {photo_count} шт")
-        else:
-            await message.answer(
-                f"📸 Фото получено ({photo_count} из 5). Можешь прислать ещё или нажать «Готово».",
-                reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text="✅ Готово — отправить на разбор", callback_data=f"author_ready_{user_id}")]]))
-        return
-
-    # Обычный анализ фото
+   # Обычный анализ фото
     processing_msg = await message.answer("🔍 Анализирую кадр...")
 
     try:
@@ -2241,6 +2313,177 @@ async def handle_doc_retry(callback: CallbackQuery):
     except Exception:
         logger.exception("Ошибка при обработке фото")
         await processing_msg.edit_text("😕 Что-то пошло не так.")
+
+@dp.callback_query(F.data.startswith("doc_save_"))
+async def handle_doc_save(callback: CallbackQuery):
+    user_id = int(callback.data.split("_")[-1])
+    await callback.answer()
+
+    if doc_attempts.get(user_id, 0) <= 0:
+        await callback.message.answer("❌ У вас нет попыток. Купите пакет документов.")
+        return
+
+    doc_attempts[user_id] -= 1
+    _save_doc_attempts()
+    await callback.message.answer(
+        f"✅ Документ сохранён!\n\n"
+        f"Осталось попыток: {doc_attempts[user_id]}"
+    )
+
+@dp.callback_query(F.data.startswith("doc_change_outfit_"))
+async def handle_doc_change_outfit(callback: CallbackQuery):
+    user_id = int(callback.data.split("_")[-1])
+    await callback.answer()
+    user_mode[user_id] = f"doc_outfit_{doc_type_last.get(user_id, 'passport')}"
+    await callback.message.answer(
+        "👔 <b>Выберите категорию костюма:</b>",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="👔 Обычные костюмы", callback_data=f"outfitcat_regular_{doc_type_last.get(user_id, 'passport')}")],
+            [InlineKeyboardButton(text="🎖 Специализированные", callback_data=f"outfitcat_special_{doc_type_last.get(user_id, 'passport')}")],
+            [InlineKeyboardButton(text="👕 Оставить свою одежду", callback_data=f"outfitcat_original_{doc_type_last.get(user_id, 'passport')}")],
+        ])
+    )
+
+@dp.callback_query(F.data.startswith("doc_retry_"))
+async def handle_doc_retry(callback: CallbackQuery):
+    user_id = int(callback.data.split("_")[-1])
+    await callback.answer("🔄 Генерирую новый вариант...")
+    await do_generation(user_id, callback.message.chat.id, "free", check_diff=False, mode="retry")
+
+    # Проверка активного заказа на авторский разбор
+    orders = _load_author_orders()
+    active_order = None
+    for order in orders:
+        if order["user_id"] == user_id and order["status"] == "paid" and len(order["photos"]) < 5:
+            active_order = order
+            break
+            
+    if active_order and (not active_order.get("username") or active_order["username"].startswith("id")):
+        active_order["username"] = message.from_user.username or f"id{user_id}"
+    
+    if active_order:
+        photo_index = len(active_order["photos"])
+        filename = _save_author_photo(active_order["time"], photo_index, image_bytes)
+        active_order["photos"].append(filename)
+        photo_count = len(active_order["photos"])
+        if photo_count >= 5:
+            active_order["status"] = "ready"
+        _save_author_orders(orders)
+        if photo_count >= 5:
+            await message.answer("✅ Все 5 фото получены! Разберу в течение 24 часов и напишу тебе лично.")
+            _send_telegram_message(-1004468971541, f"🔔 Заказ готов!\n<a href='tg://user?id={user_id}'>👤 Пользователь</a>\nФото: {photo_count} шт")
+        else:
+            await message.answer(
+                f"📸 Фото получено ({photo_count} из 5). Можешь прислать ещё или нажать «Готово».",
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="✅ Готово — отправить на разбор", callback_data=f"author_ready_{user_id}")]]))
+        return
+
+@dp.callback_query(F.data == "studio_portrait")
+async def handle_studio_portrait(callback: CallbackQuery):
+    await callback.answer()
+    user_id = callback.from_user.id
+    user_mode[user_id] = "studio_portrait"
+    await callback.message.answer(
+        "🧑💼 <b>Студийный портрет</b>\n\n"
+        "Перед съёмкой ознакомьтесь с инструкцией.",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📖 Показать инструкцию", callback_data="studio_instruction")],
+            [InlineKeyboardButton(text="📸 Я готов — загрузить фото", callback_data="studio_ready")],
+        ])
+    )
+
+@dp.callback_query(F.data == "studio_instruction")
+async def handle_studio_instruction(callback: CallbackQuery):
+    await callback.answer()
+    PHOTO_BASE = "https://raw.githubusercontent.com/photorazbor/photo-bot/main"
+    await callback.message.answer_photo(
+        URLInputFile(f"{PHOTO_BASE}/doc_instruction.jpg"),
+        caption=(
+            "📸 <b>Как сфотографировать себя на телефон:</b>\n\n"
+            "1. Протрите объектив камеры мягкой тканью\n"
+            "2. Встаньте напротив окна, свет на лицо\n"
+            "3. Телефон на уровне глаз\n"
+            "4. Смотрите прямо в камеру\n"
+            "5. Уберите волосы с лица\n"
+            "6. Нейтральное выражение, рот закрыт\n"
+            "7. Очки — только прозрачные линзы"
+        ),
+        parse_mode="HTML",
+    )
+
+@dp.callback_query(F.data == "studio_ready")
+async def handle_studio_ready(callback: CallbackQuery):
+    await callback.answer()
+    user_id = callback.from_user.id
+
+    if user_id == 456504792 and test_mode:
+        portrait_attempts[user_id] = 5
+
+    attempts = portrait_attempts.get(user_id, 0)
+
+    if attempts <= 0:
+        await callback.message.answer(
+            "🧑💼 <b>Студийный портрет</b>\n\n"
+            "💳 Стоимость: 300 ₽ — 5 портретов\n\n"
+            "Что входит:\n"
+            "• Студийный свет\n"
+            "• Мягкая тень\n"
+            "• Выбор фона\n"
+            "• Выбор стиля одежды\n"
+            "• Лёгкая ретушь",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="💳 Оплатить 300 ₽", callback_data="pay_studio_portrait")],
+                [InlineKeyboardButton(text="🔙 Назад", callback_data="studio_portrait")],
+            ])
+        )
+        return
+
+    user_mode[user_id] = "studio_angle"
+    await callback.message.answer(
+        f"✅ Осталось портретов: {attempts}\n\n"
+        "Пришлите фото.",
+        parse_mode="HTML"
+    )
+
+@dp.callback_query(F.data.startswith("angle_"))
+async def handle_studio_angle(callback: CallbackQuery):
+    angle = callback.data.split("_")[1]
+    user_id = callback.from_user.id
+    studio_angle_choice[user_id] = angle
+    user_mode[user_id] = "studio_bg"
+    await callback.answer()
+    await callback.message.answer(
+        "🎨 <b>Выберите фон:</b>",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="⚪ Белый", callback_data="bg_white")],
+            [InlineKeyboardButton(text="🔘 Светло-серый", callback_data="bg_lightgray")],
+            [InlineKeyboardButton(text="🔵 Голубой", callback_data="bg_blue")],
+            [InlineKeyboardButton(text="🔷 Синий", callback_data="bg_darkblue")],
+            [InlineKeyboardButton(text="⬛ Чёрный", callback_data="bg_black")],
+        ])
+    )
+
+@dp.callback_query(F.data.startswith("bg_"))
+async def handle_studio_bg(callback: CallbackQuery):
+    bg = callback.data.split("_")[1]
+    user_id = callback.from_user.id
+    studio_bg_choice[user_id] = bg
+    user_mode[user_id] = "studio_outfit"
+    await callback.answer()
+    await callback.message.answer(
+        "👔 <b>Выберите стиль одежды:</b>",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="👕 Своя одежда", callback_data="studio_outfit_own")],
+            [InlineKeyboardButton(text="👔 Деловой стиль", callback_data="studio_outfit_business")],
+            [InlineKeyboardButton(text="🧥 Свободный стиль", callback_data="studio_outfit_casual")],
+        ])
+    )
 
 # ===== ОБРАБОТКА ТЕКСТОВЫХ СООБЩЕНИЙ =====
 @dp.message(~F.photo)
@@ -2378,6 +2621,7 @@ async def handle_non_photo(message: Message):
                 [InlineKeyboardButton(text="📷 Flat Lay (предметная съёмка)", callback_data="flat_lay")],
                 [InlineKeyboardButton(text="🎨 Стилизация", callback_data="style_photo")],
                 [InlineKeyboardButton(text="📄 Фото на документы", callback_data="doc_photo")],
+                [InlineKeyboardButton(text="🧑💼 Студийный портрет", callback_data="studio_portrait")],
                 [InlineKeyboardButton(text="🔒 В разработке: Интерьер, Праздничные", callback_data="none")],
             ])
         )
@@ -3374,6 +3618,7 @@ async def handle_tools_menu(callback: CallbackQuery):
             [InlineKeyboardButton(text="📷 Flat Lay (предметная съёмка)", callback_data="flat_lay")],
             [InlineKeyboardButton(text="🎨 Стилизация", callback_data="style_photo")],
             [InlineKeyboardButton(text="📄 Фото на документы", callback_data="doc_photo")],
+            [InlineKeyboardButton(text="🧑💼 Студийный портрет", callback_data="studio_portrait")],
             [InlineKeyboardButton(text="🔒 В разработке: Интерьер, Документы, Праздничные", callback_data="none")],
         ])
     )
