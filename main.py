@@ -71,6 +71,7 @@ paid_generations = {}
 studio_angle_choice = {}
 studio_bg_choice = {}
 studio_outfit_choice = {}
+studio_hair_choice = {}
 portrait_attempts = {}
 PORTRAIT_ATTEMPTS_FILE = "portrait_attempts.json"
 doc_attempts = {}
@@ -698,6 +699,18 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
             ])
             await bot.send_message(chat_id, "Что дальше?", reply_markup=studio_kb)
             return
+
+        if user_mode.get(user_id, "").startswith("doc_"):
+            attempts = doc_attempts.get(user_id, 0)
+            doc_kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🔄 Перегенерировать — бесплатно", callback_data=f"doc_retry_{user_id}")],
+                [InlineKeyboardButton(text=f"📸 Создать ещё документ — осталось {attempts}", callback_data=f"doc_next_{user_id}")],
+                [InlineKeyboardButton(text="👔 Другой костюм", callback_data=f"doc_change_outfit_{user_id}")],
+                [InlineKeyboardButton(text="💇 Другая причёска", callback_data=f"doc_change_hair_{user_id}")],
+                [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
+            ])
+            await bot.send_message(chat_id, "Что дальше?", reply_markup=doc_kb)
+            return
             
         if is_flat_lay:
             # Специальные кнопки Flat Lay
@@ -1179,6 +1192,7 @@ async def handle_studio_outfit(callback: CallbackQuery):
         f"Одежда: {outfit_names.get(outfit, outfit)}. "
         f"Лёгкая естественная ретушь кожи. "
         f"Студийный свет, объём, мягкие тени. "
+        f"При полуобороте взгляд направлен в камеру. "
         f"Сохранить черты лица. Не менять лицо. "
         f"Портрет по грудь: голова и верхняя часть плеч."
     )
@@ -1972,24 +1986,76 @@ async def handle_outfitcat(callback: CallbackQuery):
             ])
         )
 
-@dp.callback_query(F.data.startswith("outfit_"))
-async def handle_outfit(callback: CallbackQuery):
-    parts = callback.data.split("_")
-    outfit = parts[1]
-    doc_type = parts[2]
+@dp.callback_query(F.data.startswith("studio_outfit_"))
+async def handle_studio_outfit(callback: CallbackQuery):
+    outfit = callback.data.split("_")[2]
     user_id = callback.from_user.id
+    studio_outfit_choice[user_id] = outfit
     await callback.answer()
-    gen_wish[user_id] = outfit
-    user_mode[user_id] = f"doc_hair_{outfit}_{doc_type}"
     await callback.message.answer(
         "💇 <b>Выберите причёску:</b>",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="Оставить как есть", callback_data=f"hair_keep_{outfit}_{doc_type}")],
-            [InlineKeyboardButton(text="Аккуратная укладка", callback_data=f"hair_neat_{outfit}_{doc_type}")],
-            [InlineKeyboardButton(text="Лёгкая коррекция", callback_data=f"hair_fix_{outfit}_{doc_type}")],
+            [InlineKeyboardButton(text="Оставить как есть", callback_data="studio_hair_keep")],
+            [InlineKeyboardButton(text="Аккуратная укладка", callback_data="studio_hair_neat")],
+            [InlineKeyboardButton(text="Лёгкая коррекция", callback_data="studio_hair_fix")],
         ])
     )
+
+@dp.callback_query(F.data.startswith("studio_hair_"))
+async def handle_studio_hair(callback: CallbackQuery):
+    hair = callback.data.split("_")[2]
+    user_id = callback.from_user.id
+    studio_hair_choice[user_id] = hair
+
+    angle = studio_angle_choice.get(user_id, "front")
+    bg = studio_bg_choice.get(user_id, "white")
+    outfit = studio_outfit_choice.get(user_id, "own")
+
+    angle_names = {
+        "front": "анфас",
+        "half": "полуоборот",
+    }
+
+    bg_names = {
+        "white": "белый",
+        "lightgray": "светло-серый",
+        "blue": "голубой",
+        "darkblue": "синий",
+        "black": "чёрный",
+    }
+
+    outfit_names = {
+        "own": "оставить свою одежду",
+        "business": "деловой стиль",
+        "casual": "свободный стиль",
+    }
+
+    hair_names = {
+        "keep": "оставить причёску как есть",
+        "neat": "аккуратная укладка",
+        "fix": "лёгкая коррекция причёски",
+    }
+
+    prompt = (
+        f"Студийный портрет по грудь. "
+        f"Ракурс: {angle_names.get(angle, angle)}. "
+        f"При полуобороте взгляд направлен в камеру. "
+        f"Фон: {bg_names.get(bg, bg)} с мягкой красивой тенью. "
+        f"Одежда: {outfit_names.get(outfit, outfit)}. "
+        f"Причёска: {hair_names.get(hair, hair)}. "
+        f"Лёгкая естественная ретушь кожи. "
+        f"Студийный свет, объём, мягкие тени. "
+        f"Сохранить черты лица. Не менять лицо. "
+        f"Портрет по грудь: голова и верхняя часть плеч."
+    )
+
+    gen_wish[user_id] = prompt
+    gen_format[user_id] = "3_4"
+    flat_lay_active[user_id] = False
+
+    await callback.answer("🎨 Создаю портрет...")
+    await do_generation(user_id, callback.message.chat.id, "free", check_diff=False)
 
 @dp.callback_query(F.data.startswith("hair_"))
 async def handle_hair(callback: CallbackQuery):
@@ -2328,6 +2394,46 @@ async def handle_doc_save(callback: CallbackQuery):
     await callback.message.answer(
         f"✅ Документ сохранён!\n\n"
         f"Осталось попыток: {doc_attempts[user_id]}"
+    )
+
+@dp.callback_query(F.data.startswith("doc_next_"))
+async def handle_doc_next(callback: CallbackQuery):
+    user_id = int(callback.data.split("_")[-1])
+    await callback.answer()
+
+    if doc_attempts.get(user_id, 0) <= 0:
+        await callback.message.answer("❌ У вас нет попыток. Купите пакет документов.")
+        return
+
+    doc_attempts[user_id] -= 1
+    _save_doc_attempts()
+
+    user_mode[user_id] = "doc_type"
+    await callback.message.answer(
+        f"✅ Осталось документов: {doc_attempts[user_id]}\n\n"
+        "Выберите тип документа:",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🇷🇺 Паспорт РФ (35×45)", callback_data="doctype_passport")],
+            [InlineKeyboardButton(text="🌍 Виза (35×45)", callback_data="doctype_visa")],
+            [InlineKeyboardButton(text="📇 Документы (3×4)", callback_data="doctype_3x4")],
+            [InlineKeyboardButton(text="💼 Резюме (3:4)", callback_data="doctype_resume")],
+        ])
+    )
+
+@dp.callback_query(F.data.startswith("doc_change_hair_"))
+async def handle_doc_change_hair(callback: CallbackQuery):
+    user_id = int(callback.data.split("_")[-1])
+    await callback.answer()
+    user_mode[user_id] = "doc_hair_original_passport"
+    await callback.message.answer(
+        "💇 <b>Выберите причёску:</b>",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="Оставить как есть", callback_data=f"hair_keep_original_passport")],
+            [InlineKeyboardButton(text="Аккуратная укладка", callback_data=f"hair_neat_original_passport")],
+            [InlineKeyboardButton(text="Лёгкая коррекция", callback_data=f"hair_fix_original_passport")],
+        ])
     )
 
 @dp.callback_query(F.data.startswith("doc_change_outfit_"))
