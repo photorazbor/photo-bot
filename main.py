@@ -1943,6 +1943,24 @@ async def handle_outfitcat(callback: CallbackQuery):
             ])
         )
 
+@dp.callback_query(F.data.startswith("outfit_"))
+async def handle_outfit(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    outfit = parts[1]
+    doc_type = parts[2]
+    user_id = callback.from_user.id
+    await callback.answer()
+    user_mode[user_id] = f"doc_hair_{outfit}_{doc_type}"
+    await callback.message.answer(
+        "💇 <b>Выберите причёску:</b>",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="Оставить как есть", callback_data=f"hair_keep_{outfit}_{doc_type}")],
+            [InlineKeyboardButton(text="Аккуратная укладка", callback_data=f"hair_neat_{outfit}_{doc_type}")],
+            [InlineKeyboardButton(text="Лёгкая коррекция", callback_data=f"hair_fix_{outfit}_{doc_type}")],
+        ])
+    )
+
 @dp.callback_query(F.data.startswith("studio_outfit_"))
 async def handle_studio_outfit(callback: CallbackQuery):
     outfit = callback.data.split("_")[2]
