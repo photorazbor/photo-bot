@@ -29,7 +29,7 @@ from aiogram.types import (
 
 from config import TELEGRAM_BOT_TOKEN
 from ai_service import analyze_photo, generate_image, create_payment_link, _load_pending_payments
-from image_utils import download_and_resize, image_to_bytes, draw_hints, align_interior
+from image_utils import download_and_resize, image_to_bytes, draw_hints, align_interior, check_and_crop_doc_photo
 from stats import add_analysis, get_stats, add_history as stats_add_history, _load_stats as load_stats_data
 from course import get_status, add_photo, check_day, has_access, get_day_photos, _load_users, activate_free_trial
 
@@ -696,6 +696,9 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
                     paid_generations[user_id] = max(0, paid_generations.get(user_id, 0) - 1)
                     _save_gen()
                 gen_used_count[user_id] = 1
+
+        if user_mode.get(user_id, "").startswith("doc_"):
+            result = check_and_crop_doc_photo(result, doc_type_last.get(user_id, "passport"))
 
         last_photo[user_id] = result
         gen_fail_count[user_id] = 0  # Сбрасываем счётчик неудач после успеха
@@ -2099,17 +2102,20 @@ async def handle_hair(callback: CallbackQuery):
     prompt = (
         f"Сделай фото на документ: {doc_name}. "
         f"Белый фон без теней, полос и орнаментов. "
-        f"Лицо анфас, занимает 70-80% кадра, верхняя линия плеч видна. "
-        f"Нейтральное выражение лица, рот закрыт, глаза широко открыты, взгляд прямо в камеру. "
-        f"Очки оставить без изменений, если они есть. "
+        f"Лицо строго анфас, без наклона. "
+        f"Голова и верхняя часть плеч видны. "
+        f"Вокруг головы оставь свободное пространство: сверху 5 мм, по бокам по 3 мм. "
+        f"Глаза открыты, смотрят прямо. "
+        f"Рот закрыт, выражение нейтральное. "
+        f"Очки оставить без изменений. "
         f"Одежда: {outfit_name}. "
         f"Причёска: {hair_name}. "
-        f"Лёгкая естественная ретушь кожи: убери покраснения и мелкие дефекты, сохрани текстуру кожи и черты лица. "
-        f"Студийное освещение, мягкий ровный свет, без резких теней и бликов. "
-        f"Чёткое изображение, 300 dpi. "
-        f"НЕ меняй черты лица. НЕ добавляй новых людей или объектов."
+        f"Лёгкая ретушь кожи. "
+        f"Студийный свет, ровный, без теней. "
+        f"Чёткое изображение. "
+        f"НЕ меняй черты лица."
     )
-
+    
     gen_wish[user_id] = prompt
     gen_format[user_id] = "3_4"
     flat_lay_active[user_id] = False
