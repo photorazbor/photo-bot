@@ -237,68 +237,19 @@ import numpy as np
 
 
 def check_and_crop_doc_photo(image_bytes: bytes, doc_type: str = "passport") -> bytes:
-    """
-    Проверяет пропорции фото на документ и кадрирует при необходимости.
-    """
-    print("DEBUG: check_and_crop_doc_photo вызвана")
     try:
         nparr = np.frombuffer(image_bytes, np.uint8)
         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
         height, width = img.shape[:2]
-        print(f"DEBUG: размер фото {width}x{height}")
-
-        face_cascade = None
-        try:
-            face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
-        except Exception:
-            pass
-
-        if face_cascade is None or face_cascade.empty():
-            print("DEBUG: каскад не найден")
-            return image_bytes
-
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(100, 100))
-
-        if len(faces) == 0:
-            print("DEBUG: лицо не найдено")
-            return image_bytes
-
-        x, y, w, h = faces[0]
-        head_height_ratio = h / height
-        print(f"DEBUG: head_height_ratio = {head_height_ratio}")
 
         if doc_type == "passport":
-            target_ratio_min = 0.71
-            target_ratio_max = 0.80
-        else:
-            target_ratio_min = 0.65
-            target_ratio_max = 0.78
-
-        if head_height_ratio < target_ratio_min:
-            scale = target_ratio_min / head_height_ratio
-            new_w = int(width / scale)
-            new_h = int(height / scale)
-
-            start_x = max(0, (width - new_w) // 2)
-            start_y = max(0, (y + h // 2) - int(new_h * 0.45))
-
-            cropped = img[start_y:start_y + new_h, start_x:start_x + new_w]
-            print("DEBUG: кадрируем — голова маленькая")
-        elif head_height_ratio > target_ratio_max:
-            scale = head_height_ratio / target_ratio_max
-            new_w = int(width * scale)
-            new_h = int(height * scale)
-
-            start_x = max(0, (width - new_w) // 2)
-            start_y = max(0, (y + h // 2) - int(new_h * 0.5))
-
-            cropped = img[start_y:start_y + new_h, start_x:start_x + new_w]
-            print("DEBUG: кадрируем — голова большая")
+            # Обрезаем сверху и снизу, чтобы осталось 80% высоты
+            new_h = int(height * 0.80)
+            start_y = int(height * 0.05)
+            cropped = img[start_y:start_y + new_h, :]
         else:
             cropped = img
-            print("DEBUG: пропорции ок")
 
         _, buffer = cv2.imencode(".jpg", cropped, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
         return buffer.tobytes()
