@@ -234,6 +234,7 @@ def align_interior(image: Image.Image) -> Image.Image:
 
 import cv2
 import numpy as np
+import mediapipe as mp
 
 
 def check_and_crop_doc_photo(image_bytes: bytes, doc_type: str = "passport") -> bytes:
@@ -241,28 +242,57 @@ def check_and_crop_doc_photo(image_bytes: bytes, doc_type: str = "passport") -> 
         nparr = np.frombuffer(image_bytes, np.uint8)
         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
-        height, width = img.shape[:2]
+        mp_face_mesh = mp.solutions.face_mesh
+        face_mesh = mp_face_mesh.FaceMesh(static_image_mode=True, max_num_faces=1, refine_landmarks=True)
 
-        # Приводим к пропорции 35×45
-        target_ratio = 35 / 45  # 0.777
+        rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        results = face_mesh.process(rgb)
 
-        # Сначала обрезаем по ширине или высоте, чтобы сохранить 35×45
-        if width / height > target_ratio:
-            # Слишком широкое — обрезаем бока
-            new_w = int(height * target_ratio)
-            start_x = (width - new_w) // 2
-            cropped = img[:, start_x:start_x + new_w]
+        if not results.multi_face_landmarks:
+            # если не нашли лицо — просто кадрируем по центру с запасом
+            height, width = img.shape[:2]
+            crop_h = int(height * 0.85)
+            start_y = int(height * 0.05)
+            cropped = img[start_y:start_y + crop_h, :]
         else:
-            # Слишком высокое — обрезаем низ
-            new_h = int(width / target_ratio)
-            start_y = int(height * 0.03)  # небольшой отступ сверху
-            cropped = img[start_y:start_y + new_h, :]
+            landmarks = results.multi_face_landmarks[0].landmark
 
-        # Теперь убедимся, что сверху есть отступ минимум 5%
-        final_h, final_w = cropped.shape[:2]
+            # Ключевые точки
+            forehead_y = int(landmarks[10].y * img.shape[0])
+            chin_y = int(landmarks[152].y * img.shape[0])
 
-        # Не обрезаем выше макушки, только если совсем край
-        # Просто возвращаем кадр с правильной пропорцией
+            face_h = chin_y - forehead_y
+
+            # Для паспорта: высота головы 32–36 мм из 45 мм, т.е. 71–80% высоты фото
+            target_face_h = int(face_h / 0.75)  # примерно 75% от высоты фото
+
+            new_h = target_face_h
+            new_w = int(new_h * 35 / 45)
+
+            if new_w > img.shape[1]:
+                new_w = img.shape[1]
+                new_h = int(new_w * 45 / 35)
+
+            center_y = (forehead_y + chin_y) // 2
+            start_y = max(0, center_y - int(new_h * 0.35))  # лицо выше центра
+
+            # Отступ сверху минимум 5%
+            if start_y < int(new_h * 0.05):
+                start_y = int(new_h * 0.05)
+
+            end_y = start_y + new_h
+            if end_y > img.shape[0]:
+                end_y = img.shape[0]
+                start_y = end_y - new_h
+
+            start_x = (img.shape[1] - new_w) // 2
+            end_x = start_x + new_w
+
+            if start_x < 0:
+                start_x = 0
+                end_x = new_w
+
+            cropped = img[start_y:end_y, start_x:end_x]
 
         _, buffer = cv2.imencode(".jpg", cropped, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
         return buffer.tobytes()
