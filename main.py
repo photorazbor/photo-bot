@@ -2062,9 +2062,16 @@ async def handle_studio_hair(callback: CallbackQuery):
 @dp.callback_query(F.data.startswith("hair_"))
 async def handle_hair(callback: CallbackQuery):
     parts = callback.data.split("_")
-    hair = parts[1]
-    outfit = parts[2]
-    doc_type = parts[3]
+    if len(parts) < 4:
+        parts = callback.data.split("_")
+        # Для случая hair_keep_passport
+        hair = parts[1]
+        outfit = "original"
+        doc_type = parts[2]
+    else:
+        hair = parts[1]
+        outfit = parts[2]
+        doc_type = parts[3]
     user_id = callback.from_user.id
     await callback.answer()
 
