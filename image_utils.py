@@ -231,3 +231,72 @@ def align_interior(image: Image.Image) -> Image.Image:
     except Exception as e:
         print(f"Ошибка выравнивания: {e}")
         return image
+
+import cv2
+import numpy as np
+
+
+def check_and_crop_doc_photo(image_bytes: bytes, doc_type: str = "passport") -> bytes:
+    """
+    Проверяет пропорции фото на документ и кадрирует при необходимости.
+    """
+    try:
+        # Конвертируем байты в OpenCV
+        nparr = np.frombuffer(image_bytes, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+        height, width = img.shape[:2]
+
+        # Каскад для поиска лица
+        face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(200, 200))
+
+        if len(faces) == 0:
+            return image_bytes  # лицо не найдено — вернём как есть
+
+        x, y, w, h = faces[0]
+
+        # Проверяем высоту головы
+        head_height_ratio = h / height
+
+        # Для паспорта нужно 32–36 мм из 45 мм
+        if doc_type == "passport":
+            target_ratio_min = 0.71  # 32/45
+            target_ratio_max = 0.80  # 36/45
+        else:
+            target_ratio_min = 0.65
+            target_ratio_max = 0.78
+
+        # Если голова слишком маленькая или большая — кадрируем
+        if head_height_ratio < target_ratio_min:
+            # Увеличиваем масштаб — обрезаем края
+            scale = target_ratio_min / head_height_ratio
+            new_w = int(width / scale)
+            new_h = int(height / scale)
+
+            start_x = max(0, (width - new_w) // 2)
+            start_y = max(0, (y + h // 2) - int(new_h * 0.45))
+
+            cropped = img[start_y:start_y + new_h, start_x:start_x + new_w]
+        elif head_height_ratio > target_ratio_max:
+            # Уменьшаем масштаб
+            scale = head_height_ratio / target_ratio_max
+            new_w = int(width * scale)
+            new_h = int(height * scale)
+
+            start_x = max(0, (width - new_w) // 2)
+            start_y = max(0, (y + h // 2) - int(new_h * 0.5))
+
+            cropped = img[start_y:start_y + new_h, start_x:start_x + new_w]
+        else:
+            cropped = img
+
+        # Конвертируем обратно в байты
+        _, buffer = cv2.imencode(".jpg", cropped, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+        return buffer.tobytes()
+
+    except Exception as e:
+        print(f"Ошибка проверки фото: {e}")
+        return image_bytes
