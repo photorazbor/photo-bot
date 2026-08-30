@@ -235,49 +235,25 @@ def align_interior(image: Image.Image) -> Image.Image:
 import os
 import cv2
 import numpy as np
-import face_recognition
 
 
 def check_and_crop_doc_photo(image_bytes: bytes, doc_type: str = "passport") -> bytes:
     try:
         nparr = np.frombuffer(image_bytes, np.uint8)
         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-        rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-        face_locations = face_recognition.face_locations(rgb)
+        height, width = img.shape[:2]
 
-        if not face_locations:
-            height, width = img.shape[:2]
+        if doc_type == "passport":
             new_h = int(height * 0.82)
             cropped = img[:new_h, :]
+            target_ratio = 35 / 45
+            new_w = int(new_h * target_ratio)
+            if new_w <= width:
+                start_x = (width - new_w) // 2
+                cropped = cropped[:, start_x:start_x + new_w]
         else:
-            top, right, bottom, left = face_locations[0]
-
-            face_h = bottom - top
-
-            new_h = int(face_h / 0.75)
-
-            center_y = (top + bottom) // 2
-            start_y = max(0, center_y - int(new_h * 0.45))
-
-            if start_y < int(new_h * 0.05):
-                start_y = int(new_h * 0.05)
-
-            end_y = start_y + new_h
-            if end_y > img.shape[0]:
-                end_y = img.shape[0]
-                start_y = end_y - new_h
-
-            new_w = int(new_h * 35 / 45)
-            center_x = (left + right) // 2
-            start_x = max(0, center_x - new_w // 2)
-            end_x = start_x + new_w
-
-            if end_x > img.shape[1]:
-                end_x = img.shape[1]
-                start_x = end_x - new_w
-
-            cropped = img[start_y:end_y, start_x:end_x]
+            cropped = img
 
         _, buffer = cv2.imencode(".jpg", cropped, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
         return buffer.tobytes()
