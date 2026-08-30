@@ -235,70 +235,49 @@ def align_interior(image: Image.Image) -> Image.Image:
 import os
 import cv2
 import numpy as np
+import face_recognition
 
 
 def check_and_crop_doc_photo(image_bytes: bytes, doc_type: str = "passport") -> bytes:
     try:
         nparr = np.frombuffer(image_bytes, np.uint8)
         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-        height, width = img.shape[:2]
+        face_locations = face_recognition.face_locations(rgb)
 
-        cascade_path = os.path.join(os.path.dirname(__file__), "haarcascade_frontalface_default.xml")
-        face_cascade = cv2.CascadeClassifier(cascade_path)
+        if not face_locations:
+            height, width = img.shape[:2]
+            new_h = int(height * 0.82)
+            cropped = img[:new_h, :]
+        else:
+            top, right, bottom, left = face_locations[0]
 
-        if face_cascade.empty():
-            print("DEBUG: каскад не загрузился")
-            return image_bytes
+            face_h = bottom - top
 
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.05, minNeighbors=5, minSize=(150, 150))
+            new_h = int(face_h / 0.75)
 
-        if len(faces) == 0:
-            print("DEBUG: лицо не найдено")
-            return image_bytes
-
-        x, y, w, h = faces[0]
-        head_ratio = h / height
-
-        if head_ratio < 0.71:
-            scale = 0.71 / head_ratio
-            new_w = int(width / scale)
-            new_h = int(height / scale)
-
-            center_x = x + w // 2
-            center_y = y + h // 2
-
-            start_x = max(0, center_x - new_w // 2)
+            center_y = (top + bottom) // 2
             start_y = max(0, center_y - int(new_h * 0.45))
 
-            cropped = img[start_y:start_y + new_h, start_x:start_x + new_w]
-        elif head_ratio > 0.80:
-            scale = head_ratio / 0.75
-            new_w = int(width * scale)
-            new_h = int(height * scale)
+            if start_y < int(new_h * 0.05):
+                start_y = int(new_h * 0.05)
 
-            center_x = x + w // 2
-            center_y = y + h // 2
+            end_y = start_y + new_h
+            if end_y > img.shape[0]:
+                end_y = img.shape[0]
+                start_y = end_y - new_h
 
+            new_w = int(new_h * 35 / 45)
+            center_x = (left + right) // 2
             start_x = max(0, center_x - new_w // 2)
-            start_y = max(0, center_y - int(new_h * 0.45))
+            end_x = start_x + new_w
 
-            cropped = img[start_y:start_y + new_h, start_x:start_x + new_w]
-        else:
-            cropped = img
+            if end_x > img.shape[1]:
+                end_x = img.shape[1]
+                start_x = end_x - new_w
 
-        final_h, final_w = cropped.shape[:2]
-        target_ratio = 35 / 45
-
-        if final_w / final_h > target_ratio:
-            new_w2 = int(final_h * target_ratio)
-            start_x2 = (final_w - new_w2) // 2
-            cropped = cropped[:, start_x2:start_x2 + new_w2]
-        else:
-            new_h2 = int(final_w / target_ratio)
-            start_y2 = max(0, (final_h - new_h2) // 2)
-            cropped = cropped[start_y2:start_y2 + new_h2, :]
+            cropped = img[start_y:end_y, start_x:end_x]
 
         _, buffer = cv2.imencode(".jpg", cropped, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
         return buffer.tobytes()
