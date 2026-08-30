@@ -714,18 +714,6 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
             ])
             await bot.send_message(chat_id, "Что дальше?", reply_markup=studio_kb)
             return
-
-        if user_mode.get(user_id, "").startswith("doc_"):
-            attempts = doc_attempts.get(user_id, 0)
-            doc_kb = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="🔄 Перегенерировать — бесплатно", callback_data=f"doc_retry_{user_id}")],
-                [InlineKeyboardButton(text=f"📸 Создать ещё документ — осталось {attempts}", callback_data=f"doc_next_{user_id}")],
-                [InlineKeyboardButton(text="👔 Другой костюм", callback_data=f"doc_change_outfit_{user_id}")],
-                [InlineKeyboardButton(text="💇 Другая причёска", callback_data=f"doc_change_hair_{user_id}")],
-                [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
-            ])
-            await bot.send_message(chat_id, "Что дальше?", reply_markup=doc_kb)
-            return
             
         if is_flat_lay:
             # Специальные кнопки Flat Lay
@@ -1117,6 +1105,7 @@ async def handle_pay_doc_photo(callback: CallbackQuery):
 async def handle_doctype(callback: CallbackQuery):
     doc_type = callback.data.split("_", 1)[1]
     user_id = callback.from_user.id
+    doc_type_last[user_id] = doc_type
     user_mode[user_id] = f"doc_photo_{doc_type}"
     await callback.answer()
     await callback.message.answer(
@@ -2393,15 +2382,16 @@ async def handle_doc_next(callback: CallbackQuery):
 @dp.callback_query(F.data.startswith("doc_change_hair_"))
 async def handle_doc_change_hair(callback: CallbackQuery):
     user_id = int(callback.data.split("_")[-1])
+    doc_type = doc_type_last.get(user_id, "passport")
     await callback.answer()
-    user_mode[user_id] = "doc_hair_original_passport"
+    user_mode[user_id] = f"doc_hair_original_{doc_type}"
     await callback.message.answer(
         "💇 <b>Выберите причёску:</b>",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="Оставить как есть", callback_data=f"hair_keep_original_passport")],
-            [InlineKeyboardButton(text="Аккуратная укладка", callback_data=f"hair_neat_original_passport")],
-            [InlineKeyboardButton(text="Лёгкая коррекция", callback_data=f"hair_fix_original_passport")],
+            [InlineKeyboardButton(text="Оставить как есть", callback_data=f"hair_keep_original_{doc_type}")],
+            [InlineKeyboardButton(text="Аккуратная укладка", callback_data=f"hair_neat_original_{doc_type}")],
+            [InlineKeyboardButton(text="Лёгкая коррекция", callback_data=f"hair_fix_original_{doc_type}")],
         ])
     )
 
@@ -2583,16 +2573,6 @@ async def handle_non_photo(message: Message):
         await do_generation(user_id, message.chat.id, gen_type, check_diff=False)
         user_mode[user_id] = "free"
         return
-
-        if user_mode.get(user_id, "").startswith("doc_"):
-            doc_kb = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="👔 Другой костюм", callback_data=f"doc_change_outfit_{user_id}")],
-                [InlineKeyboardButton(text="💇 Другая причёска", callback_data=f"doc_change_hair_{user_id}")],
-                [InlineKeyboardButton(text="🔄 Перегенерировать", callback_data=f"doc_retry_{user_id}")],
-                [InlineKeyboardButton(text="✅ Готово — сохранить (-1 документ)", callback_data=f"doc_save_{user_id}")],
-            ])
-            await bot.send_message(chat_id, "Что дальше?", reply_markup=doc_kb)
-            return
 
     # Админские кнопки
     if text == "📊 Админка":
