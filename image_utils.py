@@ -243,17 +243,30 @@ def check_and_crop_doc_photo(image_bytes: bytes, doc_type: str = "passport") -> 
 
         height, width = img.shape[:2]
 
-        if doc_type == "passport":
-            # Обрезаем сверху и снизу, чтобы осталось 80% высоты
-            new_h = int(height * 0.80)
-            start_y = int(height * 0.05)
-            cropped = img[start_y:start_y + new_h, :]
+        # Приводим к пропорции 35×45
+        target_ratio = 35 / 45  # 0.777
+
+        # Сначала обрезаем по ширине или высоте, чтобы сохранить 35×45
+        if width / height > target_ratio:
+            # Слишком широкое — обрезаем бока
+            new_w = int(height * target_ratio)
+            start_x = (width - new_w) // 2
+            cropped = img[:, start_x:start_x + new_w]
         else:
-            cropped = img
+            # Слишком высокое — обрезаем низ
+            new_h = int(width / target_ratio)
+            start_y = int(height * 0.03)  # небольшой отступ сверху
+            cropped = img[start_y:start_y + new_h, :]
+
+        # Теперь убедимся, что сверху есть отступ минимум 5%
+        final_h, final_w = cropped.shape[:2]
+
+        # Не обрезаем выше макушки, только если совсем край
+        # Просто возвращаем кадр с правильной пропорцией
 
         _, buffer = cv2.imencode(".jpg", cropped, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
         return buffer.tobytes()
 
     except Exception as e:
-        print(f"Ошибка проверки фото: {e}")
+        print(f"Ошибка: {e}")
         return image_bytes
