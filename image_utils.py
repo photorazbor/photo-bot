@@ -248,7 +248,15 @@ def check_and_crop_doc_photo(image_bytes: bytes, doc_type: str = "passport") -> 
         height, width = img.shape[:2]
         print(f"DEBUG: размер фото {width}x{height}")
 
-        face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+        face_cascade = None
+        try:
+            face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+        except Exception:
+            pass
+
+        if face_cascade is None or face_cascade.empty():
+            print("DEBUG: каскад не найден")
+            return image_bytes
 
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(100, 100))
