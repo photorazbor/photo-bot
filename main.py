@@ -617,6 +617,14 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
                 prompt += f"Улучши фрейминг. {what_is_wrong}"
             if "fill_frame" in error_type:
                 prompt += f"Улучши композицию. {what_is_wrong}"
+            if what_is_wrong and what_is_wrong != "---":
+                prompt += (
+                    f" Найди и исправь конкретно эту ошибку: {what_is_wrong}. "
+                    f"Сделай изменения заметными. "
+                    f"Если на фото есть объекты, которые портят кадр — убери их. "
+                    f"Если горизонт завален — выровняй. "
+                    f"Не просто улучшай цвета, а реально исправляй композицию."
+                )
             
             if wish and wish.lower() != "ок":
                 prompt += f"Дополнительное пожелание: {wish}"
@@ -713,6 +721,19 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
                 [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
             ])
             await bot.send_message(chat_id, "Что дальше?", reply_markup=studio_kb)
+            return
+
+        if user_mode.get(user_id, "").startswith("doc_"):
+            attempts = doc_attempts.get(user_id, 0)
+            doc_kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🔄 Перегенерировать — 1 раз", callback_data=f"doc_retry_{user_id}")],
+                [InlineKeyboardButton(text="👔 Сменить костюм — 1 раз", callback_data=f"doc_change_outfit_{user_id}")],
+                [InlineKeyboardButton(text="💇 Сменить причёску — 1 раз", callback_data=f"doc_change_hair_{user_id}")],
+                [InlineKeyboardButton(text="🖨 Собрать лист", callback_data=f"doc_print_{user_id}")],
+                [InlineKeyboardButton(text=f"📸 Новый документ — осталось {attempts}", callback_data=f"doc_next_{user_id}")],
+                [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
+            ])
+            await bot.send_message(chat_id, "Что дальше?", reply_markup=doc_kb)
             return
             
         if is_flat_lay:
@@ -1916,7 +1937,9 @@ async def handle_outfitcat(callback: CallbackQuery):
             "👔 <b>Выберите костюм:</b>",
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="Классический пиджак", callback_data=f"outfit_jacket_{doc_type}")],
+                [InlineKeyboardButton(text="Пиджак с галстуком", callback_data=f"outfit_jacket_tie_{doc_type}")],
+                [InlineKeyboardButton(text="Пиджак без галстука", callback_data=f"outfit_jacket_{doc_type}")],
+                [InlineKeyboardButton(text="Голубая рубашка", callback_data=f"outfit_blue_shirt_{doc_type}")],
                 [InlineKeyboardButton(text="Белая рубашка", callback_data=f"outfit_shirt_{doc_type}")],
                 [InlineKeyboardButton(text="Тёмная водолазка", callback_data=f"outfit_turtleneck_{doc_type}")],
             ])
@@ -2052,7 +2075,9 @@ async def handle_hair(callback: CallbackQuery):
     doc_name = doc_names.get(doc_type, doc_type)
 
     outfit_names = {
-        "jacket": "классический пиджак",
+        "jacket_tie": "пиджак с галстуком",
+        "jacket": "пиджак без галстука",
+        "blue_shirt": "голубая рубашка",
         "shirt": "белая рубашка",
         "turtleneck": "тёмная водолазка",
         "original": "оставить свою одежду",
@@ -2411,6 +2436,29 @@ async def handle_doc_change_hair(callback: CallbackQuery):
             [InlineKeyboardButton(text="Аккуратная укладка", callback_data=f"hair_neat_original_{doc_type}")],
             [InlineKeyboardButton(text="Лёгкая коррекция", callback_data=f"hair_fix_original_{doc_type}")],
         ])
+    )
+
+@dp.callback_query(F.data.startswith("doc_print_"))
+async def handle_doc_print(callback: CallbackQuery):
+    user_id = int(callback.data.split("_")[-1])
+    await callback.answer()
+    await callback.message.answer(
+        "🖨 <b>Выберите формат:</b>",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="10×15 см — 4 фото 35×45", callback_data=f"print_4_{user_id}")],
+            [InlineKeyboardButton(text="10×15 см — 6 фото 35×45", callback_data=f"print_6_{user_id}")],
+            [InlineKeyboardButton(text="🔙 Назад", callback_data=f"doc_back_{user_id}")],
+        ])
+    )
+
+@dp.callback_query(F.data.startswith("print_"))
+async def handle_print(callback: CallbackQuery):
+    user_id = int(callback.data.split("_")[-1])
+    await callback.answer()
+    await callback.message.answer(
+        "🛠 Сборка листа будет добавлена позже.\n\n"
+        "Пока можно скачать одиночное фото."
     )
 
 @dp.callback_query(F.data.startswith("doc_change_outfit_"))
