@@ -29,7 +29,7 @@ from aiogram.types import (
 
 from config import TELEGRAM_BOT_TOKEN
 from ai_service import analyze_photo, generate_image, create_payment_link, _load_pending_payments
-from image_utils import download_and_resize, image_to_bytes, draw_hints, align_interior, check_and_crop_doc_photo
+from image_utils import download_and_resize, image_to_bytes, draw_hints, align_interior, check_and_crop_doc_photo, prepare_doc_photo
 from stats import add_analysis, get_stats, add_history as stats_add_history, _load_stats as load_stats_data
 from course import get_status, add_photo, check_day, has_access, get_day_photos, _load_users, activate_free_trial
 
@@ -2122,10 +2122,21 @@ async def handle_hair(callback: CallbackQuery):
     flat_lay_active[user_id] = False
 
     if doc_attempts.get(user_id, 0) > 0:
-        # списание будет после нажатия «Готово», а не сейчас
         pass
 
     await do_generation(user_id, callback.message.chat.id, "free", check_diff=False)
+
+    # Постобработка: кадрирование по ГОСТу
+    if user_id in last_photo:
+        doc_type = doc_type_last.get(user_id, "passport")
+        processed = prepare_doc_photo(last_photo[user_id], doc_type)
+        if processed and processed != last_photo[user_id]:
+            last_photo[user_id] = processed
+            await bot.send_photo(
+                callback.message.chat.id,
+                BufferedInputFile(processed, filename="doc_gost.jpg"),
+                caption="✅ Фото подготовлено по ГОСТу (35×45 мм)"
+            )
 
 @dp.callback_query(F.data.startswith("studio_retry_"))
 async def handle_studio_retry(callback: CallbackQuery):
@@ -2488,6 +2499,18 @@ async def handle_doc_retry(callback: CallbackQuery):
     user_id = int(callback.data.split("_")[-1])
     await callback.answer("🔄 Генерирую новый вариант...")
     await do_generation(user_id, callback.message.chat.id, "free", check_diff=False, mode="retry")
+
+    # Постобработка: кадрирование по ГОСТу
+    if user_id in last_photo:
+        doc_type = doc_type_last.get(user_id, "passport")
+        processed = prepare_doc_photo(last_photo[user_id], doc_type)
+        if processed and processed != last_photo[user_id]:
+            last_photo[user_id] = processed
+            await bot.send_photo(
+                callback.message.chat.id,
+                BufferedInputFile(processed, filename="doc_gost.jpg"),
+                caption="✅ Фото подготовлено по ГОСТу (35×45 мм)"
+            )
 
     # Проверка активного заказа на авторский разбор
     orders = _load_author_orders()
