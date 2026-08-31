@@ -29,7 +29,7 @@ from aiogram.types import (
 
 from config import TELEGRAM_BOT_TOKEN
 from ai_service import analyze_photo, generate_image, create_payment_link, _load_pending_payments
-from image_utils import download_and_resize, image_to_bytes, draw_hints, align_interior, check_and_crop_doc_photo, prepare_doc_photo, draw_gost_guide, crop_doc_custom
+from image_utils import download_and_resize, image_to_bytes, draw_hints, align_interior, check_and_crop_doc_photo
 from stats import add_analysis, get_stats, add_history as stats_add_history, _load_stats as load_stats_data
 from course import get_status, add_photo, check_day, has_access, get_day_photos, _load_users, activate_free_trial
 
@@ -2126,38 +2126,7 @@ async def handle_hair(callback: CallbackQuery):
         pass
 
     await do_generation(user_id, callback.message.chat.id, "free", check_diff=False)
-
-    # Сбрасываем настройки кадрирования
-    doc_adjust[user_id] = {"head_ratio": 0.71, "shift_y": 0.0}
-
-    # Кадрируем по ГОСТу
-    if user_id in last_photo:
-        processed = crop_doc_custom(last_photo[user_id], 0.71, 0.0)
-        if processed and processed != last_photo[user_id]:
-            last_photo[user_id] = processed
-
-    # Рисуем направляющие и отправляем
-    if user_id in last_photo:
-        guided = draw_gost_guide(last_photo[user_id])
-        await bot.send_photo(
-            callback.message.chat.id,
-            BufferedInputFile(guided, filename="doc_guide.jpg"),
-            caption=(
-                "📐 <b>Проверь по линиям:</b>\n"
-                "🟢 Овал — голова должна заполнить его (высота 29–34 мм, ширина 19–23 мм)\n"
-                "🟢 Верхняя линия — уровень глаз\n"
-                "🟢 Нижняя линия — подбородок (отступ до низа 4–8 мм)\n"
-                "⚠️ Плечи не должны попадать в кадр"
-            ),
-            parse_mode="HTML",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="🔍 Крупнее", callback_data=f"doc_adjust_bigger_{user_id}")],
-                [InlineKeyboardButton(text="⬆️ Выше", callback_data=f"doc_adjust_up_{user_id}"),
-                 InlineKeyboardButton(text="⬇️ Ниже", callback_data=f"doc_adjust_down_{user_id}")],
-                [InlineKeyboardButton(text="✅ Готово", callback_data=f"doc_adjust_done_{user_id}")],
-                [InlineKeyboardButton(text="🔄 Перегенерировать", callback_data=f"doc_retry_{user_id}")],
-            ])
-        )
+    
 
 @dp.callback_query(F.data.startswith("studio_retry_"))
 async def handle_studio_retry(callback: CallbackQuery):
@@ -2514,11 +2483,6 @@ async def handle_doc_change_outfit(callback: CallbackQuery):
             [InlineKeyboardButton(text="👕 Оставить свою одежду", callback_data=f"outfitcat_original_{doc_type_last.get(user_id, 'passport')}")],
         ])
     )
-
-@dp.callback_query(F.data.startswith("doc_adjust_bigger_"))
-async def handle_doc_adjust_bigger(callback: CallbackQuery):
-    user_id = int(callback.data.split("_")[-1])
-    await callback.answer("🔍 Крупнее")
     
     # Увеличиваем голову
     current = doc_adjust.get(user_id, {"head_ratio": 0.71, "shift_y": 0.0})
@@ -2544,11 +2508,6 @@ async def handle_doc_adjust_bigger(callback: CallbackQuery):
                 ])
             )
 
-
-@dp.callback_query(F.data.startswith("doc_adjust_up_"))
-async def handle_doc_adjust_up(callback: CallbackQuery):
-    user_id = int(callback.data.split("_")[-1])
-    await callback.answer("⬆️ Выше")
     
     current = doc_adjust.get(user_id, {"head_ratio": 0.71, "shift_y": 0.0})
     current["shift_y"] = max(-0.15, current["shift_y"] - 0.03)
@@ -2572,11 +2531,6 @@ async def handle_doc_adjust_up(callback: CallbackQuery):
                 ])
             )
 
-
-@dp.callback_query(F.data.startswith("doc_adjust_down_"))
-async def handle_doc_adjust_down(callback: CallbackQuery):
-    user_id = int(callback.data.split("_")[-1])
-    await callback.answer("⬇️ Ниже")
     
     current = doc_adjust.get(user_id, {"head_ratio": 0.71, "shift_y": 0.0})
     current["shift_y"] = min(0.15, current["shift_y"] + 0.03)
@@ -2600,11 +2554,6 @@ async def handle_doc_adjust_down(callback: CallbackQuery):
                 ])
             )
 
-
-@dp.callback_query(F.data.startswith("doc_adjust_done_"))
-async def handle_doc_adjust_done(callback: CallbackQuery):
-    user_id = int(callback.data.split("_")[-1])
-    await callback.answer("✅ Сохраняю")
     
     if user_id in last_photo:
         # Отправляем чистое фото без линий
