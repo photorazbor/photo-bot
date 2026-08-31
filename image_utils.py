@@ -301,15 +301,15 @@ def prepare_doc_photo(image_bytes: bytes, doc_type: str = "passport") -> bytes:
         # Лицо = от бровей до подбородка (~60% головы)
         # Макушка = верх лица + 40% высоты лица
         # Подбородок = низ рамки лица
-        TOP_MARGIN_RATIO = 0.08  # отступ макушки ~8% высоты фото
+        TOP_MARGIN_RATIO = 0.13  # отступ макушки ~8% высоты фото
         
         # 4. Кадрирование
         # Голова занимает 85% высоты фото
-        head_top = fy - int(fh * 0.45)  # макушка (выше рамки лица)
-        head_bottom = fy + int(fh * 1.05)  # подбородок (чуть ниже рамки)
+        head_top = fy - int(fh * 0.35)  # макушка (выше рамки лица)
+        head_bottom = fy + fh  # подбородок (чуть ниже рамки)
         head_height = head_bottom - head_top
         
-        crop_height = int(head_height / 0.80)  # голова 85% высоты кадра
+        crop_height = int(head_height / 0.71)  # голова 85% высоты кадра
         crop_width = int(crop_height * 35 / 45)  # соотношение 35:45
         
         # Верхний край фото = макушка + небольшой отступ
@@ -343,10 +343,10 @@ def prepare_doc_photo(image_bytes: bytes, doc_type: str = "passport") -> bytes:
             fx, fy, fw, fh = faces[0]
             face_center_x = fx + fw // 2
             face_center_y = fy + fh // 2
-            head_top = fy - int(fh * 0.42)
-            head_bottom = fy + int(fh * 1.02)
+            head_top = fy - int(fh * 0.35)
+            head_bottom = fy + fh
             head_height = head_bottom - head_top
-            crop_height = int(head_height / 0.85)
+            crop_height = int(head_height / 0.71)
             crop_width = int(crop_height * 35 / 45)
             crop_y1 = max(0, head_top - int(crop_height * TOP_MARGIN_RATIO))
             crop_x1 = max(0, face_center_x - crop_width // 2)
