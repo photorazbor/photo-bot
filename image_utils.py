@@ -298,24 +298,22 @@ def prepare_doc_photo(image_bytes: bytes, doc_type: str = "passport") -> bytes:
         face_center_x = fx + fw // 2
         face_center_y = fy + fh // 2
         
-        # Голова чуть больше, чем лицо (лицо ~75% головы)
-        head_height = int(fh * 1.45)
-        head_width = int(fw * 1.15)
-        
-        # Отступы
-        TOP_MARGIN_RATIO = 0.12  # отступ макушки ~12% высоты фото (5-7 мм из 45 мм)
+        # Лицо = от бровей до подбородка (~60% головы)
+        # Макушка = верх лица + 40% высоты лица
+        # Подбородок = низ рамки лица
+        TOP_MARGIN_RATIO = 0.08  # отступ макушки ~8% высоты фото
         
         # 4. Кадрирование
-        # Голова должна занимать 70-80% высоты фото (35 мм из 45 мм = 78%)
-        # Значит высота кадра = head_height / 0.80
-        crop_height = int(head_height / 0.80)
+        # Голова занимает 85% высоты фото
+        head_top = fy - int(fh * 0.45)  # макушка (выше рамки лица)
+        head_bottom = fy + int(fh * 1.05)  # подбородок (чуть ниже рамки)
+        head_height = head_bottom - head_top
+        
+        crop_height = int(head_height / 0.85)  # голова 85% высоты кадра
         crop_width = int(crop_height * 35 / 45)  # соотношение 35:45
         
-        # Макушка головы
-        top_of_head = fy - (head_height - fh) // 2
-        
-        # Верхний край фото = макушка + отступ
-        crop_y1 = top_of_head - int(crop_height * TOP_MARGIN_RATIO)
+        # Верхний край фото = макушка + небольшой отступ
+        crop_y1 = head_top - int(crop_height * TOP_MARGIN_RATIO)
         
         # Центрируем по X
         crop_x1 = face_center_x - crop_width // 2
@@ -345,12 +343,12 @@ def prepare_doc_photo(image_bytes: bytes, doc_type: str = "passport") -> bytes:
             fx, fy, fw, fh = faces[0]
             face_center_x = fx + fw // 2
             face_center_y = fy + fh // 2
-            head_height = int(fh * 1.45)
-            head_width = int(fw * 1.15)
-            crop_height = int(head_height / 0.80)
+            head_top = fy - int(fh * 0.45)
+            head_bottom = fy + int(fh * 1.05)
+            head_height = head_bottom - head_top
+            crop_height = int(head_height / 0.85)
             crop_width = int(crop_height * 35 / 45)
-            top_of_head = fy - (head_height - fh) // 2
-            crop_y1 = max(0, top_of_head - int(crop_height * TOP_MARGIN_RATIO))
+            crop_y1 = max(0, head_top - int(crop_height * TOP_MARGIN_RATIO))
             crop_x1 = max(0, face_center_x - crop_width // 2)
             if crop_y1 + crop_height > img.shape[0]:
                 crop_y1 = img.shape[0] - crop_height
