@@ -240,152 +240,29 @@ import cv2
 import numpy as np
 
 
-# ===== ФОТО НА ДОКУМЕНТЫ (ГОСТ) =====
+# ===== ФОТО НА ДОКУМЕНТЫ =====
 
-        
+def check_and_crop_doc_photo(image_bytes: bytes, doc_type: str = "passport") -> bytes:
+    try:
+        nparr = np.frombuffer(image_bytes, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
         height, width = img.shape[:2]
-        
-        # 2. Детекция лица
-        face_cascade = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
-        if face_cascade.empty():
-            print("❌ Не удалось загрузить haarcascade_frontalface_default.xml")
-            return image_bytes
-        
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        
-        faces = face_cascade.detectMultiScale(
-            gray,
-            scaleFactor=1.1,
-            minNeighbors=5,
-            minSize=(100, 100)
-        )
-        
-        if len(faces) == 0:
-            faces = face_cascade.detectMultiScale(
-                gray,
-                scaleFactor=1.05,
-                minNeighbors=3,
-                minSize=(80, 80)
-            )
-        
-        if len(faces) == 0:
-            print("❌ Лицо не найдено")
-            return image_bytes
-        
-        faces = sorted(faces, key=lambda f: f[2] * f[3], reverse=True)
-        fx, fy, fw, fh = faces[0]
-        
-        face_center_x = fx + fw // 2
-        face_center_y = fy + fh // 2
-        
-        TOP_MARGIN_RATIO = 0.13
-        
-        head_top = fy - int(fh * 0.35)
-        head_bottom = fy + fh
-        head_height = head_bottom - head_top
-        
-        crop_height = int(head_height / 0.71)
-        crop_width = int(crop_height * 35 / 45)
-        
-        crop_y1 = head_top - int(crop_height * TOP_MARGIN_RATIO)
-        crop_x1 = face_center_x - crop_width // 2
-        
-        crop_y1 = max(0, crop_y1)
-        crop_x1 = max(0, crop_x1)
-        
-        if crop_y1 + crop_height > height:
-            crop_y1 = height - crop_height
-        if crop_x1 + crop_width > width:
-            crop_x1 = width - crop_width
-        
-        if crop_y1 < 0 or crop_x1 < 0 or crop_width > width or crop_height > height:
-            scale = max(crop_width / width, crop_height / height) * 1.2
-            new_w = int(width * scale)
-            new_h = int(height * scale)
-            img = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_LANCZOS4)
-            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(100, 100))
-            if len(faces) == 0:
-                faces = face_cascade.detectMultiScale(gray, scaleFactor=1.05, minNeighbors=3, minSize=(80, 80))
-            if len(faces) == 0:
-                return image_bytes
-            faces = sorted(faces, key=lambda f: f[2] * f[3], reverse=True)
-            fx, fy, fw, fh = faces[0]
-            face_center_x = fx + fw // 2
-            face_center_y = fy + fh // 2
-            head_top = fy - int(fh * 0.35)
-            head_bottom = fy + fh
-            head_height = head_bottom - head_top
-            crop_height = int(head_height / 0.71)
-            crop_width = int(crop_height * 35 / 45)
-            crop_y1 = max(0, head_top - int(crop_height * TOP_MARGIN_RATIO))
-            crop_x1 = max(0, face_center_x - crop_width // 2)
-            if crop_y1 + crop_height > img.shape[0]:
-                crop_y1 = img.shape[0] - crop_height
-            if crop_x1 + crop_width > img.shape[1]:
-                crop_x1 = img.shape[1] - crop_width
-        
-        cropped = img[crop_y1:crop_y1 + crop_height, crop_x1:crop_x1 + crop_width]
-        
-        result = cv2.resize(cropped, (413, 531), interpolation=cv2.INTER_LANCZOS4)
-        
-        borders = [
-            result[0:10, :],
-            result[-10:, :],
-            result[:, 0:10],
-            result[:, -10:],
-        ]
-        avg_brightness = np.mean([np.mean(b) for b in borders])
-        
-        if avg_brightness < 240:
-            result = _whiten_background(result)
-        
-        _, buffer = cv2.imencode(".jpg", result, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
-        return buffer.tobytes()
-    
-    except Exception as e:
-        print(f"❌ Ошибка prepare_doc_photo: {e}")
-        return image_bytes
 
-        
-        face_cascade = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
-        if face_cascade.empty():
-            return image_bytes
-        
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(100, 100))
-        if len(faces) == 0:
-            faces = face_cascade.detectMultiScale(gray, scaleFactor=1.05, minNeighbors=3, minSize=(80, 80))
-        if len(faces) == 0:
-            return image_bytes
-        
-        faces = sorted(faces, key=lambda f: f[2] * f[3], reverse=True)
-        fx, fy, fw, fh = faces[0]
-        face_center_x = fx + fw // 2
-        
-        head_top = fy - int(fh * 0.35)
-        head_bottom = fy + fh
-        head_height = head_bottom - head_top
-        
-        crop_height = int(head_height / head_ratio)
-        crop_width = int(crop_height * 35 / 45)
-        
-        crop_y1 = head_top - int(crop_height * 0.13)
-        crop_x1 = face_center_x - crop_width // 2
-        
-        if shift_y != 0:
-            shift_px = int(crop_height * shift_y)
-            crop_y1 += shift_px
-        
-        crop_y1 = max(0, min(crop_y1, img.shape[0] - crop_height))
-        crop_x1 = max(0, min(crop_x1, img.shape[1] - crop_width))
-        
-        cropped = img[crop_y1:crop_y1 + crop_height, crop_x1:crop_x1 + crop_width]
-        result = cv2.resize(cropped, (413, 531), interpolation=cv2.INTER_LANCZOS4)
-        
-        _, buffer = cv2.imencode(".jpg", result, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+        if doc_type == "passport":
+            new_h = int(height * 0.82)
+            cropped = img[:new_h, :]
+            target_ratio = 35 / 45
+            new_w = int(new_h * target_ratio)
+            if new_w <= width:
+                start_x = (width - new_w) // 2
+                cropped = cropped[:, start_x:start_x + new_w]
+        else:
+            cropped = img
+
+        _, buffer = cv2.imencode(".jpg", cropped, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
         return buffer.tobytes()
-    
+
     except Exception as e:
-        print(f"❌ Ошибка crop_doc_custom: {e}")
+        print(f"Ошибка: {e}")
         return image_bytes
