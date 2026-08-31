@@ -411,3 +411,28 @@ def _whiten_background(img: np.ndarray) -> np.ndarray:
     except Exception as e:
         print(f"❌ Ошибка отбеливания: {e}")
         return img
+
+def check_and_crop_doc_photo(image_bytes: bytes, doc_type: str = "passport") -> bytes:
+    try:
+        nparr = np.frombuffer(image_bytes, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+        height, width = img.shape[:2]
+
+        if doc_type == "passport":
+            new_h = int(height * 0.82)
+            cropped = img[:new_h, :]
+            target_ratio = 35 / 45
+            new_w = int(new_h * target_ratio)
+            if new_w <= width:
+                start_x = (width - new_w) // 2
+                cropped = cropped[:, start_x:start_x + new_w]
+        else:
+            cropped = img
+
+        _, buffer = cv2.imencode(".jpg", cropped, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+        return buffer.tobytes()
+
+    except Exception as e:
+        print(f"Ошибка: {e}")
+        return image_bytes
