@@ -309,7 +309,7 @@ def prepare_doc_photo(image_bytes: bytes, doc_type: str = "passport") -> bytes:
         head_bottom = fy + int(fh * 1.05)  # подбородок (чуть ниже рамки)
         head_height = head_bottom - head_top
         
-        crop_height = int(head_height / 0.85)  # голова 85% высоты кадра
+        crop_height = int(head_height / 0.80)  # голова 85% высоты кадра
         crop_width = int(crop_height * 35 / 45)  # соотношение 35:45
         
         # Верхний край фото = макушка + небольшой отступ
@@ -343,8 +343,8 @@ def prepare_doc_photo(image_bytes: bytes, doc_type: str = "passport") -> bytes:
             fx, fy, fw, fh = faces[0]
             face_center_x = fx + fw // 2
             face_center_y = fy + fh // 2
-            head_top = fy - int(fh * 0.45)
-            head_bottom = fy + int(fh * 1.05)
+            head_top = fy - int(fh * 0.42)
+            head_bottom = fy + int(fh * 1.02)
             head_height = head_bottom - head_top
             crop_height = int(head_height / 0.85)
             crop_width = int(crop_height * 35 / 45)
