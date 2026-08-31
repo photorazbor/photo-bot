@@ -29,7 +29,7 @@ from aiogram.types import (
 
 from config import TELEGRAM_BOT_TOKEN
 from ai_service import analyze_photo, generate_image, create_payment_link, _load_pending_payments
-from image_utils import download_and_resize, image_to_bytes, draw_hints, align_interior, check_and_crop_doc_photo, prepare_doc_photo
+from image_utils import download_and_resize, image_to_bytes, draw_hints, align_interior, check_and_crop_doc_photo, prepare_doc_photo, draw_gost_guide, crop_doc_custom
 from stats import add_analysis, get_stats, add_history as stats_add_history, _load_stats as load_stats_data
 from course import get_status, add_photo, check_day, has_access, get_day_photos, _load_users, activate_free_trial
 
@@ -78,6 +78,7 @@ doc_attempts = {}
 DOC_ATTEMPTS_FILE = "doc_attempts.json"
 GEN_FILE = "generations.json"
 doc_type_last = {}
+doc_adjust = {}  # {user_id: {"head_ratio": 0.71, "shift_y": 0.0}}
 last_photo = {}
 original_photo = {}
 gen_wish = {}
@@ -2126,17 +2127,37 @@ async def handle_hair(callback: CallbackQuery):
 
     await do_generation(user_id, callback.message.chat.id, "free", check_diff=False)
 
-    # Постобработка: кадрирование по ГОСТу
+    # Сбрасываем настройки кадрирования
+    doc_adjust[user_id] = {"head_ratio": 0.71, "shift_y": 0.0}
+
+    # Кадрируем по ГОСТу
     if user_id in last_photo:
-        doc_type = doc_type_last.get(user_id, "passport")
-        processed = prepare_doc_photo(last_photo[user_id], doc_type)
+        processed = crop_doc_custom(last_photo[user_id], 0.71, 0.0)
         if processed and processed != last_photo[user_id]:
             last_photo[user_id] = processed
-            await bot.send_photo(
-                callback.message.chat.id,
-                BufferedInputFile(processed, filename="doc_gost.jpg"),
-                caption="✅ Фото подготовлено по ГОСТу (35×45 мм)"
-            )
+
+    # Рисуем направляющие и отправляем
+    if user_id in last_photo:
+        guided = draw_gost_guide(last_photo[user_id])
+        await bot.send_photo(
+            callback.message.chat.id,
+            BufferedInputFile(guided, filename="doc_guide.jpg"),
+            caption=(
+                "📐 <b>Проверь по линиям:</b>\n"
+                "🟢 Овал — голова должна заполнить его (высота 29–34 мм, ширина 19–23 мм)\n"
+                "🟢 Верхняя линия — уровень глаз\n"
+                "🟢 Нижняя линия — подбородок (отступ до низа 4–8 мм)\n"
+                "⚠️ Плечи не должны попадать в кадр"
+            ),
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🔍 Крупнее", callback_data=f"doc_adjust_bigger_{user_id}")],
+                [InlineKeyboardButton(text="⬆️ Выше", callback_data=f"doc_adjust_up_{user_id}"),
+                 InlineKeyboardButton(text="⬇️ Ниже", callback_data=f"doc_adjust_down_{user_id}")],
+                [InlineKeyboardButton(text="✅ Готово", callback_data=f"doc_adjust_done_{user_id}")],
+                [InlineKeyboardButton(text="🔄 Перегенерировать", callback_data=f"doc_retry_{user_id}")],
+            ])
+        )
 
 @dp.callback_query(F.data.startswith("studio_retry_"))
 async def handle_studio_retry(callback: CallbackQuery):
@@ -2494,23 +2515,145 @@ async def handle_doc_change_outfit(callback: CallbackQuery):
         ])
     )
 
+@dp.callback_query(F.data.startswith("doc_adjust_bigger_"))
+async def handle_doc_adjust_bigger(callback: CallbackQuery):
+    user_id = int(callback.data.split("_")[-1])
+    await callback.answer("🔍 Крупнее")
+    
+    # Увеличиваем голову
+    current = doc_adjust.get(user_id, {"head_ratio": 0.71, "shift_y": 0.0})
+    current["head_ratio"] = min(0.78, current["head_ratio"] + 0.03)
+    doc_adjust[user_id] = current
+    
+    # Перекадрируем
+    if user_id in original_photo:
+        processed = crop_doc_custom(original_photo[user_id], current["head_ratio"], current["shift_y"])
+        if processed:
+            last_photo[user_id] = processed
+            guided = draw_gost_guide(processed)
+            await bot.send_photo(
+                callback.message.chat.id,
+                BufferedInputFile(guided, filename="doc_guide.jpg"),
+                caption="🔍 Крупнее. Проверь ещё раз.",
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="🔍 Крупнее", callback_data=f"doc_adjust_bigger_{user_id}")],
+                    [InlineKeyboardButton(text="⬆️ Выше", callback_data=f"doc_adjust_up_{user_id}"),
+                     InlineKeyboardButton(text="⬇️ Ниже", callback_data=f"doc_adjust_down_{user_id}")],
+                    [InlineKeyboardButton(text="✅ Готово", callback_data=f"doc_adjust_done_{user_id}")],
+                    [InlineKeyboardButton(text="🔄 Перегенерировать", callback_data=f"doc_retry_{user_id}")],
+                ])
+            )
+
+
+@dp.callback_query(F.data.startswith("doc_adjust_up_"))
+async def handle_doc_adjust_up(callback: CallbackQuery):
+    user_id = int(callback.data.split("_")[-1])
+    await callback.answer("⬆️ Выше")
+    
+    current = doc_adjust.get(user_id, {"head_ratio": 0.71, "shift_y": 0.0})
+    current["shift_y"] = max(-0.15, current["shift_y"] - 0.03)
+    doc_adjust[user_id] = current
+    
+    if user_id in original_photo:
+        processed = crop_doc_custom(original_photo[user_id], current["head_ratio"], current["shift_y"])
+        if processed:
+            last_photo[user_id] = processed
+            guided = draw_gost_guide(processed)
+            await bot.send_photo(
+                callback.message.chat.id,
+                BufferedInputFile(guided, filename="doc_guide.jpg"),
+                caption="⬆️ Выше. Проверь ещё раз.",
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="🔍 Крупнее", callback_data=f"doc_adjust_bigger_{user_id}")],
+                    [InlineKeyboardButton(text="⬆️ Выше", callback_data=f"doc_adjust_up_{user_id}"),
+                     InlineKeyboardButton(text="⬇️ Ниже", callback_data=f"doc_adjust_down_{user_id}")],
+                    [InlineKeyboardButton(text="✅ Готово", callback_data=f"doc_adjust_done_{user_id}")],
+                    [InlineKeyboardButton(text="🔄 Перегенерировать", callback_data=f"doc_retry_{user_id}")],
+                ])
+            )
+
+
+@dp.callback_query(F.data.startswith("doc_adjust_down_"))
+async def handle_doc_adjust_down(callback: CallbackQuery):
+    user_id = int(callback.data.split("_")[-1])
+    await callback.answer("⬇️ Ниже")
+    
+    current = doc_adjust.get(user_id, {"head_ratio": 0.71, "shift_y": 0.0})
+    current["shift_y"] = min(0.15, current["shift_y"] + 0.03)
+    doc_adjust[user_id] = current
+    
+    if user_id in original_photo:
+        processed = crop_doc_custom(original_photo[user_id], current["head_ratio"], current["shift_y"])
+        if processed:
+            last_photo[user_id] = processed
+            guided = draw_gost_guide(processed)
+            await bot.send_photo(
+                callback.message.chat.id,
+                BufferedInputFile(guided, filename="doc_guide.jpg"),
+                caption="⬇️ Ниже. Проверь ещё раз.",
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="🔍 Крупнее", callback_data=f"doc_adjust_bigger_{user_id}")],
+                    [InlineKeyboardButton(text="⬆️ Выше", callback_data=f"doc_adjust_up_{user_id}"),
+                     InlineKeyboardButton(text="⬇️ Ниже", callback_data=f"doc_adjust_down_{user_id}")],
+                    [InlineKeyboardButton(text="✅ Готово", callback_data=f"doc_adjust_done_{user_id}")],
+                    [InlineKeyboardButton(text="🔄 Перегенерировать", callback_data=f"doc_retry_{user_id}")],
+                ])
+            )
+
+
+@dp.callback_query(F.data.startswith("doc_adjust_done_"))
+async def handle_doc_adjust_done(callback: CallbackQuery):
+    user_id = int(callback.data.split("_")[-1])
+    await callback.answer("✅ Сохраняю")
+    
+    if user_id in last_photo:
+        # Отправляем чистое фото без линий
+        await bot.send_photo(
+            callback.message.chat.id,
+            BufferedInputFile(last_photo[user_id], filename="doc_final.jpg"),
+            caption="✅ <b>Готово! Фото подготовлено по ГОСТу (35×45 мм)</b>",
+            parse_mode="HTML"
+        )
+        doc_adjust[user_id] = {"head_ratio": 0.71, "shift_y": 0.0}
+
+
 @dp.callback_query(F.data.startswith("doc_retry_"))
 async def handle_doc_retry(callback: CallbackQuery):
     user_id = int(callback.data.split("_")[-1])
     await callback.answer("🔄 Генерирую новый вариант...")
     await do_generation(user_id, callback.message.chat.id, "free", check_diff=False, mode="retry")
 
-    # Постобработка: кадрирование по ГОСТу
+    # Сбрасываем настройки
+    doc_adjust[user_id] = {"head_ratio": 0.71, "shift_y": 0.0}
+
+    # Кадрируем по ГОСТу
     if user_id in last_photo:
-        doc_type = doc_type_last.get(user_id, "passport")
-        processed = prepare_doc_photo(last_photo[user_id], doc_type)
+        processed = crop_doc_custom(last_photo[user_id], 0.71, 0.0)
         if processed and processed != last_photo[user_id]:
             last_photo[user_id] = processed
-            await bot.send_photo(
-                callback.message.chat.id,
-                BufferedInputFile(processed, filename="doc_gost.jpg"),
-                caption="✅ Фото подготовлено по ГОСТу (35×45 мм)"
-            )
+
+    # Рисуем направляющие
+    if user_id in last_photo:
+        guided = draw_gost_guide(last_photo[user_id])
+        await bot.send_photo(
+            callback.message.chat.id,
+            BufferedInputFile(guided, filename="doc_guide.jpg"),
+            caption=(
+                "📐 <b>Проверь по линиям:</b>\n"
+                "🟢 Овал — голова должна заполнить его (высота 29–34 мм, ширина 19–23 мм)\n"
+                "🟢 Верхняя линия — уровень глаз\n"
+                "🟢 Нижняя линия — подбородок (отступ до низа 4–8 мм)\n"
+                "⚠️ Плечи не должны попадать в кадр"
+            ),
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🔍 Крупнее", callback_data=f"doc_adjust_bigger_{user_id}")],
+                [InlineKeyboardButton(text="⬆️ Выше", callback_data=f"doc_adjust_up_{user_id}"),
+                 InlineKeyboardButton(text="⬇️ Ниже", callback_data=f"doc_adjust_down_{user_id}")],
+                [InlineKeyboardButton(text="✅ Готово", callback_data=f"doc_adjust_done_{user_id}")],
+                [InlineKeyboardButton(text="🔄 Перегенерировать", callback_data=f"doc_retry_{user_id}")],
+            ])
+        )
 
     # Проверка активного заказа на авторский разбор
     orders = _load_author_orders()
