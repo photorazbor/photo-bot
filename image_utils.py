@@ -5,7 +5,7 @@ import io
 import math
 import random
 import requests
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFilter
 
 
 def download_and_resize(photo_url: str, target_width: int = 1024) -> Image.Image:
@@ -207,8 +207,10 @@ def draw_hints(image: Image.Image, drawings: list) -> Image.Image:
 
     return result
 
+
 # ===== ВЫРАВНИВАНИЕ ИНТЕРЬЕРА =====
 import numpy as np
+
 
 def align_interior(image: Image.Image) -> Image.Image:
     """Простое выравнивание через deskew."""
@@ -232,32 +234,180 @@ def align_interior(image: Image.Image) -> Image.Image:
         print(f"Ошибка выравнивания: {e}")
         return image
 
+
 import os
 import cv2
 import numpy as np
 
 
-def check_and_crop_doc_photo(image_bytes: bytes, doc_type: str = "passport") -> bytes:
+# ===== ФОТО НА ДОКУМЕНТЫ (ГОСТ) =====
+
+def prepare_doc_photo(image_bytes: bytes, doc_type: str = "passport") -> bytes:
+    """
+    Подгоняет фото под ГОСТ Р 52112-2003:
+    - 35×45 мм (413×531 px @ 300 DPI)
+    - Голова: 70-80% высоты (29-34 мм)
+    - Лицо по центру
+    - Отступ макушки: 5-7 мм
+    - Белый фон
+    """
     try:
+        # 1. Загружаем фото
         nparr = np.frombuffer(image_bytes, np.uint8)
         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-
+        if img is None:
+            return image_bytes
+        
         height, width = img.shape[:2]
-
-        if doc_type == "passport":
-            new_h = int(height * 0.82)
-            cropped = img[:new_h, :]
-            target_ratio = 35 / 45
-            new_w = int(new_h * target_ratio)
-            if new_w <= width:
-                start_x = (width - new_w) // 2
-                cropped = cropped[:, start_x:start_x + new_w]
-        else:
-            cropped = img
-
-        _, buffer = cv2.imencode(".jpg", cropped, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+        
+        # 2. Детекция лица
+        face_cascade = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
+        if face_cascade.empty():
+            print("❌ Не удалось загрузить haarcascade_frontalface_default.xml")
+            return image_bytes
+        
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        
+        # Пробуем разные параметры для лучшего результата
+        faces = face_cascade.detectMultiScale(
+            gray,
+            scaleFactor=1.1,
+            minNeighbors=5,
+            minSize=(100, 100)
+        )
+        
+        if len(faces) == 0:
+            # Пробуем мягче
+            faces = face_cascade.detectMultiScale(
+                gray,
+                scaleFactor=1.05,
+                minNeighbors=3,
+                minSize=(80, 80)
+            )
+        
+        if len(faces) == 0:
+            print("❌ Лицо не найдено")
+            return image_bytes
+        
+        # Берём самое большое лицо
+        faces = sorted(faces, key=lambda f: f[2] * f[3], reverse=True)
+        fx, fy, fw, fh = faces[0]
+        
+        # 3. Вычисляем параметры
+        # Центр лица
+        face_center_x = fx + fw // 2
+        face_center_y = fy + fh // 2
+        
+        # Голова чуть больше, чем лицо (лицо ~75% головы)
+        head_height = int(fh * 1.35)
+        head_width = int(fw * 1.15)
+        
+        # Отступы
+        TOP_MARGIN_RATIO = 0.12  # отступ макушки ~12% высоты фото (5-7 мм из 45 мм)
+        
+        # 4. Кадрирование
+        # Голова должна занимать 70-80% высоты фото (35 мм из 45 мм = 78%)
+        # Значит высота кадра = head_height / 0.75
+        crop_height = int(head_height / 0.75)
+        crop_width = int(crop_height * 35 / 45)  # соотношение 35:45
+        
+        # Макушка головы
+        top_of_head = fy - (head_height - fh) // 2
+        
+        # Верхний край фото = макушка + отступ
+        crop_y1 = top_of_head - int(crop_height * TOP_MARGIN_RATIO)
+        
+        # Центрируем по X
+        crop_x1 = face_center_x - crop_width // 2
+        crop_y1 = max(0, crop_y1)
+        crop_x1 = max(0, crop_x1)
+        
+        # Проверяем, не выходит ли за границы
+        if crop_y1 + crop_height > height:
+            crop_y1 = height - crop_height
+        if crop_x1 + crop_width > width:
+            crop_x1 = width - crop_width
+        
+        if crop_y1 < 0 or crop_x1 < 0 or crop_width > width or crop_height > height:
+            # Фото слишком маленькое — сначала увеличим
+            scale = max(crop_width / width, crop_height / height) * 1.2
+            new_w = int(width * scale)
+            new_h = int(height * scale)
+            img = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_LANCZOS4)
+            # Повторяем детекцию на увеличенном фото
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(100, 100))
+            if len(faces) == 0:
+                faces = face_cascade.detectMultiScale(gray, scaleFactor=1.05, minNeighbors=3, minSize=(80, 80))
+            if len(faces) == 0:
+                return image_bytes
+            faces = sorted(faces, key=lambda f: f[2] * f[3], reverse=True)
+            fx, fy, fw, fh = faces[0]
+            face_center_x = fx + fw // 2
+            face_center_y = fy + fh // 2
+            head_height = int(fh * 1.35)
+            head_width = int(fw * 1.15)
+            crop_height = int(head_height / 0.75)
+            crop_width = int(crop_height * 35 / 45)
+            top_of_head = fy - (head_height - fh) // 2
+            crop_y1 = max(0, top_of_head - int(crop_height * TOP_MARGIN_RATIO))
+            crop_x1 = max(0, face_center_x - crop_width // 2)
+            if crop_y1 + crop_height > img.shape[0]:
+                crop_y1 = img.shape[0] - crop_height
+            if crop_x1 + crop_width > img.shape[1]:
+                crop_x1 = img.shape[1] - crop_width
+        
+        cropped = img[crop_y1:crop_y1 + crop_height, crop_x1:crop_x1 + crop_width]
+        
+        # 5. Масштабируем до 413×531 (35×45 мм @ 300 DPI)
+        result = cv2.resize(cropped, (413, 531), interpolation=cv2.INTER_LANCZOS4)
+        
+        # 6. Проверка фона — если края не белые, отбеливаем
+        borders = [
+            result[0:10, :],      # верх
+            result[-10:, :],      # низ
+            result[:, 0:10],      # лево
+            result[:, -10:],      # право
+        ]
+        avg_brightness = np.mean([np.mean(b) for b in borders])
+        
+        if avg_brightness < 240:
+            # Фон не идеально белый — отбеливаем через PIL
+            result = _whiten_background(result)
+        
+        # 7. Сохраняем
+        _, buffer = cv2.imencode(".jpg", result, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
         return buffer.tobytes()
-
+    
     except Exception as e:
-        print(f"Ошибка: {e}")
+        print(f"❌ Ошибка prepare_doc_photo: {e}")
         return image_bytes
+
+
+def _whiten_background(img: np.ndarray) -> np.ndarray:
+    """
+    Отбеливает фон: всё, что светлее порога, становится белым.
+    Лицо (тёмное) остаётся.
+    """
+    try:
+        hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+        
+        # Маска: светлые пиксели (фон)
+        lower = np.array([0, 0, 200])
+        upper = np.array([180, 50, 255])
+        mask = cv2.inRange(hsv, lower, upper)
+        
+        # Расширяем маску, чтобы захватить края
+        kernel = np.ones((5, 5), np.uint8)
+        mask = cv2.dilate(mask, kernel, iterations=2)
+        
+        # Заменяем на чистый белый
+        img[mask > 0] = [255, 255, 255]
+        
+        # Лёгкое размытие границ
+        img = cv2.GaussianBlur(img, (3, 3), 0)
+        
+        return img
+    except Exception as e:
+        print(f"❌ Ошибка отбеливания: {e}")
+        return img
