@@ -243,6 +243,67 @@ import numpy as np
 # ===== ФОТО НА ДОКУМЕНТЫ (ГОСТ) =====
 
 def prepare_doc_photo(image_bytes: bytes, doc_type: str = "passport") -> bytes:
+
+def crop_doc_custom(image_bytes: bytes, head_ratio: float = 0.71, shift_y: float = 0.0) -> bytes:
+    """
+    Кадрирует фото по ГОСТу с заданными параметрами.
+    head_ratio: 0.71 = стандарт, 0.78 = крупнее
+    shift_y: сдвиг кадра по вертикали (-1.0 до 1.0, где отрицательное = вверх)
+    """
+    try:
+        nparr = np.frombuffer(image_bytes, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        if img is None:
+            return image_bytes
+        
+        face_cascade = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
+        if face_cascade.empty():
+            return image_bytes
+        
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(100, 100))
+        if len(faces) == 0:
+            faces = face_cascade.detectMultiScale(gray, scaleFactor=1.05, minNeighbors=3, minSize=(80, 80))
+        if len(faces) == 0:
+            return image_bytes
+        
+        faces = sorted(faces, key=lambda f: f[2] * f[3], reverse=True)
+        fx, fy, fw, fh = faces[0]
+        face_center_x = fx + fw // 2
+        
+        # Макушка и подбородок
+        head_top = fy - int(fh * 0.35)
+        head_bottom = fy + fh
+        head_height = head_bottom - head_top
+        
+        # Кадрирование
+        crop_height = int(head_height / head_ratio)
+        crop_width = int(crop_height * 35 / 45)
+        
+        # Отступ макушки 13%
+        crop_y1 = head_top - int(crop_height * 0.13)
+        crop_x1 = face_center_x - crop_width // 2
+        
+        # Сдвиг по вертикали
+        if shift_y != 0:
+            shift_px = int(crop_height * shift_y)
+            crop_y1 += shift_px
+        
+        # Границы
+        crop_y1 = max(0, min(crop_y1, img.shape[0] - crop_height))
+        crop_x1 = max(0, min(crop_x1, img.shape[1] - crop_width))
+        
+        cropped = img[crop_y1:crop_y1 + crop_height, crop_x1:crop_x1 + crop_width]
+        result = cv2.resize(cropped, (413, 531), interpolation=cv2.INTER_LANCZOS4)
+        
+        _, buffer = cv2.imencode(".jpg", result, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+        return buffer.tobytes()
+    
+    except Exception as e:
+        print(f"❌ Ошибка crop_doc_custom: {e}")
+        return image_bytes
+
+
     """
     Подгоняет фото под ГОСТ Р 52112-2003:
     - 35×45 мм (413×531 px @ 300 DPI)
@@ -409,6 +470,67 @@ def _whiten_background(img: np.ndarray) -> np.ndarray:
     except Exception as e:
         print(f"❌ Ошибка отбеливания: {e}")
         return img
+
+def draw_gost_guide(image_bytes: bytes) -> bytes:
+    """
+    Рисует направляющие линии ГОСТа поверх фото.
+    Зелёный пунктирный овал головы + линии глаз и подбородка.
+    """
+    try:
+        nparr = np.frombuffer(image_bytes, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        if img is None:
+            return image_bytes
+        
+        h, w = img.shape[:2]
+        
+        # Параметры ГОСТа (для фото 413×531)
+        HEAD_TOP = 60           # макушка
+        HEAD_BOTTOM = 400       # подбородок
+        HEAD_HEIGHT = 340       # 29-34 мм
+        HEAD_WIDTH = 220        # 19-23 мм
+        HEAD_LEFT = (w - HEAD_WIDTH) // 2
+        HEAD_RIGHT = HEAD_LEFT + HEAD_WIDTH
+        EYE_LINE = 247          # линия глаз
+        CENTER_X = w // 2
+        CENTER_Y = (HEAD_TOP + HEAD_BOTTOM) // 2
+        
+        # ===== Рисуем овал головы (зелёный пунктир) =====
+        # Пунктир делаем через нарезку эллипса на сегменты
+        for angle in range(0, 360, 15):
+            start_angle = angle
+            end_angle = angle + 8
+            cv2.ellipse(
+                img,
+                (CENTER_X, CENTER_Y),
+                (HEAD_WIDTH // 2, HEAD_HEIGHT // 2),
+                0,
+                start_angle,
+                end_angle,
+                (0, 255, 0),
+                3
+            )
+        
+        # ===== Линия глаз (зелёная пунктирная) =====
+        for x in range(HEAD_LEFT, HEAD_RIGHT, 20):
+            cv2.line(img, (x, EYE_LINE), (x + 10, EYE_LINE), (0, 255, 0), 3)
+        
+        # ===== Линия подбородка (зелёная пунктирная) =====
+        for x in range(HEAD_LEFT, HEAD_RIGHT, 20):
+            cv2.line(img, (x, HEAD_BOTTOM), (x + 10, HEAD_BOTTOM), (0, 255, 0), 3)
+        
+        # ===== Вертикальная осевая (тонкая) =====
+        for y in range(HEAD_TOP, HEAD_BOTTOM, 20):
+            cv2.line(img, (CENTER_X, y), (CENTER_X, y + 10), (0, 255, 0), 2)
+        
+        _, buffer = cv2.imencode(".jpg", img, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+        return buffer.tobytes()
+    
+    except Exception as e:
+        print(f"❌ Ошибка draw_gost_guide: {e}")
+        return image_bytes
+
+
 
 def check_and_crop_doc_photo(image_bytes: bytes, doc_type: str = "passport") -> bytes:
     try:
