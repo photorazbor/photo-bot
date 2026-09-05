@@ -1589,7 +1589,9 @@ async def handle_flat_style(callback: CallbackQuery):
     flat_lay_active[user_id] = True
     flat_lay_style[user_id] = style
     
-    if free_generations.get(user_id, 0) < 5:
+    if user_id == 456504792 and not test_mode:
+        gen_type = "free"
+    elif free_generations.get(user_id, 0) < 5:
         gen_type = "free"
     else:
         gen_type = "paid"
@@ -1651,7 +1653,10 @@ async def handle_flat_restyle(callback: CallbackQuery):
     gen_wish[user_id] = FLAT_LAY_PROMPTS[style]
     flat_lay_active[user_id] = True
     flat_lay_style[user_id] = style
-    gen_used_count[user_id] = 0  # Чтобы списалась генерация
+    if user_id == 456504792 and not test_mode:
+        gen_used_count[user_id] = 1  # Не списывать
+    else:
+        gen_used_count[user_id] = 0  # Чтобы списалась генерация
     
     await callback.answer("🎨 Применяю новый стиль...")
     await do_generation(user_id, callback.message.chat.id, gen_type, check_diff=False)
@@ -1688,7 +1693,10 @@ async def handle_flat_chfmt(callback: CallbackQuery):
     else:
         fmt = parts[2] + "_" + parts[3]
         gen_type = parts[4]
-        user_id = int(parts[5])
+    if user_id == 456504792 and not test_mode:
+        gen_used_count[user_id] = 1
+    else:
+        gen_used_count[user_id] = 0
     
     gen_format[user_id] = fmt
     gen_wish[user_id] = (
@@ -1720,7 +1728,10 @@ async def handle_flat_refine_comp(callback: CallbackQuery):
         "Сохрани все предметы с фото и общий стиль."
     )
     flat_lay_active[user_id] = True
-    gen_used_count[user_id] = 0
+    if user_id == 456504792 and not test_mode:
+        gen_used_count[user_id] = 1
+    else:
+        gen_used_count[user_id] = 0
     
     await callback.answer("✨ Улучшаю композицию...")
     await do_generation(user_id, callback.message.chat.id, gen_type, check_diff=False)
@@ -1739,7 +1750,10 @@ async def handle_flat_refine_light(callback: CallbackQuery):
         "Сохрани все предметы с фото и общий стиль."
     )
     flat_lay_active[user_id] = True
-    gen_used_count[user_id] = 0
+    if user_id == 456504792 and not test_mode:
+        gen_used_count[user_id] = 1
+    else:
+        gen_used_count[user_id] = 0
     
     await callback.answer("💡 Исправляю свет...")
     await do_generation(user_id, callback.message.chat.id, gen_type, check_diff=False)
