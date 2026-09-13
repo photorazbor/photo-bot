@@ -1693,10 +1693,7 @@ async def handle_flat_chfmt(callback: CallbackQuery):
     else:
         fmt = parts[2] + "_" + parts[3]
         gen_type = parts[4]
-    if user_id == 456504792 and not test_mode:
-        gen_used_count[user_id] = 1
-    else:
-        gen_used_count[user_id] = 0
+        user_id = int(parts[5])
     
     gen_format[user_id] = fmt
     gen_wish[user_id] = (
@@ -1707,7 +1704,10 @@ async def handle_flat_chfmt(callback: CallbackQuery):
         f"Сохрани все предметы с фото."
     )
     flat_lay_active[user_id] = True
-    gen_used_count[user_id] = 0
+    if user_id == 456504792 and not test_mode:
+        gen_used_count[user_id] = 1
+    else:
+        gen_used_count[user_id] = 0
     
     await callback.answer("📐 Меняю формат...")
     await do_generation(user_id, callback.message.chat.id, gen_type, check_diff=False)
@@ -1766,6 +1766,10 @@ async def handle_flat_refine_custom(callback: CallbackQuery):
     user_id = int(parts[4])
     
     user_mode[user_id] = "flat_custom"
+    if user_id == 456504792 and not test_mode:
+        gen_used_count[user_id] = 1
+    else:
+        gen_used_count[user_id] = 0
     flat_lay_active[user_id] = True
     
     await callback.answer()
@@ -2497,126 +2501,12 @@ async def handle_doc_change_outfit(callback: CallbackQuery):
             [InlineKeyboardButton(text="👕 Оставить свою одежду", callback_data=f"outfitcat_original_{doc_type_last.get(user_id, 'passport')}")],
         ])
     )
-    
-    # Увеличиваем голову
-    current = doc_adjust.get(user_id, {"head_ratio": 0.71, "shift_y": 0.0})
-    current["head_ratio"] = min(0.78, current["head_ratio"] + 0.03)
-    doc_adjust[user_id] = current
-    
-    # Перекадрируем
-    if user_id in original_photo:
-        processed = crop_doc_custom(original_photo[user_id], current["head_ratio"], current["shift_y"])
-        if processed:
-            last_photo[user_id] = processed
-            guided = draw_gost_guide(processed)
-            await bot.send_photo(
-                callback.message.chat.id,
-                BufferedInputFile(guided, filename="doc_guide.jpg"),
-                caption="🔍 Крупнее. Проверь ещё раз.",
-                reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text="🔍 Крупнее", callback_data=f"doc_adjust_bigger_{user_id}")],
-                    [InlineKeyboardButton(text="⬆️ Выше", callback_data=f"doc_adjust_up_{user_id}"),
-                     InlineKeyboardButton(text="⬇️ Ниже", callback_data=f"doc_adjust_down_{user_id}")],
-                    [InlineKeyboardButton(text="✅ Готово", callback_data=f"doc_adjust_done_{user_id}")],
-                    [InlineKeyboardButton(text="🔄 Перегенерировать", callback_data=f"doc_retry_{user_id}")],
-                ])
-            )
-
-    
-    current = doc_adjust.get(user_id, {"head_ratio": 0.71, "shift_y": 0.0})
-    current["shift_y"] = max(-0.15, current["shift_y"] - 0.03)
-    doc_adjust[user_id] = current
-    
-    if user_id in original_photo:
-        processed = crop_doc_custom(original_photo[user_id], current["head_ratio"], current["shift_y"])
-        if processed:
-            last_photo[user_id] = processed
-            guided = draw_gost_guide(processed)
-            await bot.send_photo(
-                callback.message.chat.id,
-                BufferedInputFile(guided, filename="doc_guide.jpg"),
-                caption="⬆️ Выше. Проверь ещё раз.",
-                reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text="🔍 Крупнее", callback_data=f"doc_adjust_bigger_{user_id}")],
-                    [InlineKeyboardButton(text="⬆️ Выше", callback_data=f"doc_adjust_up_{user_id}"),
-                     InlineKeyboardButton(text="⬇️ Ниже", callback_data=f"doc_adjust_down_{user_id}")],
-                    [InlineKeyboardButton(text="✅ Готово", callback_data=f"doc_adjust_done_{user_id}")],
-                    [InlineKeyboardButton(text="🔄 Перегенерировать", callback_data=f"doc_retry_{user_id}")],
-                ])
-            )
-
-    
-    current = doc_adjust.get(user_id, {"head_ratio": 0.71, "shift_y": 0.0})
-    current["shift_y"] = min(0.15, current["shift_y"] + 0.03)
-    doc_adjust[user_id] = current
-    
-    if user_id in original_photo:
-        processed = crop_doc_custom(original_photo[user_id], current["head_ratio"], current["shift_y"])
-        if processed:
-            last_photo[user_id] = processed
-            guided = draw_gost_guide(processed)
-            await bot.send_photo(
-                callback.message.chat.id,
-                BufferedInputFile(guided, filename="doc_guide.jpg"),
-                caption="⬇️ Ниже. Проверь ещё раз.",
-                reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text="🔍 Крупнее", callback_data=f"doc_adjust_bigger_{user_id}")],
-                    [InlineKeyboardButton(text="⬆️ Выше", callback_data=f"doc_adjust_up_{user_id}"),
-                     InlineKeyboardButton(text="⬇️ Ниже", callback_data=f"doc_adjust_down_{user_id}")],
-                    [InlineKeyboardButton(text="✅ Готово", callback_data=f"doc_adjust_done_{user_id}")],
-                    [InlineKeyboardButton(text="🔄 Перегенерировать", callback_data=f"doc_retry_{user_id}")],
-                ])
-            )
-
-    
-    if user_id in last_photo:
-        # Отправляем чистое фото без линий
-        await bot.send_photo(
-            callback.message.chat.id,
-            BufferedInputFile(last_photo[user_id], filename="doc_final.jpg"),
-            caption="✅ <b>Готово! Фото подготовлено по ГОСТу (35×45 мм)</b>",
-            parse_mode="HTML"
-        )
-        doc_adjust[user_id] = {"head_ratio": 0.71, "shift_y": 0.0}
-
 
 @dp.callback_query(F.data.startswith("doc_retry_"))
 async def handle_doc_retry(callback: CallbackQuery):
     user_id = int(callback.data.split("_")[-1])
     await callback.answer("🔄 Генерирую новый вариант...")
     await do_generation(user_id, callback.message.chat.id, "free", check_diff=False, mode="retry")
-
-    # Сбрасываем настройки
-    doc_adjust[user_id] = {"head_ratio": 0.71, "shift_y": 0.0}
-
-    # Кадрируем по ГОСТу
-    if user_id in last_photo:
-        processed = crop_doc_custom(last_photo[user_id], 0.71, 0.0)
-        if processed and processed != last_photo[user_id]:
-            last_photo[user_id] = processed
-
-    # Рисуем направляющие
-    if user_id in last_photo:
-        guided = draw_gost_guide(last_photo[user_id])
-        await bot.send_photo(
-            callback.message.chat.id,
-            BufferedInputFile(guided, filename="doc_guide.jpg"),
-            caption=(
-                "📐 <b>Проверь по линиям:</b>\n"
-                "🟢 Овал — голова должна заполнить его (высота 29–34 мм, ширина 19–23 мм)\n"
-                "🟢 Верхняя линия — уровень глаз\n"
-                "🟢 Нижняя линия — подбородок (отступ до низа 4–8 мм)\n"
-                "⚠️ Плечи не должны попадать в кадр"
-            ),
-            parse_mode="HTML",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="🔍 Крупнее", callback_data=f"doc_adjust_bigger_{user_id}")],
-                [InlineKeyboardButton(text="⬆️ Выше", callback_data=f"doc_adjust_up_{user_id}"),
-                 InlineKeyboardButton(text="⬇️ Ниже", callback_data=f"doc_adjust_down_{user_id}")],
-                [InlineKeyboardButton(text="✅ Готово", callback_data=f"doc_adjust_done_{user_id}")],
-                [InlineKeyboardButton(text="🔄 Перегенерировать", callback_data=f"doc_retry_{user_id}")],
-            ])
-        )
 
     # Проверка активного заказа на авторский разбор
     orders = _load_author_orders()
