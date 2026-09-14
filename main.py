@@ -804,13 +804,16 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
         gen_fail_count[user_id] = 0  # Сбрасываем счётчик неудач после успеха
         gen_fail_time[user_id] = None  # Сбрасываем время последней неудачи
         
-        # Для документов — показываем реальный размер в мм
-        if user_mode.get(user_id, "").startswith("doc_"):
+        # Определяем формат для подписи
+        mode_check = user_mode.get(user_id, "")
+        if mode_check.startswith("doc_"):
             doc_type = doc_type_last.get(user_id, "passport")
             if doc_type in DOC_FORMATS:
                 format_name = DOC_FORMATS[doc_type][0]
             else:
                 format_name = "35×45 мм (паспорт РФ)"
+        elif mode_check.startswith("studio_"):
+            format_name = dict(PORTRAIT_FORMATS).get(fmt, fmt)
         else:
             format_name = dict(FORMATS).get(fmt, fmt)
         # Отправляем фото
@@ -2272,7 +2275,7 @@ async def handle_portrait_format(callback: CallbackQuery):
     
     await callback.answer("🎨 Создаю портрет...")
     await do_generation(user_id, callback.message.chat.id, "free", check_diff=False)
-    user_mode[user_id] = "free"
+    user_mode[user_id] = "studio_angle"
     
 
 @dp.callback_query(F.data.startswith("studio_retry_"))
