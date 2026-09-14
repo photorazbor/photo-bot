@@ -173,6 +173,22 @@ FORMATS = [
     ("9_16", "📱 9:16 (сториз)"),
 ]
 
+# Форматы для студийного портрета (без панорамы 16:9)
+PORTRAIT_FORMATS = [
+    ("original", "📐 Исходный формат"),
+    ("1_1", "📱 1:1 (квадрат)"),
+    ("3_4", "📱 3:4 (вертикаль)"),
+    ("4_3", "🖼️ 4:3 (горизонт)"),
+    ("4_5", "📱 4:5 (Instagram)"),
+    ("9_16", "📱 9:16 (сториз)"),
+]
+
+# Фиксированные размеры для документов (по ГОСТу)
+DOC_FORMATS = {
+    "passport": ("35×45 мм (паспорт РФ, универсальный)", 413, 531),
+    "3x4": ("30×40 мм (3×4, удостоверения)", 354, 472),
+}
+
 def get_size_for_format(fmt: str, image_bytes: bytes = None) -> str:
     if fmt == "original" and image_bytes:
         try:
@@ -2172,7 +2188,7 @@ async def handle_studio_hair(callback: CallbackQuery):
         reply_markup=portrait_format_keyboard()
     )
     
-@dp.callback_query(F.data.startswith("hair_"))
+@dp.callback_query(F.data.startswith("hair_") & ~F.data.startswith("studio_hair_"))
 async def handle_hair(callback: CallbackQuery):
     parts = callback.data.split("_")
     if len(parts) < 4:
