@@ -805,7 +805,7 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
         gen_fail_time[user_id] = None  # Сбрасываем время последней неудачи
         
         # Для документов — показываем реальный размер в мм
-        if user_mode.get(user_id, "").startswith("doc_") or user_id in doc_type_last:
+        if user_mode.get(user_id, "").startswith("doc_"):
             doc_type = doc_type_last.get(user_id, "passport")
             if doc_type in DOC_FORMATS:
                 format_name = DOC_FORMATS[doc_type][0]
