@@ -159,6 +159,8 @@ SIZE_MAP = {
     "4:5": "896x1080",
     "16:9": "1280x720",
     "9:16": "720x1280",
+    "3x4": "354x472",
+    "passport": "413x531",
 }
 
 FORMATS = [
@@ -181,6 +183,9 @@ def get_size_for_format(fmt: str, image_bytes: bytes = None) -> str:
             return f"{w}x{h}"
         except Exception:
             pass
+    # Фиксированные размеры для документов
+    if fmt in ("passport", "3x4"):
+        return SIZE_MAP[fmt]
     key = fmt.replace("_", ":")
     return SIZE_MAP.get(key, "1024x1024")
 
@@ -190,6 +195,12 @@ def format_keyboard(gen_type: str) -> InlineKeyboardMarkup:
         for fmt, name in FORMATS
     ])
 
+def portrait_format_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=name, callback_data=f"pformat_{fmt}")]
+        for fmt, name in PORTRAIT_FORMATS
+    ])
+    
 def _load_gen():
     global free_generations, paid_generations
     if os.path.exists(GEN_FILE):
@@ -777,7 +788,15 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
         gen_fail_count[user_id] = 0  # Сбрасываем счётчик неудач после успеха
         gen_fail_time[user_id] = None  # Сбрасываем время последней неудачи
         
-        format_name = dict(FORMATS).get(fmt, fmt)
+        # Для документов — показываем реальный размер в мм
+        if user_mode.get(user_id, "").startswith("doc_") or user_id in doc_type_last:
+            doc_type = doc_type_last.get(user_id, "passport")
+            if doc_type in DOC_FORMATS:
+                format_name = DOC_FORMATS[doc_type][0]
+            else:
+                format_name = "35×45 мм (паспорт РФ)"
+        else:
+            format_name = dict(FORMATS).get(fmt, fmt)
         # Отправляем фото
         if is_flat_lay:
             # Для Flat Lay — фото БЕЗ стандартных кнопок
@@ -803,9 +822,6 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
             attempts = doc_attempts.get(user_id, 0)
             doc_kb = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="🔄 Перегенерировать — 1 раз", callback_data=f"doc_retry_{user_id}")],
-                [InlineKeyboardButton(text="👔 Сменить костюм — 1 раз", callback_data=f"doc_change_outfit_{user_id}")],
-                [InlineKeyboardButton(text="💇 Сменить причёску — 1 раз", callback_data=f"doc_change_hair_{user_id}")],
-                [InlineKeyboardButton(text="🖨 Собрать лист", callback_data=f"doc_print_{user_id}")],
                 [InlineKeyboardButton(text=f"📸 Новый документ — осталось {attempts}", callback_data=f"doc_next_{user_id}")],
                 [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
             ])
@@ -1173,10 +1189,8 @@ async def handle_doc_ready(callback: CallbackQuery):
         "📄 <b>Выберите тип документа:</b>",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🇷🇺 Паспорт РФ (35×45)", callback_data="doctype_passport")],
-            [InlineKeyboardButton(text="🌍 Виза (35×45)", callback_data="doctype_visa")],
-            [InlineKeyboardButton(text="📇 Документы (3×4)", callback_data="doctype_3x4")],
-            [InlineKeyboardButton(text="💼 Резюме (3:4)", callback_data="doctype_resume")],
+            [InlineKeyboardButton(text="🇷🇺 Паспорт РФ (35×45 мм)", callback_data="doctype_passport")],
+            [InlineKeyboardButton(text="📇 Документы (30×40 мм)", callback_data="doctype_3x4")],
         ])
     )
 
@@ -2035,6 +2049,9 @@ async def handle_outfitcat(callback: CallbackQuery):
                 [InlineKeyboardButton(text="Пиджак без галстука", callback_data=f"outfit_jacket_{doc_type}")],
                 [InlineKeyboardButton(text="Голубая рубашка", callback_data=f"outfit_blue_shirt_{doc_type}")],
                 [InlineKeyboardButton(text="Белая рубашка", callback_data=f"outfit_shirt_{doc_type}")],
+                [InlineKeyboardButton(text="Белая футболка", callback_data=f"outfit_tshirt_{doc_type}")],
+                [InlineKeyboardButton(text="Тёмная рубашка", callback_data=f"outfit_dark_shirt_{doc_type}")],
+                [InlineKeyboardButton(text="Блузка (женская)", callback_data=f"outfit_blouse_{doc_type}")],
                 [InlineKeyboardButton(text="Тёмная водолазка", callback_data=f"outfit_turtleneck_{doc_type}")],
             ])
         )
@@ -2144,12 +2161,17 @@ async def handle_studio_hair(callback: CallbackQuery):
     )
 
     gen_wish[user_id] = prompt
-    gen_format[user_id] = "3_4"
+    gen_format[user_id] = "original"
     flat_lay_active[user_id] = False
 
-    await callback.answer("🎨 Создаю портрет...")
-    await do_generation(user_id, callback.message.chat.id, "free", check_diff=False)
-
+    user_mode[user_id] = "studio_format"
+    await callback.answer()
+    await callback.message.answer(
+        "📐 <b>Выбери формат портрета:</b>",
+        parse_mode="HTML",
+        reply_markup=portrait_format_keyboard()
+    )
+    
 @dp.callback_query(F.data.startswith("hair_"))
 async def handle_hair(callback: CallbackQuery):
     parts = callback.data.split("_")
@@ -2176,12 +2198,15 @@ async def handle_hair(callback: CallbackQuery):
     doc_name = doc_names.get(doc_type, doc_type)
 
     outfit_names = {
-        "jacket_tie": "пиджак с галстуком",
-        "jacket": "пиджак без галстука",
-        "blue_shirt": "голубая рубашка",
-        "shirt": "белая рубашка",
-        "turtleneck": "тёмная водолазка",
-        "original": "оставить свою одежду",
+        "jacket_tie": "строгий пиджак с ОБЯЗАТЕЛЬНО завязанным галстуком, галстук хорошо виден, деловой стиль",
+        "jacket": "пиджак без галстука, рубашка под пиджаком, воротник аккуратный",
+        "blue_shirt": "голубая рубашка с воротником, деловой стиль, пуговицы застёгнуты",
+        "shirt": "белая рубашка с воротником, деловой стиль, пуговицы застёгнуты",
+        "tshirt": "белая футболка с коротким рукавом или без рукавов, аккуратная, чистая",
+        "dark_shirt": "тёмная рубашка (чёрная или тёмно-синяя) с воротником, деловой стиль",
+        "blouse": "светлая блузка с воротником, женская деловая одежда, аккуратная",
+        "turtleneck": "тёмная водолазка с высоким воротом, аккуратная",
+        "original": "оставить свою одежду с фото",
         "military": "военная форма",
         "rzd": "форма РЖД",
         "police": "полицейская форма",
@@ -2209,20 +2234,47 @@ async def handle_hair(callback: CallbackQuery):
     )
     
     gen_wish[user_id] = prompt
-    gen_format[user_id] = "3_4"
+    # Формат выбираем по типу документа (35×45 или 30×40)
+    if doc_type == "3x4":
+        gen_format[user_id] = "3x4"
+    else:
+        gen_format[user_id] = "passport"
     flat_lay_active[user_id] = False
 
     if doc_attempts.get(user_id, 0) > 0:
         pass
 
     await do_generation(user_id, callback.message.chat.id, "free", check_diff=False)
+
+@dp.callback_query(F.data.startswith("pformat_"))
+async def handle_portrait_format(callback: CallbackQuery):
+    fmt = callback.data.replace("pformat_", "")
+    user_id = callback.from_user.id
+    
+    gen_format[user_id] = fmt
+    user_mode[user_id] = "studio_portrait_generating"
+    
+    await callback.answer("🎨 Создаю портрет...")
+    await do_generation(user_id, callback.message.chat.id, "free", check_diff=False)
+    user_mode[user_id] = "free"
     
 
 @dp.callback_query(F.data.startswith("studio_retry_"))
 async def handle_studio_retry(callback: CallbackQuery):
     user_id = int(callback.data.split("_")[-1])
+    
+    if gen_retry_count.get(user_id, 0) >= 1:
+        await callback.answer("Лимит перегенераций исчерпан. Пришли новое фото.", show_alert=True)
+        return
+    
+    old_photo = last_photo.get(user_id)
+    
     await callback.answer("🔄 Перегенерирую...")
     await do_generation(user_id, callback.message.chat.id, "free", check_diff=False, mode="retry")
+    
+    new_photo = last_photo.get(user_id)
+    if new_photo != old_photo:
+        gen_retry_count[user_id] = 1
 
 
 @dp.callback_query(F.data.startswith("studio_next_"))
@@ -2332,7 +2384,7 @@ async def handle_photo(message: Message):
         )
         return
 
-        # Студийный портрет — загрузка фото
+    # Студийный портрет — загрузка фото
     if mode == "studio_angle":
         user_mode[user_id] = "studio_bg"
         await message.answer(
@@ -2345,7 +2397,7 @@ async def handle_photo(message: Message):
         )
         return
 
-        # Фото на документы — загрузка
+    # Фото на документы — загрузка
     if mode.startswith("doc_photo_"):
         doc_type = mode.replace("doc_photo_", "")
         user_id = message.from_user.id
@@ -2393,6 +2445,23 @@ async def handle_photo(message: Message):
                 [InlineKeyboardButton(text="💡 С лампами (светильники включены)", callback_data=f"int_setlight_lights_{user_id}")],
                 [InlineKeyboardButton(text="🔄 Как на фото (не менять)", callback_data=f"int_setlight_keep_{user_id}")],
             ])
+        )
+        return
+
+    # Защита: если пользователь в режиме выбора (не дошёл до загрузки фото)
+    if mode in (
+        "flat_lay_format",
+        "doc_type",
+        "studio_format",
+        "studio_portrait_generating",
+        "studio_bg",
+        "studio_outfit",
+        "studio_hair",
+        "flat_custom_prompt",
+    ) or mode.startswith(("doc_outfit_", "doc_hair_", "int_setlight_")):
+        await message.answer(
+            "⚠️ Сначала закончи настройку — выбери параметр из меню выше, потом пришли фото.",
+            parse_mode="HTML"
         )
         return
 
@@ -2513,10 +2582,8 @@ async def handle_doc_next(callback: CallbackQuery):
         "Выберите тип документа:",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🇷🇺 Паспорт РФ (35×45)", callback_data="doctype_passport")],
-            [InlineKeyboardButton(text="🌍 Виза (35×45)", callback_data="doctype_visa")],
-            [InlineKeyboardButton(text="📇 Документы (3×4)", callback_data="doctype_3x4")],
-            [InlineKeyboardButton(text="💼 Резюме (3:4)", callback_data="doctype_resume")],
+            [InlineKeyboardButton(text="🇷🇺 Паспорт РФ (35×45 мм)", callback_data="doctype_passport")],
+            [InlineKeyboardButton(text="📇 Документы (30×40 мм)", callback_data="doctype_3x4")],
         ])
     )
 
@@ -2577,8 +2644,19 @@ async def handle_doc_change_outfit(callback: CallbackQuery):
 @dp.callback_query(F.data.startswith("doc_retry_"))
 async def handle_doc_retry(callback: CallbackQuery):
     user_id = int(callback.data.split("_")[-1])
+    
+    if gen_retry_count.get(user_id, 0) >= 1:
+        await callback.answer("Лимит перегенераций исчерпан. Пришли новое фото.", show_alert=True)
+        return
+    
+    old_photo = last_photo.get(user_id)
+    
     await callback.answer("🔄 Генерирую новый вариант...")
     await do_generation(user_id, callback.message.chat.id, "free", check_diff=False, mode="retry")
+    
+    new_photo = last_photo.get(user_id)
+    if new_photo != old_photo:
+        gen_retry_count[user_id] = 1
 
     # Проверка активного заказа на авторский разбор
     orders = _load_author_orders()
@@ -2589,7 +2667,7 @@ async def handle_doc_retry(callback: CallbackQuery):
             break
             
     if active_order and (not active_order.get("username") or active_order["username"].startswith("id")):
-        active_order["username"] = message.from_user.username or f"id{user_id}"
+        active_order["username"] = callback.from_user.username or f"id{user_id}"
     
     if active_order:
         photo_index = len(active_order["photos"])
@@ -2600,10 +2678,10 @@ async def handle_doc_retry(callback: CallbackQuery):
             active_order["status"] = "ready"
         _save_author_orders(orders)
         if photo_count >= 5:
-            await message.answer("✅ Все 5 фото получены! Разберу в течение 24 часов и напишу тебе лично.")
+            await callback.message.answer("✅ Все 5 фото получены! Разберу в течение 24 часов и напишу тебе лично.")
             _send_telegram_message(-1004468971541, f"🔔 Заказ готов!\n<a href='tg://user?id={user_id}'>👤 Пользователь</a>\nФото: {photo_count} шт")
         else:
-            await message.answer(
+            await callback.message.answer(
                 f"📸 Фото получено ({photo_count} из 5). Можешь прислать ещё или нажать «Готово».",
                 reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                     [InlineKeyboardButton(text="✅ Готово — отправить на разбор", callback_data=f"author_ready_{user_id}")]]))
