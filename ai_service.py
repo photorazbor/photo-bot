@@ -6,6 +6,8 @@ import json
 import re
 import uuid
 import requests
+import logging
+logger = logging.getLogger(__name__)
 import os as _os
 from datetime import datetime
 
