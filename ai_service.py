@@ -166,7 +166,7 @@ Drawings: line, dashed_line, circle, frame, arrow, grid_thirds, crop_frame.
     }
 
     payload = {
-        "model": "gemini-3-flash",
+        "model": "gemini-3.6-flash",
         "stream": False,
         "messages": [
             {
