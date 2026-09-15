@@ -180,18 +180,25 @@ Drawings: line, dashed_line, circle, frame, arrow, grid_thirds, crop_frame.
 
     response = requests.post(f"{BASE_URL}/chat/completions", headers=headers, json=payload, timeout=60)
 
-    if response.status_code != 200:
-        print(f"Ошибка API: {response.status_code} {response.text}")
-        return None
+logger.info(f"🔍 analyze_photo: статус={response.status_code}, ответ={response.text[:500]}")
 
+if response.status_code != 200:
+    logger.error(f"❌ Ошибка API: {response.status_code} {response.text}")
+    return None
+
+try:
     raw_text = response.json()["choices"][0]["message"]["content"]
+except (KeyError, IndexError) as e:
+    logger.error(f"❌ Неожиданная структура ответа: {e}, ответ={response.text[:500]}")
+    return None
 
-    try:
-        return _extract_json(raw_text)
-    except (json.JSONDecodeError, AttributeError) as e:
-        print(f"Не удалось распарсить JSON: {e}\nОтвет модели: {raw_text}")
-        return None
-
+try:
+    parsed = _extract_json(raw_text)
+    logger.info(f"✅ analyze_photo распарсил: {str(parsed)[:200]}")
+    return parsed
+except (json.JSONDecodeError, AttributeError) as e:
+    logger.error(f"❌ Не удалось распарсить JSON: {e}\nОтвет модели: {raw_text[:500]}")
+    return None
 
 def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
     """Генерирует изображение через Gemini Image API на CheapAI (Формат 1)."""
