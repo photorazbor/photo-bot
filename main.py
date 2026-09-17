@@ -3063,6 +3063,23 @@ async def handle_non_photo(message: Message):
             parse_mode="HTML"
         )
         return
+
+    if text == "🎄 Новогодняя фотосессия":
+        from xmas import XMAS_INTRO, buy_keyboard
+        try:
+            await message.answer_photo(
+                photo="https://raw.githubusercontent.com/photorazbor/photo-bot/main/xmas/intro_example.jpg",
+                caption=XMAS_INTRO,
+                parse_mode="HTML",
+                reply_markup=buy_keyboard(),
+            )
+        except Exception:
+            await message.answer(
+                XMAS_INTRO,
+                parse_mode="HTML",
+                reply_markup=buy_keyboard(),
+            )
+        return
         
     if text == "📸 Разобрать фото":
         user_mode[user_id] = "free"
