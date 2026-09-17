@@ -32,7 +32,7 @@ from ai_service import analyze_photo, generate_image, create_payment_link, _load
 from image_utils import download_and_resize, image_to_bytes, draw_hints, align_interior, check_and_crop_doc_photo
 from stats import add_analysis, get_stats, add_history as stats_add_history, _load_stats as load_stats_data
 from course import get_status, add_photo, check_day, has_access, get_day_photos, _load_users, activate_free_trial
-from xmas import register_xmas_handlers, handle_xmas_photo, add_xmas_slots, has_xmas_access
+from xmas import register_xmas_handlers, handle_xmas_photo, grant_xmas_payment, consume_xmas_payment, has_xmas_payment
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -535,15 +535,13 @@ def tochka_webhook():
                             MAIN_LOOP
                         )
                     elif "Новогодняя фотосессия" in purp:
-                        # определяем тариф по сумме
-                        if amount == 299:
-                            add_xmas_slots(uid, 1)
-                        elif amount == 699:
-                            add_xmas_slots(uid, 2)
-                        elif amount == 1290:
-                            add_xmas_slots(uid, 3)
+                        grant_xmas_payment(uid)
                         asyncio.run_coroutine_threadsafe(
-                            bot.send_message(uid, "✅ Оплата получена! Можешь начать новогоднюю фотосессию — /start → «🎄 Новогодняя фотосессия»"),
+                            bot.send_message(
+                                uid,
+                                "✅ Оплата получена!\n\n"
+                                "Заходи в /start → «🎄 Новогодняя фотосессия» и продолжай."
+                            ),
                             MAIN_LOOP
                         )
                     else:
