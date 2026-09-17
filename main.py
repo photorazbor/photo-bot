@@ -667,7 +667,7 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
         
         elif wish and wish.lower() != "ок":
             # Если есть пожелание (студийный портрет, документы, стилизация)
-            prompt = wish
+            prompt = f"{wish} Размер: {img_size}. "
             
             if mode == "retry":
                 prompt += " Сделай ДРУГОЙ вариант. Не повторяй предыдущий результат. "
@@ -781,6 +781,28 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
             img = Image.open(io_module.BytesIO(result))
             if max(img.size) > 1920:
                 img.thumbnail((1920, 1920), Image.LANCZOS)
+            
+            # Принудительно приводим к выбранному формату (кроме документов)
+            mode_now = user_mode.get(user_id, "")
+            if not mode_now.startswith("doc_"):
+                target_size_str = get_size_for_format(fmt, image_bytes)
+                try:
+                    tw, th = map(int, target_size_str.split("x"))
+                    if fmt != "original" and (img.width, img.height) != (tw, th):
+                        target_ratio = tw / th
+                        src_ratio = img.width / img.height
+                        if src_ratio > target_ratio:
+                            new_w = int(img.height * target_ratio)
+                            left = (img.width - new_w) // 2
+                            img = img.crop((left, 0, left + new_w, img.height))
+                        else:
+                            new_h = int(img.width / target_ratio)
+                            top = (img.height - new_h) // 2
+                            img = img.crop((0, top, img.width, top + new_h))
+                        img = img.resize((tw, th), Image.LANCZOS)
+                except Exception:
+                    pass
+            
             buf = io_module.BytesIO()
             img.save(buf, format="JPEG", quality=92)
             result = buf.getvalue()
