@@ -169,11 +169,12 @@ def consume_xmas_payment(user_id: int):
 
 
 def has_xmas_payment(user_id: int) -> bool:
-    from main import test_mode
+    import main
     import logging
     logger = logging.getLogger(__name__)
-    logger.info(f"🔍 has_xmas_payment: user={user_id}, test_mode={test_mode}, paid={xmas_paid.get(user_id, False)}")
-    if user_id == 456504792 and test_mode:
+    tm = main.test_mode
+    logger.info(f"🔍 has_xmas_payment: user={user_id}, test_mode={tm}, paid={xmas_paid.get(user_id, False)}")
+    if user_id == 456504792 and tm:
         logger.info(f"✅ has_xmas_payment: админ в тесте, пропускаем")
         return True
     return xmas_paid.get(user_id, False)
