@@ -409,18 +409,18 @@ def register_xmas_handlers(dp):
     async def xmas_upload(callback: CallbackQuery):
         await callback.answer()
         user_id = callback.from_user.id
-        from main import user_mode
-        user_mode[user_id] = "xmas_awaiting_photo"
+        import main
+        main.user_mode[user_id] = "xmas_awaiting_photo"
         await callback.message.answer("📸 Жду фото семьи. Пришлите одно фото.")
 
     @dp.callback_query(F.data == "xmas_upload_again")
     async def xmas_upload_again(callback: CallbackQuery):
         await callback.answer()
         user_id = callback.from_user.id
-        from main import user_mode
-        user_mode[user_id] = "xmas_awaiting_photo"
+        import main
+        main.user_mode[user_id] = "xmas_awaiting_photo"
         await callback.message.answer("📸 Жду новое фото семьи.")
-
+        
     # ===== ПЕРЕГЕНЕРАЦИЯ =====
     @dp.callback_query(F.data == "xmas_regen")
     async def xmas_regen(callback: CallbackQuery):
@@ -441,12 +441,11 @@ async def handle_xmas_photo(message: Message, user_id: int, image_bytes: bytes):
     state["photo"] = image_bytes
     xmas_state[user_id] = state
 
-    from main import user_mode
-    user_mode[user_id] = "free"
+    import main
+    main.user_mode[user_id] = "free"
 
     await message.answer("✅ Фото получено! Генерирую 5 кадров. Это займёт 1–2 минуты...")
     await _generate_and_send(message, user_id, state)
-
 
 # ===== ГЕНЕРАЦИЯ =====
 
