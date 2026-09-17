@@ -89,6 +89,8 @@ gen_fail_count = {}  # НОВОЕ: счётчик неудачных генер�
 gen_fail_time = {}  # НОВОЕ: время последней неудачной генерации
 flat_lay_active = {}
 flat_lay_style = {}  # НОВОЕ: хранит выбранный стиль Flat Lay
+last_prompt = {}  # {user_id: "промпт"} — последний промпт для перегенерации
+last_format = {}  # {user_id: "9_16"} — последний формат для перегенерации
 interior_active = {}
 interior_format = {}
 interior_light = {}  # НОВОЕ: выбор освещения
@@ -881,7 +883,9 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
             ])
             await bot.send_message(chat_id, "Что дальше?", reply_markup=post_kb)
         
-        gen_wish[user_id] = ""
+        # Сохраняем промпт и формат для перегенерации (не очищаем gen_wish!)
+        last_prompt[user_id] = wish if wish else ""
+        last_format[user_id] = fmt if fmt else ""
         
     except Exception as e:
         logger.exception("Ошибка генерации")
@@ -2007,6 +2011,14 @@ async def handle_gen_retry(callback: CallbackQuery):
     if gen_retry_count.get(user_id, 0) >= 1:
         await callback.answer("Лимит перегенераций исчерпан.", show_alert=True)
         return
+
+    # Восстанавливаем последний промпт и формат
+    saved_wish = last_prompt.get(user_id, "")
+    saved_fmt = last_format.get(user_id, "")
+    if saved_wish:
+        gen_wish[user_id] = saved_wish
+    if saved_fmt:
+        gen_format[user_id] = saved_fmt
     
     # Для Flat Lay — берём исходное фото
     # Для обычных — исходное
@@ -2304,6 +2316,13 @@ async def handle_studio_retry(callback: CallbackQuery):
     if gen_retry_count.get(user_id, 0) >= 1:
         await callback.answer("Лимит перегенераций исчерпан. Пришли новое фото.", show_alert=True)
         return
+
+    saved_wish = last_prompt.get(user_id, "")
+    saved_fmt = last_format.get(user_id, "")
+    if saved_wish:
+        gen_wish[user_id] = saved_wish
+    if saved_fmt:
+        gen_format[user_id] = saved_fmt
     
     old_photo = last_photo.get(user_id)
     
@@ -2367,6 +2386,8 @@ async def handle_photo(message: Message):
     original_photo[user_id] = image_bytes
     gen_retry_count[user_id] = 0
     gen_used_count[user_id] = 0
+    last_prompt[user_id] = ""
+    last_format[user_id] = ""
     gen_fail_count[user_id] = 0  # Сбрасываем счётчик неудач
     gen_fail_time[user_id] = None  # Сбрасываем время последней неудачи
 
@@ -2686,6 +2707,13 @@ async def handle_doc_retry(callback: CallbackQuery):
     if gen_retry_count.get(user_id, 0) >= 1:
         await callback.answer("Лимит перегенераций исчерпан. Пришли новое фото.", show_alert=True)
         return
+
+    saved_wish = last_prompt.get(user_id, "")
+    saved_fmt = last_format.get(user_id, "")
+    if saved_wish:
+        gen_wish[user_id] = saved_wish
+    if saved_fmt:
+        gen_format[user_id] = saved_fmt
     
     old_photo = last_photo.get(user_id)
     
