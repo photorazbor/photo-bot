@@ -283,16 +283,11 @@ def register_xmas_handlers(dp):
         logger = logging.getLogger(__name__)
         logger.info(f"🔍 xmas_buy: user={user_id}, has_payment={has_xmas_payment(user_id)}")
 
-        # Проверяем: может, уже оплачено
-        if has_xmas_payment(user_id):
-
-        # Проверяем: может, уже оплачено
         if has_xmas_payment(user_id):
             await callback.message.answer("✅ Оплата уже получена. Начинаем!")
             await xmas_choose_car(callback.message)
             return
 
-        # Создаём платёжную ссылку
         from ai_service import create_payment_link
         link = create_payment_link(XMAS_PRICE, "Новогодняя фотосессия с ретро-авто", user_id)
         if not link:
