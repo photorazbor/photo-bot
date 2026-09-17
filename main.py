@@ -32,6 +32,7 @@ from ai_service import analyze_photo, generate_image, create_payment_link, _load
 from image_utils import download_and_resize, image_to_bytes, draw_hints, align_interior, check_and_crop_doc_photo
 from stats import add_analysis, get_stats, add_history as stats_add_history, _load_stats as load_stats_data
 from course import get_status, add_photo, check_day, has_access, get_day_photos, _load_users, activate_free_trial
+from xmas import register_xmas_handlers, handle_xmas_photo, add_xmas_slots, has_xmas_access
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -533,6 +534,18 @@ def tochka_webhook():
                             bot.send_message(uid, "✅ Оплата получена! 5 портретов начислены."),
                             MAIN_LOOP
                         )
+                    elif "Новогодняя фотосессия" in purp:
+                        # определяем тариф по сумме
+                        if amount == 299:
+                            add_xmas_slots(uid, 1)
+                        elif amount == 699:
+                            add_xmas_slots(uid, 2)
+                        elif amount == 1290:
+                            add_xmas_slots(uid, 3)
+                        asyncio.run_coroutine_threadsafe(
+                            bot.send_message(uid, "✅ Оплата получена! Можешь начать новогоднюю фотосессию — /start → «🎄 Новогодняя фотосессия»"),
+                            MAIN_LOOP
+                        )
                     else:
                         asyncio.run_coroutine_threadsafe(bot.send_message(uid, "💛 Спасибо за поддержку проекта!"), MAIN_LOOP)
                     del pending[payment_link_id]
@@ -958,6 +971,7 @@ async def handle_start(message: Message):
         ),
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🎄 Новогодняя фотосессия", callback_data="xmas_start")],
             [InlineKeyboardButton(text="📸 Разобрать фото", callback_data="new_photo")],
             [InlineKeyboardButton(text="🛠 Инструменты", callback_data="tools_menu")],
             [InlineKeyboardButton(text="🎯 Авторский разбор", callback_data="author_review")],
@@ -1101,6 +1115,7 @@ async def handle_main_menu(callback: CallbackQuery):
         ),
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🎄 Новогодняя фотосессия", callback_data="xmas_start")],
             [InlineKeyboardButton(text="📸 Разобрать фото", callback_data="new_photo")],
             [InlineKeyboardButton(text="🛠 Инструменты", callback_data="tools_menu")],
             [InlineKeyboardButton(text="🎯 Авторский разбор", callback_data="author_review")],
@@ -2404,6 +2419,11 @@ async def handle_photo(message: Message):
     photo_url = f"https://api.telegram.org/file/bot{TELEGRAM_BOT_TOKEN}/{file.file_path}"
     image = download_and_resize(photo_url, target_width=1024)
     image_bytes = image_to_bytes(image)
+
+    # ===== Новогодняя фотосессия =====
+    if mode.startswith("xmas_"):
+        await handle_xmas_photo(message, user_id, image_bytes)
+        return
     
     last_photo[user_id] = image_bytes
     original_photo[user_id] = image_bytes
@@ -3149,6 +3169,7 @@ async def handle_non_photo(message: Message):
             ),
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🎄 Новогодняя фотосессия", callback_data="xmas_start")],
                 [InlineKeyboardButton(text="📸 Разобрать фото", callback_data="new_photo")],
                 [InlineKeyboardButton(text="🛠 Инструменты", callback_data="tools_menu")],
                 [InlineKeyboardButton(text="🎯 Авторский разбор", callback_data="author_review")],
@@ -4035,6 +4056,9 @@ async def main():
     flask_thread.start()
     asyncio.create_task(daily_report())
     await dp.start_polling(bot)
+
+register_xmas_handlers(dp)
+
 
 if __name__ == "__main__":
     asyncio.run(main())
