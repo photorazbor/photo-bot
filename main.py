@@ -32,7 +32,7 @@ from ai_service import analyze_photo, generate_image, create_payment_link, _load
 from image_utils import download_and_resize, image_to_bytes, draw_hints, align_interior, check_and_crop_doc_photo
 from stats import add_analysis, get_stats, add_history as stats_add_history, _load_stats as load_stats_data
 from course import get_status, add_photo, check_day, has_access, get_day_photos, _load_users, activate_free_trial
-from xmas import register_xmas_handlers, handle_xmas_photo, grant_xmas_payment, consume_xmas_payment, has_xmas_payment
+from xmas import register_xmas_handlers, handle_xmas_photo, grant_xmas_payment, consume_xmas_payment, has_xmas_payment, xmas_awaiting_photo
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
