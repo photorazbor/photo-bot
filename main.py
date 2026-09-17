@@ -2093,6 +2093,7 @@ async def handle_outfitcat(callback: CallbackQuery):
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="Оставить как есть", callback_data=f"hair_keep_{doc_type}")],
                 [InlineKeyboardButton(text="Аккуратная укладка", callback_data=f"hair_neat_{doc_type}")],
+                [InlineKeyboardButton(text="Лёгкая коррекция", callback_data=f"hair_fix_{doc_type}")],
             ])
         )
 
