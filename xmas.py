@@ -169,6 +169,10 @@ def consume_xmas_payment(user_id: int):
 
 
 def has_xmas_payment(user_id: int) -> bool:
+    # Тестовый режим для админа — пропускаем оплату
+    from main import test_mode
+    if user_id == 456504792 and test_mode:
+        return True
     return xmas_paid.get(user_id, False)
 
 
