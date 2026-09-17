@@ -1046,16 +1046,8 @@ async def handle_test(message: Message):
         return
     test_mode = not test_mode
     _save_test_mode()
-        test_keyboard = ReplyKeyboardMarkup(
-            keyboard=[
-                [KeyboardButton(text="📸 Разобрать фото"), KeyboardButton(text="🛠 Инструменты")],
-                [KeyboardButton(text="🎓 Мини-курс"), KeyboardButton(text="🎯 Авторский разбор")],
-                [KeyboardButton(text="💎 Баланс"), KeyboardButton(text="💛 Поддержать проект")],
-                [KeyboardButton(text="👤 Об авторе"), KeyboardButton(text="🏠 Главное меню")],
-            ],
-            resize_keyboard=True
-        )
-        await message.answer("🧪 Тестовый режим ВКЛ", reply_markup=test_keyboard)
+    if test_mode:
+        await message.answer("🧪 Тестовый режим ВКЛ", reply_markup=USER_KEYBOARD)
     else:
         await message.answer("👑 Режим автора ВКЛ", reply_markup=ADMIN_KEYBOARD)
 
