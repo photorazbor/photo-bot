@@ -250,19 +250,22 @@ def check_and_crop_doc_photo(image_bytes: bytes, doc_type: str = "passport") -> 
         height, width = img.shape[:2]
 
         if doc_type == "passport":
-            # Сверху отрезаем 0% (небольшой запас над макушкой)
             top_crop = int(height * 0.00)
-            # Снизу отрезаем 5% (убираем лишнее тело)
             bottom_crop = int(height * 0.05)
             
             cropped = img[top_crop:height - bottom_crop, :]
             
             h2, w2 = cropped.shape[:2]
             target_ratio = 35 / 45
-            new_w = int(h2 * target_ratio)
-            if new_w <= w2:
+            
+            if w2 / h2 > target_ratio:
+                new_w = int(h2 * target_ratio)
                 start_x = (w2 - new_w) // 2
                 cropped = cropped[:, start_x:start_x + new_w]
+            else:
+                new_h = int(w2 / target_ratio)
+                start_y = (h2 - new_h) // 2
+                cropped = cropped[start_y:start_y + new_h, :]
         else:
             cropped = img
 
