@@ -47,6 +47,7 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 
 USER_KEYBOARD = ReplyKeyboardMarkup(
     keyboard=[
+        [KeyboardButton(text="🎄 Новогодняя фотосессия")],
         [KeyboardButton(text="📸 Разобрать фото"), KeyboardButton(text="🛠 Инструменты")],
         [KeyboardButton(text="🎓 Мини-курс"), KeyboardButton(text="🎯 Авторский разбор")],
         [KeyboardButton(text="💎 Баланс"), KeyboardButton(text="💛 Поддержать проект")],
