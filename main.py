@@ -98,6 +98,23 @@ interior_format = {}
 interior_light = {}  # НОВОЕ: выбор освещения
 change_format_warnings = {}
 test_mode = False
+TEST_MODE_FILE = "test_mode.json"
+
+def _load_test_mode():
+    global test_mode
+    if os.path.exists(TEST_MODE_FILE):
+        try:
+            with open(TEST_MODE_FILE, "r") as f:
+                data = json.load(f)
+                test_mode = data.get("enabled", False)
+        except Exception:
+            test_mode = False
+
+def _save_test_mode():
+    with open(TEST_MODE_FILE, "w") as f:
+        json.dump({"enabled": test_mode}, f)
+
+_load_test_mode()
 
 HISTORY_FILE = "history.json"
 PROMO_FILE = "promocodes.json"
@@ -1028,7 +1045,7 @@ async def handle_test(message: Message):
         await message.answer("Только автор.")
         return
     test_mode = not test_mode
-    if test_mode:
+    _save_test_mode()
         test_keyboard = ReplyKeyboardMarkup(
             keyboard=[
                 [KeyboardButton(text="📸 Разобрать фото"), KeyboardButton(text="🛠 Инструменты")],
