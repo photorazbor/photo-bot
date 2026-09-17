@@ -2421,7 +2421,7 @@ async def handle_pay_studio_portrait(callback: CallbackQuery):
 async def handle_photo(message: Message):
     user_id = message.from_user.id
     mode = user_mode.get(user_id, "")
-    logger.info(f"📸 handle_photo: user={user_id}, mode={mode}")   # ← добавь
+    logger.info(f"📸 handle_photo: user={user_id}, mode={mode}")
 
     photo = message.photo[-1]
     file = await bot.get_file(photo.file_id)
