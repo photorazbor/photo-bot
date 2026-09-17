@@ -467,7 +467,7 @@ async def _generate_and_send(message: Message, user_id: int, state: dict):
     base_prompt = scene["prompt"].format(car=car["prompt"])
     outfit_text = outfit["prompt"]
 
-    # Разные ракурсы для 5 кадров
+# ВРЕМЕННО: 1 кадр для проверки генерации
     views = [
         "Общий план, все герои в кадре целиком.",
         "Средний план, герои по пояс.",
@@ -487,16 +487,21 @@ async def _generate_and_send(message: Message, user_id: int, state: dict):
     results = []
     failed = 0
 
+    import logging
+    _log = logging.getLogger(__name__)
     for i, view in enumerate(views):
         try:
+            _log.info(f"🎨 xmas кадр {i+1}/{len(views)}: старт")
             prompt = full_prompt_base + view + f" Размер: 1024x1024."
             img = generate_image(photo, prompt)
             if img:
+                _log.info(f"✅ xmas кадр {i+1}/{len(views)}: получен ({len(img)} байт)")
                 results.append(img)
             else:
+                _log.warning(f"❌ xmas кадр {i+1}/{len(views)}: generate_image вернул None")
                 failed += 1
         except Exception as e:
-            print(f"❌ Ошибка генерации кадра {i+1}: {e}")
+            _log.exception(f"❌ xmas кадр {i+1}/{len(views)}: исключение {e}")
             failed += 1
 
     if not results:
