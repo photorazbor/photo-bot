@@ -2,8 +2,8 @@
 Новогодняя фотосессия с ретро-автомобилем.
 Отдельный модуль — не конфликтует с существующими режимами бота.
 """
-import json
 import os
+import json
 from datetime import datetime
 
 from aiogram import F
@@ -22,19 +22,19 @@ XMAS_CARS = {
     "volga_black": {
         "name": "ГАЗ-21 «Волга» — чёрная",
         "short": "🚗 Волга чёрная",
-        "preview": "https://raw.githubusercontent.com/photorazev/photo-bot/main/xmas/cars/volga_black.jpg",
+        "preview": "https://raw.githubusercontent.com/photorazbor/photo-bot/main/xmas/cars/volga_black.jpg",
         "prompt": "чёрный ретро-автомобиль ГАЗ-21 «Волга» 1960-х годов, классический советский седан, хромированные детали",
     },
     "volga_red_white": {
         "name": "ГАЗ-21 «Волга» — бело-красная",
         "short": "🚗 Волга бело-красная",
-        "preview": "https://raw.githubusercontent.com/photorazev/photo-bot/main/xmas/cars/volga_red_white.jpg",
+        "preview": "https://raw.githubusercontent.com/photorazbor/photo-bot/main/xmas/cars/volga_red_white.jpg",
         "prompt": "двухцветный бело-красный ретро-автомобиль ГАЗ-21 «Волга» 1960-х годов, парадный советский седан, хром",
     },
     "zaz_blue": {
         "name": "Запорожец — голубой",
         "short": "🚗 Запорожец голубой",
-        "preview": "https://raw.githubusercontent.com/photorazev/photo-bot/main/xmas/cars/zaz_blue.jpg",
+        "preview": "https://raw.githubusercontent.com/photorazbor/photo-bot/main/xmas/cars/zaz_blue.jpg",
         "prompt": "голубой ретро-автомобиль ЗАЗ-965 «Запорожец» 1960-х годов, компактный советский автомобиль, круглые фары",
     },
 }
@@ -43,7 +43,7 @@ XMAS_SCENES = {
     "hood": {
         "name": "На капоте",
         "short": "🎅 На капоте",
-        "preview": "https://raw.githubusercontent.com/photorazev/photo-bot/main/xmas/scenes/hood.jpg",
+        "preview": "https://raw.githubusercontent.com/photorazbor/photo-bot/main/xmas/scenes/hood.jpg",
         "orientation": "portrait",
         "prompt": (
             "Все герои сидят на капоте {car}, позади — большая новогодняя ёлка с гирляндами. "
@@ -54,7 +54,7 @@ XMAS_SCENES = {
     "windshield": {
         "name": "Через лобовое стекло",
         "short": "🚗 Через лобовое стекло",
-        "preview": "https://raw.githubusercontent.com/photorazev/photo-bot/main/xmas/scenes/windshield.jpg",
+        "preview": "https://raw.githubusercontent.com/photorazbor/photo-bot/main/xmas/scenes/windshield.jpg",
         "orientation": "landscape",
         "prompt": (
             "Съёмка снаружи через лобовое стекло {car}. Все герои сидят внутри автомобиля, "
@@ -65,7 +65,7 @@ XMAS_SCENES = {
     "arrival": {
         "name": "Прибытие с подарками",
         "short": "🎁 Прибытие с подарками",
-        "preview": "https://raw.githubusercontent.com/photorazev/photo-bot/main/xmas/scenes/arrival.jpg",
+        "preview": "https://raw.githubusercontent.com/photorazbor/photo-bot/main/xmas/scenes/arrival.jpg",
         "orientation": "landscape",
         "prompt": (
             "Все герои выходят из {car} с чемоданами, сумками и коробками с подарками. "
@@ -76,7 +76,7 @@ XMAS_SCENES = {
     "tree": {
         "name": "Зимняя сказка на фоне ёлки",
         "short": "🌲 На фоне ёлки",
-        "preview": "https://raw.githubusercontent.com/photorazev/photo-bot/main/xmas/scenes/tree.jpg",
+        "preview": "https://raw.githubusercontent.com/photorazbor/photo-bot/main/xmas/scenes/tree.jpg",
         "orientation": "portrait",
         "prompt": (
             "{car} стоит чуть в стороне, все герои — на фоне огромной украшенной ёлки с гирляндами. "
@@ -86,7 +86,7 @@ XMAS_SCENES = {
     "toast": {
         "name": "С бокалами у машины",
         "short": "🥂 С бокалами",
-        "preview": "https://raw.githubusercontent.com/photorazev/photo-bot/main/xmas/scenes/toast.jpg",
+        "preview": "https://raw.githubusercontent.com/photorazbor/photo-bot/main/xmas/scenes/toast.jpg",
         "orientation": "portrait",
         "prompt": (
             "Все герои стоят, облокотившись на {car}, в руках бокалы с шампанским или какао. "
@@ -97,7 +97,7 @@ XMAS_SCENES = {
     "window": {
         "name": "Снежный кадр через окно дома",
         "short": "❄️ Через окно дома",
-        "preview": "https://raw.githubusercontent.com/photorazev/photo-bot/main/xmas/scenes/window.jpg",
+        "preview": "https://raw.githubusercontent.com/photorazbor/photo-bot/main/xmas/scenes/window.jpg",
         "orientation": "landscape",
         "prompt": (
             "Съёмка с улицы через окно дома. За стеклом — все герои внутри дома, "
@@ -125,68 +125,51 @@ XMAS_OUTFITS = {
     },
 }
 
-XMAS_TARIFFS = {
-    "basic": {
-        "name": "Базовый",
-        "price": 299,
-        "scenes": 1,
-        "photos_per_scene": 3,
-        "reels": 0,
-        "priority": False,
-    },
-    "optimal": {
-        "name": "Оптимальный",
-        "price": 699,
-        "scenes": 2,
-        "photos_per_scene": 3,
-        "reels": 1,
-        "priority": False,
-    },
-    "gift": {
-        "name": "Подарочный",
-        "price": 1290,
-        "scenes": 3,
-        "photos_per_scene": 4,
-        "reels": 2,
-        "priority": True,
-    },
-}
+# ===== КОНФИГУРАЦИЯ =====
+XMAS_PRICE = 399  # Единая цена за фотосессию
+XMAS_PHOTOS = 5   # Сколько кадров делаем в одной фотосессии
 
-XMAS_SLOTS_FILE = "xmas_slots.json"
+XMAS_PAID_FILE = "xmas_paid.json"
 
-# ===== СОСТОЯНИЯ ПОЛЬЗОВАТЕЛЯ =====
-# Храним все промежуточные выборы здесь
-xmas_state = {}  # {user_id: {"car": ..., "scene": ..., "outfit": ..., "upload_mode": ..., "photos": []}}
-xmas_slots = {}  # {user_id: 3} — сколько сценариев осталось
+# ===== СОСТОЯНИЕ =====
+xmas_state = {}  # {user_id: {"car": ..., "scene": ..., "outfit": ..., "photo": bytes, "prompt": str}}
+xmas_paid = {}   # {user_id: True/False} — оплачена ли фотосессия
 
 
-def _load_slots():
-    global xmas_slots
-    if os.path.exists(XMAS_SLOTS_FILE):
+def _load_paid():
+    global xmas_paid
+    if os.path.exists(XMAS_PAID_FILE):
         try:
-            with open(XMAS_SLOTS_FILE, "r", encoding="utf-8") as f:
+            with open(XMAS_PAID_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                xmas_slots = {int(k): v for k, v in data.items()}
+                xmas_paid = {int(k): v for k, v in data.items()}
         except Exception:
-            xmas_slots = {}
+            xmas_paid = {}
 
 
-def _save_slots():
-    with open(XMAS_SLOTS_FILE, "w", encoding="utf-8") as f:
-        json.dump({str(k): v for k, v in xmas_slots.items()}, f, ensure_ascii=False, indent=2)
+def _save_paid():
+    with open(XMAS_PAID_FILE, "w", encoding="utf-8") as f:
+        json.dump({str(k): v for k, v in xmas_paid.items()}, f, ensure_ascii=False, indent=2)
 
 
-_load_slots()
+_load_paid()
 
 
-def add_xmas_slots(user_id: int, count: int):
-    """Начисляет слоты после оплаты. Вызывается из вебхука."""
-    xmas_slots[user_id] = xmas_slots.get(user_id, 0) + count
-    _save_slots()
+def grant_xmas_payment(user_id: int):
+    """Вызывается из вебхука Точки после оплаты."""
+    xmas_paid[user_id] = True
+    _save_paid()
 
 
-def has_xmas_access(user_id: int) -> bool:
-    return xmas_slots.get(user_id, 0) > 0
+def consume_xmas_payment(user_id: int):
+    """Списывает оплату после успешной генерации."""
+    if user_id in xmas_paid:
+        xmas_paid[user_id] = False
+        _save_paid()
+
+
+def has_xmas_payment(user_id: int) -> bool:
+    return xmas_paid.get(user_id, False)
 
 
 # ===== КЛАВИАТУРЫ =====
@@ -195,7 +178,7 @@ def cars_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=car["short"], callback_data=f"xmas_car_{key}")]
         for key, car in XMAS_CARS.items()
-    ] + [[InlineKeyboardButton(text="🔙 Назад", callback_data="xmas_back_start")]])
+    ] + [[InlineKeyboardButton(text="🔙 Назад", callback_data="xmas_start")]])
 
 
 def scenes_keyboard():
@@ -214,43 +197,52 @@ def outfits_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def upload_mode_keyboard():
+def upload_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="👨‍👩‍👧 Все вместе (1 фото)", callback_data="xmas_upload_together")],
-        [InlineKeyboardButton(text="👥 По отдельности (до 5 фото)", callback_data="xmas_upload_separate")],
+        [InlineKeyboardButton(text="📸 Загрузить фото семьи", callback_data="xmas_upload")],
         [InlineKeyboardButton(text="🔙 Назад", callback_data="xmas_back_outfit")],
     ])
 
 
-def tariffs_keyboard():
-    rows = []
-    for key, t in XMAS_TARIFFS.items():
-        rows.append([InlineKeyboardButton(
-            text=f"{t['name']} — {t['price']} ₽ ({t['scenes']} сцен.)",
-            callback_data=f"xmas_buy_{key}"
-        )])
-    rows.append([InlineKeyboardButton(text="🔙 Назад", callback_data="xmas_back_start")])
-    return InlineKeyboardMarkup(inline_keyboard=rows)
+def buy_keyboard():
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=f"💳 Оплатить {XMAS_PRICE} ₽", callback_data="xmas_buy")],
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="xmas_start")],
+    ])
 
 
-# ===== ТЕКСТЫ ЭКРАНОВ =====
+def result_keyboard():
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔄 Перегенерировать", callback_data="xmas_regen")],
+        [InlineKeyboardButton(text="📷 Загрузить другое фото", callback_data="xmas_upload_again")],
+        [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
+    ])
+
+
+# ===== ТЕКСТЫ =====
 
 XMAS_INTRO = (
     "🎄 <b>Новогодняя фотосессия с ретро-автомобилем</b>\n\n"
-    "Пришлите фото своей семьи — я соберу вас вместе в зимней сказке с настоящим ретро-авто. "
-    "Ёлки, гирлянды, снег, тёплый свет — как кадр из старого доброго кино.\n\n"
+    "Пришлите <b>одно общее фото семьи</b> — я соберу вас вместе в зимней сказке "
+    "с настоящим ретро-авто. Ёлки, гирлянды, снег, тёплый свет — как кадр из старого кино.\n\n"
     "📸 <b>Что получите:</b>\n"
-    "• 3–12 готовых кадров\n"
+    f"• {XMAS_PHOTOS} готовых кадров\n"
     "• Разные ракурсы и планы\n"
-    "• С сохранением лиц всех участников\n\n"
+    "• Сохранение лиц всех участников\n\n"
     "⏱ Готово за 2–3 минуты\n\n"
-    "🎬 <b>Примеры того, что получится — ниже</b>\n\n"
-    "Выберите тариф, чтобы начать:"
+    f"💰 Стоимость: <b>{XMAS_PRICE} ₽</b>"
 )
 
-XMAS_NO_ACCESS = (
-    "🎄 <b>Новогодняя фотосессия</b>\n\n"
-    "Для доступа нужен один из пакетов. Выберите тариф:"
+XMAS_CHOOSE_CAR = "🚗 <b>Шаг 1 из 4. Выберите автомобиль:</b>"
+XMAS_CHOOSE_SCENE = "🎬 <b>Шаг 2 из 4. Выберите сценарий:</b>"
+XMAS_CHOOSE_OUTFIT = "👗 <b>Шаг 3 из 4. Выберите образ:</b>"
+XMAS_UPLOAD = (
+    "📸 <b>Шаг 4 из 4. Пришлите фото семьи</b>\n\n"
+    "Требования:\n"
+    "• Все видны целиком (в полный рост или по грудь)\n"
+    "• Лица чёткие, без сильных теней\n"
+    "• Хорошее освещение\n\n"
+    "После получения фото — сгенерирую 5 кадров."
 )
 
 
@@ -262,69 +254,53 @@ def register_xmas_handlers(dp):
     @dp.callback_query(F.data == "xmas_start")
     async def xmas_start(callback: CallbackQuery):
         await callback.answer()
-        user_id = callback.from_user.id
-
-        # Показываем интро с примерами
-        # ФОТО-ПРИМЕРЫ: замени ссылки ниже на свои, когда будут готовы
-        example_url = "https://raw.githubusercontent.com/photorazev/photo-bot/main/xmas/intro_example.jpg"
-
         try:
             await callback.message.answer_photo(
-                photo=example_url,
+                photo="https://raw.githubusercontent.com/photorazbor/photo-bot/main/xmas/intro_example.jpg",
                 caption=XMAS_INTRO,
                 parse_mode="HTML",
-                reply_markup=tariffs_keyboard(),
+                reply_markup=buy_keyboard(),
             )
         except Exception:
-            # Если фото не найдено — шлём текстом
             await callback.message.answer(
                 XMAS_INTRO,
                 parse_mode="HTML",
-                reply_markup=tariffs_keyboard(),
+                reply_markup=buy_keyboard(),
             )
 
-    @dp.callback_query(F.data == "xmas_back_start")
-    async def xmas_back_start(callback: CallbackQuery):
-        await callback.answer()
-        await callback.message.answer(
-            "🎄 Возвращаемся к началу. Выберите тариф:",
-            reply_markup=tariffs_keyboard(),
-        )
-
-    # ===== ПОКУПКА =====
-    @dp.callback_query(F.data.startswith("xmas_buy_"))
+    @dp.callback_query(F.data == "xmas_buy")
     async def xmas_buy(callback: CallbackQuery):
         await callback.answer()
-        tariff_key = callback.data.replace("xmas_buy_", "")
-        tariff = XMAS_TARIFFS.get(tariff_key)
-        if not tariff:
-            await callback.message.answer("❌ Тариф не найден.")
+        user_id = callback.from_user.id
+
+        # Проверяем: может, уже оплачено
+        if has_xmas_payment(user_id):
+            await callback.message.answer("✅ Оплата уже получена. Начинаем!")
+            await xmas_choose_car(callback.message)
             return
 
-        user_id = callback.from_user.id
+        # Создаём платёжную ссылку
+        from ai_service import create_payment_link
+        link = create_payment_link(XMAS_PRICE, "Новогодняя фотосессия с ретро-авто", user_id)
+        if not link:
+            await callback.message.answer("⚠️ Не удалось создать ссылку. Попробуйте позже.")
+            return
+
         await callback.message.answer(
-            f"💳 <b>{tariff['name']} — {tariff['price']} ₽</b>\n\n"
-            f"📸 {tariff['scenes']} сцен. × {tariff['photos_per_scene']} кадра\n"
-            f"🎬 Reels: {tariff['reels']}\n\n"
-            "Оплата будет подключена на следующем этапе. "
-            "Пока функция в тестовом режиме — обратитесь к администратору."
+            f"💳 <b>Оплата новогодней фотосессии — {XMAS_PRICE} ₽</b>\n\n"
+            f"В пакет входит {XMAS_PHOTOS} готовых кадров.\n\n"
+            "Если Chrome не открывает страницу — используйте Яндекс Браузер.\n"
+            "Это связано с сертификатами Минцифры.",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text=f"💳 Оплатить {XMAS_PRICE} ₽", url=link)]
+            ])
         )
 
     # ===== ВЫБОР МАШИНЫ =====
-    @dp.callback_query(F.data == "xmas_choose")
-    async def xmas_choose(callback: CallbackQuery):
-        await callback.answer()
-        user_id = callback.from_user.id
-
-        if not has_xmas_access(user_id):
-            await callback.message.answer(XMAS_NO_ACCESS, parse_mode="HTML", reply_markup=tariffs_keyboard())
-            return
-
-        xmas_state[user_id] = {"photos": []}
-
-        await callback.message.answer(
-            "🚗 <b>Шаг 1 из 4. Выберите автомобиль:</b>\n\n"
-            "Каждая машина — со своим характером.",
+    async def xmas_choose_car(msg):
+        await msg.answer(
+            XMAS_CHOOSE_CAR,
             parse_mode="HTML",
             reply_markup=cars_keyboard(),
         )
@@ -338,20 +314,20 @@ def register_xmas_handlers(dp):
             return
 
         user_id = callback.from_user.id
-        xmas_state.setdefault(user_id, {"photos": []})
+        xmas_state.setdefault(user_id, {})
         xmas_state[user_id]["car"] = car_key
 
         car = XMAS_CARS[car_key]
         try:
             await callback.message.answer_photo(
                 photo=car["preview"],
-                caption=f"✅ Выбрано: <b>{car['name']}</b>\n\n🎬 <b>Шаг 2 из 4. Выберите сценарий:</b>",
+                caption=f"✅ <b>{car['name']}</b>\n\n{XMAS_CHOOSE_SCENE}",
                 parse_mode="HTML",
                 reply_markup=scenes_keyboard(),
             )
         except Exception:
             await callback.message.answer(
-                f"✅ Выбрано: <b>{car['name']}</b>\n\n🎬 <b>Шаг 2 из 4. Выберите сценарий:</b>",
+                f"✅ <b>{car['name']}</b>\n\n{XMAS_CHOOSE_SCENE}",
                 parse_mode="HTML",
                 reply_markup=scenes_keyboard(),
             )
@@ -359,10 +335,7 @@ def register_xmas_handlers(dp):
     @dp.callback_query(F.data == "xmas_back_car")
     async def xmas_back_car(callback: CallbackQuery):
         await callback.answer()
-        await callback.message.answer(
-            "🚗 <b>Выберите автомобиль:</b>",
-            reply_markup=cars_keyboard(),
-        )
+        await callback.message.answer(XMAS_CHOOSE_CAR, parse_mode="HTML", reply_markup=cars_keyboard())
 
     # ===== ВЫБОР СЦЕНАРИЯ =====
     @dp.callback_query(F.data.startswith("xmas_scene_"))
@@ -374,20 +347,20 @@ def register_xmas_handlers(dp):
             return
 
         user_id = callback.from_user.id
-        xmas_state.setdefault(user_id, {"photos": []})
+        xmas_state.setdefault(user_id, {})
         xmas_state[user_id]["scene"] = scene_key
 
         scene = XMAS_SCENES[scene_key]
         try:
             await callback.message.answer_photo(
                 photo=scene["preview"],
-                caption=f"✅ Сценарий: <b>{scene['name']}</b>\n\n👗 <b>Шаг 3 из 4. Выберите образ:</b>",
+                caption=f"✅ <b>{scene['name']}</b>\n\n{XMAS_CHOOSE_OUTFIT}",
                 parse_mode="HTML",
                 reply_markup=outfits_keyboard(),
             )
         except Exception:
             await callback.message.answer(
-                f"✅ Сценарий: <b>{scene['name']}</b>\n\n👗 <b>Шаг 3 из 4. Выберите образ:</b>",
+                f"✅ <b>{scene['name']}</b>\n\n{XMAS_CHOOSE_OUTFIT}",
                 parse_mode="HTML",
                 reply_markup=outfits_keyboard(),
             )
@@ -395,10 +368,7 @@ def register_xmas_handlers(dp):
     @dp.callback_query(F.data == "xmas_back_scene")
     async def xmas_back_scene(callback: CallbackQuery):
         await callback.answer()
-        await callback.message.answer(
-            "🎬 <b>Выберите сценарий:</b>",
-            reply_markup=scenes_keyboard(),
-        )
+        await callback.message.answer(XMAS_CHOOSE_SCENE, parse_mode="HTML", reply_markup=scenes_keyboard())
 
     # ===== ВЫБОР ОБРАЗА =====
     @dp.callback_query(F.data.startswith("xmas_outfit_"))
@@ -410,137 +380,142 @@ def register_xmas_handlers(dp):
             return
 
         user_id = callback.from_user.id
-        xmas_state.setdefault(user_id, {"photos": []})
+        xmas_state.setdefault(user_id, {})
         xmas_state[user_id]["outfit"] = outfit_key
 
         outfit = XMAS_OUTFITS[outfit_key]
         await callback.message.answer(
-            f"✅ Образ: <b>{outfit['name']}</b>\n\n"
-            "📸 <b>Шаг 4 из 4. Как загрузим фото?</b>\n\n"
-            "• <b>Все вместе</b> — если у вас есть одно общее фото семьи\n"
-            "• <b>По отдельности</b> — если каждый присылает своё фото (до 5 человек)",
+            f"✅ <b>{outfit['name']}</b>\n\n{XMAS_UPLOAD}",
             parse_mode="HTML",
-            reply_markup=upload_mode_keyboard(),
+            reply_markup=upload_keyboard(),
         )
 
     @dp.callback_query(F.data == "xmas_back_outfit")
     async def xmas_back_outfit(callback: CallbackQuery):
         await callback.answer()
-        await callback.message.answer(
-            "👗 <b>Выберите образ:</b>",
-            reply_markup=outfits_keyboard(),
-        )
+        await callback.message.answer(XMAS_CHOOSE_OUTFIT, parse_mode="HTML", reply_markup=outfits_keyboard())
 
-    # ===== РЕЖИМ ЗАГРУЗКИ =====
-    @dp.callback_query(F.data == "xmas_upload_together")
-    async def xmas_upload_together(callback: CallbackQuery):
+    # ===== ЗАГРУЗКА ФОТО =====
+    @dp.callback_query(F.data == "xmas_upload")
+    async def xmas_upload(callback: CallbackQuery):
         await callback.answer()
         user_id = callback.from_user.id
-        xmas_state.setdefault(user_id, {"photos": []})
-        xmas_state[user_id]["upload_mode"] = "together"
         from main import user_mode
         user_mode[user_id] = "xmas_awaiting_photo"
+        await callback.message.answer("📸 Жду фото семьи. Пришлите одно фото.")
 
-        await callback.message.answer(
-            "📸 <b>Пришлите одно общее фото семьи.</b>\n\n"
-            "Требования:\n"
-            "• Все видны целиком (в полный рост или по грудь)\n"
-            "• Лица чёткие, без сильных теней\n"
-            "• Хорошее освещение\n\n"
-            "После получения фото — сгенерирую серию кадров."
-        )
-
-    @dp.callback_query(F.data == "xmas_upload_separate")
-    async def xmas_upload_separate(callback: CallbackQuery):
+    @dp.callback_query(F.data == "xmas_upload_again")
+    async def xmas_upload_again(callback: CallbackQuery):
         await callback.answer()
         user_id = callback.from_user.id
-        xmas_state.setdefault(user_id, {"photos": []})
-        xmas_state[user_id]["upload_mode"] = "separate"
-        xmas_state[user_id]["photos"] = []
         from main import user_mode
         user_mode[user_id] = "xmas_awaiting_photo"
+        await callback.message.answer("📸 Жду новое фото семьи.")
 
-        await callback.message.answer(
-            "📸 <b>Присылайте фото по одному.</b>\n\n"
-            "До 5 человек. После каждого фото — кнопки «Добавить ещё» или «Готово».\n\n"
-            "Требования к каждому фото:\n"
-            "• Человек виден в полный рост или по грудь\n"
-            "• Лицо чёткое, свет ровный"
-        )
-
-
-# ===== ОБРАБОТКА ФОТО В РЕЖИМЕ xmas_ =====
-
-async def handle_xmas_photo(message: Message, user_id: int, image_bytes: bytes):
-    """
-    Ловит фото, когда user_mode начинается на "xmas_".
-    Вызывается из main.py в handle_photo.
-    """
-    state = xmas_state.get(user_id, {})
-    mode = state.get("upload_mode", "together")
-
-    if mode == "together":
-        state["photos"] = [image_bytes]
-        xmas_state[user_id] = state
-
-        await message.answer(
-            "✅ Фото получено! Сейчас сгенерирую серию кадров...\n\n"
-            "⚠️ Генерация будет подключена на следующем этапе. "
-            "Пока это демонстрация конструктора."
-        )
-        from main import user_mode
-        user_mode[user_id] = "free"
-        return
-
-    if mode == "separate":
-        photos = state.get("photos", [])
-        if len(photos) >= 5:
-            await message.answer("❌ Максимум 5 человек. Нажмите «Готово».")
-            return
-        photos.append(image_bytes)
-        state["photos"] = photos
-        xmas_state[user_id] = state
-
-        count = len(photos)
-        kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text=f"➕ Добавить ещё ({count}/5)", callback_data="xmas_more_photo")],
-            [InlineKeyboardButton(text="✅ Готово", callback_data="xmas_done_photos")],
-        ])
-        await message.answer(
-            f"✅ Фото {count} получено.\n\n"
-            "Пришлите ещё или нажмите «Готово».",
-            reply_markup=kb,
-        )
-
-
-# Обработчики для кнопок "добавить ещё" и "готово" — регистрируются в register_xmas_handlers
-def register_xmas_photo_handlers(dp):
-    @dp.callback_query(F.data == "xmas_more_photo")
-    async def xmas_more_photo(callback: CallbackQuery):
-        await callback.answer()
-        await callback.message.answer("📸 Пришлите следующее фото.")
-
-    @dp.callback_query(F.data == "xmas_done_photos")
-    async def xmas_done_photos(callback: CallbackQuery):
-        await callback.answer()
+    # ===== ПЕРЕГЕНЕРАЦИЯ =====
+    @dp.callback_query(F.data == "xmas_regen")
+    async def xmas_regen(callback: CallbackQuery):
+        await callback.answer("🎨 Генерирую ещё раз...")
         user_id = callback.from_user.id
         state = xmas_state.get(user_id, {})
-        count = len(state.get("photos", []))
-
-        if count == 0:
-            await callback.message.answer("❌ Вы не загрузили ни одного фото.")
+        if not state.get("photo"):
+            await callback.message.answer("❌ Нет фото для перегенерации. Загрузите заново.")
             return
+        await _generate_and_send(callback.message, user_id, state)
 
-        await callback.message.answer(
-            f"✅ Загружено {count} фото. Сейчас сгенерирую общую сцену...\n\n"
-            "⚠️ Генерация будет подключена на следующем этапе."
+
+# ===== ОБРАБОТКА ФОТО =====
+
+async def handle_xmas_photo(message: Message, user_id: int, image_bytes: bytes):
+    """Вызывается из main.py, когда пользователь в режиме xmas_awaiting_photo."""
+    state = xmas_state.get(user_id, {})
+    state["photo"] = image_bytes
+    xmas_state[user_id] = state
+
+    from main import user_mode
+    user_mode[user_id] = "free"
+
+    await message.answer("✅ Фото получено! Генерирую 5 кадров. Это займёт 1–2 минуты...")
+    await _generate_and_send(message, user_id, state)
+
+
+# ===== ГЕНЕРАЦИЯ =====
+
+async def _generate_and_send(message: Message, user_id: int, state: dict):
+    """Генерирует 5 кадров и отправляет альбомом."""
+    from ai_service import generate_image
+
+    car = XMAS_CARS.get(state.get("car"))
+    scene = XMAS_SCENES.get(state.get("scene"))
+    outfit = XMAS_OUTFITS.get(state.get("outfit"))
+    photo = state.get("photo")
+
+    if not all([car, scene, outfit, photo]):
+        await message.answer("❌ Не все параметры выбраны. Начните заново: /start")
+        return
+
+    base_prompt = scene["prompt"].format(car=car["prompt"])
+    outfit_text = outfit["prompt"]
+
+    # Разные ракурсы для 5 кадров
+    views = [
+        "Общий план, все герои в кадре целиком.",
+        "Средний план, герои по пояс.",
+        "Крупный план, лица героев видны детально.",
+        "Альтернативный ракурс, съёмка сбоку.",
+        "Второй общий план, композиция чуть шире, больше пространства.",
+    ]
+
+    full_prompt_base = (
+        f"Новогодняя семейная фотография. "
+        f"КРИТИЧЕСКИ ВАЖНО: сохрани ТОЧНЫЕ черты лиц, причёски, цвет глаз, телосложение всех людей с исходного фото. "
+        f"Взрослые и дети одеты {outfit_text}. "
+        f"{base_prompt} "
+        f"Профессиональная фотография, кинематографичный свет, атмосферно, реалистично. "
+    )
+
+    results = []
+    failed = 0
+
+    for i, view in enumerate(views):
+        try:
+            prompt = full_prompt_base + view + f" Размер: 1024x1024."
+            img = generate_image(photo, prompt)
+            if img:
+                results.append(img)
+            else:
+                failed += 1
+        except Exception as e:
+            print(f"❌ Ошибка генерации кадра {i+1}: {e}")
+            failed += 1
+
+    if not results:
+        await message.answer(
+            "😔 Не удалось сгенерировать кадры.\n\n"
+            "✅ Оплата НЕ списана.\n"
+            "🔄 Попробуйте нажать «Перегенерировать» или загрузить другое фото."
         )
-        from main import user_mode
-        user_mode[user_id] = "free"
+        return
 
+    # Отправляем альбомом
+    try:
+        media = [InputMediaPhoto(media=BufferedInputFile(img, filename=f"xmas_{i}.jpg")) for i, img in enumerate(results)]
+        await message.answer_media_group(media=media)
+    except Exception as e:
+        print(f"❌ Ошибка отправки альбома: {e}")
+        # Фолбэк — отправляем по одной
+        for i, img in enumerate(results):
+            try:
+                await message.answer_photo(BufferedInputFile(img, filename=f"xmas_{i}.jpg"))
+            except Exception:
+                pass
 
-# Объединяем регистрацию всего
-_original_register = register_xmas_handlers
-def register_xmas_handlers(dp):  # noqa
-    _original_register(dp)
-    register_xmas_photo_handlers(dp)
+    # Списываем оплату только если хотя бы 3 кадра получилось
+    if len(results) >= 3:
+        consume_xmas_payment(user_id)
+
+    caption = f"🎄 <b>Готово! {len(results)} кадров</b>"
+    if failed > 0:
+        caption += f"\n⚠️ {failed} кадр(ов) не удалось — можно перегенерировать."
+
+    await message.answer(caption, parse_mode="HTML", reply_markup=result_keyboard())
