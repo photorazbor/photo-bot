@@ -405,13 +405,16 @@ def register_xmas_handlers(dp):
         await callback.message.answer(XMAS_CHOOSE_OUTFIT, parse_mode="HTML", reply_markup=outfits_keyboard())
 
     # ===== ЗАГРУЗКА ФОТО =====
-    @dp.callback_query(F.data == "xmas_upload")
-    async def xmas_upload(callback: CallbackQuery):
-        await callback.answer()
-        user_id = callback.from_user.id
-        import main
-        main.user_mode[user_id] = "xmas_awaiting_photo"
-        await callback.message.answer("📸 Жду фото семьи. Пришлите одно фото.")
+@dp.callback_query(F.data == "xmas_upload")
+async def xmas_upload(callback: CallbackQuery):
+    import logging
+    logging.getLogger(__name__).info(f"🚀 xmas_upload: user={callback.from_user.id}")
+    await callback.answer()
+    user_id = callback.from_user.id
+    import main
+    main.user_mode[user_id] = "xmas_awaiting_photo"
+    logging.getLogger(__name__).info(f"✅ xmas_upload: mode={main.user_mode.get(user_id)}")
+    await callback.message.answer("📸 Жду фото семьи. Пришлите одно фото.")
 
     @dp.callback_query(F.data == "xmas_upload_again")
     async def xmas_upload_again(callback: CallbackQuery):
