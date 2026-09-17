@@ -2421,7 +2421,7 @@ async def handle_pay_studio_portrait(callback: CallbackQuery):
 async def handle_photo(message: Message):
     user_id = message.from_user.id
     mode = user_mode.get(user_id, "")
-    logger.info(f"📸 handle_photo: user={user_id}, mode={mode}")
+    logger.info(f"📸 handle_photo: user={user_id}, mode={mode}, xmas_awaiting={user_id in xmas_awaiting_photo}")
 
     photo = message.photo[-1]
     file = await bot.get_file(photo.file_id)
@@ -2430,7 +2430,7 @@ async def handle_photo(message: Message):
     image_bytes = image_to_bytes(image)
 
     # ===== Новогодняя фотосессия =====
-    if mode.startswith("xmas_"):
+    if user_id in xmas_awaiting_photo:
         await handle_xmas_photo(message, user_id, image_bytes)
         return
     
