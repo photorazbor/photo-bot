@@ -13,6 +13,7 @@ from aiogram.types import (
     BufferedInputFile,
     InlineKeyboardMarkup,
     InlineKeyboardButton,
+    InputMediaPhoto,
 )
 
 logger = logging.getLogger(__name__)
