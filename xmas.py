@@ -103,27 +103,6 @@ XMAS_TREE_SCENES = {
     },
 }
 
-XMAS_WINDOW_SCENES = {
-    "car": {
-        "name": "Снаружи машина, внутри вы",
-        "short": "🚗 Снаружи машина",
-        "preview": f"{BASE}/xmas/scenes/window_car.jpg",
-        "prompt": "снято с улицы через окно дома — внутри видны люди, снаружи на переднем плане ретро-автомобиль в снегу",
-    },
-    "tree": {
-        "name": "Внутри ёлка с гирляндами",
-        "short": "🎄 Внутри ёлка",
-        "preview": f"{BASE}/xmas/scenes/window_tree.jpg",
-        "prompt": "снято с улицы через окно дома — внутри люди и большая ёлка с гирляндами, тёплый свет",
-    },
-    "foggy": {
-        "name": "Запотевшее стекло",
-        "short": "❄️ Запотевшее стекло",
-        "preview": f"{BASE}/xmas/scenes/window_foggy.jpg",
-        "prompt": "снято через запотевшее окно, капли и снег на стекле, за стеклом силуэты людей и тёплый свет",
-    },
-}
-
 XMAS_FIREPLACE_SCENES = {
     "village": {
         "name": "Деревенский дом",
@@ -285,7 +264,6 @@ def subscene_keyboard(location_type: str):
     mapping = {
         "cars": XMAS_CARS,
         "tree_scenes": XMAS_TREE_SCENES,
-        "window_scenes": XMAS_WINDOW_SCENES,
         "fireplace_scenes": XMAS_FIREPLACE_SCENES,
         "forest_scenes": XMAS_FOREST_SCENES,
     }
@@ -447,7 +425,6 @@ def register_xmas_handlers(dp):
         mapping = {
             "cars": XMAS_CARS,
             "tree_scenes": XMAS_TREE_SCENES,
-            "window_scenes": XMAS_WINDOW_SCENES,
             "fireplace_scenes": XMAS_FIREPLACE_SCENES,
             "forest_scenes": XMAS_FOREST_SCENES,
         }
@@ -488,7 +465,6 @@ def register_xmas_handlers(dp):
         mapping = {
             "cars": XMAS_CARS,
             "tree_scenes": XMAS_TREE_SCENES,
-            "window_scenes": XMAS_WINDOW_SCENES,
             "fireplace_scenes": XMAS_FIREPLACE_SCENES,
             "forest_scenes": XMAS_FOREST_SCENES,
         }
@@ -571,7 +547,6 @@ def register_xmas_handlers(dp):
             mapping = {
                 "cars": XMAS_CARS,
                 "tree_scenes": XMAS_TREE_SCENES,
-                "window_scenes": XMAS_WINDOW_SCENES,
                 "fireplace_scenes": XMAS_FIREPLACE_SCENES,
                 "forest_scenes": XMAS_FOREST_SCENES,
             }
@@ -743,7 +718,6 @@ def _build_prompt(state: dict) -> str | None:
         mapping = {
             "cars": XMAS_CARS,
             "tree_scenes": XMAS_TREE_SCENES,
-            "window_scenes": XMAS_WINDOW_SCENES,
             "fireplace_scenes": XMAS_FIREPLACE_SCENES,
             "forest_scenes": XMAS_FOREST_SCENES,
         }
