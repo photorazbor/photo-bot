@@ -212,7 +212,7 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
     }
 
     payload = {
-        "model": "gpt-image-2.5",
+        "model": "gemini-3.1-flash-image-preview",
         "modalities": ["image", "text"],
         "messages": [
             {
