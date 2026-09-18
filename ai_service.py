@@ -212,7 +212,7 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
     }
 
     payload = {
-        "model": "gpt-image-2.5",
+        "model": "gpt-image-2",
         "modalities": ["image", "text"],
         "messages": [
             {
