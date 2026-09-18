@@ -710,4 +710,150 @@ async def handle_xmas_photo(message: Message, user_id: int, image_bytes: bytes):
 
     xmas_awaiting_photo.discard(user_id)
 
-    await message.answer("✅ Фото получено! Генерирую кадр. Это займёт 1–2 минуты
+    await message.answer("✅ Фото получено! Генерирую кадр. Это займёт 1–2 минуты...")
+    await _generate_and_send(message, user_id, state)
+
+
+# ===== ГЕНЕРАЦИЯ =====
+
+def _build_prompt(state: dict) -> str | None:
+    """Собирает финальный промпт из выбора пользователя."""
+    # Локация
+    loc_key = state.get("location")
+    custom_location = state.get("custom_location")
+    loc = XMAS_LOCATIONS.get(loc_key) if loc_key else None
+
+    # Подпункт
+    sub_text = None
+    custom_subscene = state.get("custom_subscene")
+    if custom_subscene:
+        sub_text = custom_subscene
+    elif loc:
+        mapping = {
+            "cars": XMAS_CARS,
+            "tree_scenes": XMAS_TREE_SCENES,
+            "window_scenes": XMAS_WINDOW_SCENES,
+            "fireplace_scenes": XMAS_FIREPLACE_SCENES,
+            "forest_scenes": XMAS_FOREST_SCENES,
+        }
+        items = mapping.get(loc["type"], {})
+        sub = items.get(state.get("subscene", ""))
+        if sub:
+            sub_text = sub["prompt"]
+
+    # Образ
+    custom_outfit = state.get("custom_outfit")
+    outfit = XMAS_OUTFITS.get(state.get("outfit", "")) if not custom_outfit else None
+    outfit_text = custom_outfit if custom_outfit else (outfit["prompt"] if outfit else "")
+
+    if not (loc or custom_location):
+        return None
+    if not sub_text:
+        return None
+    if not outfit_text:
+        return None
+
+    # Если это машина — берём её prompt
+    car_text = ""
+    if loc and loc["type"] == "cars" and not custom_subscene:
+        car = XMAS_CARS.get(state.get("subscene", ""))
+        if car:
+            car_text = car["prompt"]
+            sub_text = f"стоят рядом с {car_text} в разных естественных позах, кто-то облокотился на капот, кто-то рядом, кто-то обнимается"
+
+    # Локация — базовое описание
+    if custom_location:
+        location_text = custom_location
+    else:
+        location_text = loc.get("intro", loc["name"])
+
+    # 1 человек или несколько
+    face_lock = (
+        "КРИТИЧЕСКИ ВАЖНО: сохрани РОВНО тех людей, которые есть на исходном фото. "
+        "Если на фото 1 человек — оставь 1 человека, НЕ добавляй никого. "
+        "Если на фото N человек — оставь ровно N. НЕ добавляй и НЕ убирай людей. "
+        "Сохрани ТОЧНО: черты лица, цвет глаз, цвет волос, причёску, возраст, пол и телосложение каждого человека. "
+        "Допускается слегка уложенная причёска и лёгкая естественная ретушь. "
+        "Запрещено: менять лица, молодеть, стилизовать, менять черты, добавлять или убирать людей. "
+        "Только перенеси их в новую сцену с новым фоном. "
+    )
+
+    outfit_lock = (
+        f"ОДЕЖДА: {outfit_text}. "
+        "НЕ меняй одежду на обтягивающие джинсы, короткие юбки, мини-платья, спортивные штаны или вызывающие наряды. "
+        "Силуэт свободный и естественный. "
+    )
+
+    frame_lock = (
+        "КАДР: по грудь, по пояс или по колено. Ноги ниже колена не видны. "
+        "Без обуви. Не делай полный рост. "
+    )
+
+    location_lock = (
+        f"ЛОКАЦИЯ: {location_text}. {sub_text}. "
+        "Зимняя атмосфера, снег, тёплый свет, гирлянды. "
+    )
+
+    full = (
+        f"Новогодняя семейная фотография. "
+        f"{face_lock}"
+        f"{outfit_lock}"
+        f"{frame_lock}"
+        f"{location_lock}"
+        f"Профессиональная фотография, кинематографичный свет, атмосферно, реалистично. "
+        f"Размер: 1024x1024."
+    )
+    return full
+
+
+async def _generate_and_send(message: Message, user_id: int, state: dict):
+    """Генерирует 1 кадр и отправляет."""
+    from ai_service import generate_image
+
+    photo = state.get("photo")
+    if not photo:
+        await message.answer("❌ Нет фото. Загрузите заново.")
+        return
+
+    full_prompt = _build_prompt(state)
+    if not full_prompt:
+        await message.answer("❌ Не все параметры выбраны. Начните заново: /start")
+        return
+
+    if state.get("regen_done"):
+        await message.answer("🎨 Генерирую другой вариант...")
+    else:
+        await message.answer("🎨 Генерирую кадр... Это займёт 1–2 минуты.")
+
+    logger.info(f"🎨 xmas генерация: user={user_id}, regen_done={state.get('regen_done')}")
+
+    try:
+        img = generate_image(photo, full_prompt)
+    except Exception as e:
+        logger.exception(f"❌ xmas: исключение при генерации: {e}")
+        img = None
+
+    if not img:
+        logger.warning(f"❌ xmas: generate_image вернул None")
+        await message.answer(
+            "😔 Не удалось сгенерировать кадр.\n\n"
+            "✅ Попытка НЕ списана.\n"
+            "🔄 Нажми «Перегенерировать» ещё раз."
+        )
+        return
+
+    logger.info(f"✅ xmas: кадр получен")
+
+    try:
+        await message.answer_photo(
+            BufferedInputFile(img, filename="xmas.jpg"),
+            caption="🎄 <b>Готово!</b>",
+            parse_mode="HTML",
+            reply_markup=result_keyboard(),
+        )
+    except Exception as e:
+        logger.exception(f"❌ xmas: ошибка отправки фото: {e}")
+        await message.answer("❌ Не удалось отправить фото.")
+
+    if not state.get("regen_done"):
+        consume_xmas_payment(user_id)
