@@ -2916,6 +2916,12 @@ async def handle_non_photo(message: Message):
     user_id = message.from_user.id
     mode = user_mode.get(user_id, "")
     text = message.text
+
+    # ===== Свои варианты для новогодней фотосессии =====
+    from xmas import handle_xmas_custom_text
+    if await handle_xmas_custom_text(message, user_id, text):
+        return
+    # ===== конец =====
     
     # Custom prompt для обычной генерации
     if mode in ("gen_wish_free", "gen_wish_paid"):
