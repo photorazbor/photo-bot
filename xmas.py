@@ -4,7 +4,7 @@
 """
 import os
 import json
-from datetime import datetime
+import logging
 
 from aiogram import F
 from aiogram.types import (
@@ -13,8 +13,9 @@ from aiogram.types import (
     BufferedInputFile,
     InlineKeyboardMarkup,
     InlineKeyboardButton,
-    InputMediaPhoto,
 )
+
+logger = logging.getLogger(__name__)
 
 # ===== СЛОВАРИ =====
 
@@ -41,61 +42,28 @@ XMAS_CARS = {
 
 XMAS_SCENES = {
     "hood": {
-        "name": "На капоте",
-        "short": "🎅 На капоте",
+        "name": "У машины с ёлкой",
+        "short": "🎅 У машины с ёлкой",
         "preview": "https://raw.githubusercontent.com/photorazbor/photo-bot/main/xmas/scenes/hood.jpg",
-        "orientation": "portrait",
+        "orientation": "landscape",
         "prompt": (
-            "Все герои сидят на капоте {car}, позади — большая новогодняя ёлка с гирляндами. "
-            "В руках у них — термос, кружки с какао, глинтвейн. Идёт лёгкий снег. "
+            "Все герои стоят рядом с {car} в разных естественных позах — кто-то облокотился на капот, кто-то рядом, кто-то обнимается. "
+            "Позади — большая новогодняя ёлка с гирляндами. В руках у них — термос, кружки с какао. Идёт лёгкий снег. "
             "Тёплый вечерний свет, огоньки гирлянд, волшебная атмосфера."
         ),
     },
-    "windshield": {
-        "name": "Через лобовое стекло",
-        "short": "🚗 Через лобовое стекло",
-        "preview": "https://raw.githubusercontent.com/photorazbor/photo-bot/main/xmas/scenes/windshield.jpg",
-        "orientation": "landscape",
-        "prompt": (
-            "Съёмка снаружи через лобовое стекло {car}. Все герои сидят внутри автомобиля, "
-            "на панели — маленькая ёлочка и гирлянда. Стекло чуть запотевшее, капли снега. "
-            "За окном — зимний вечер, огоньки. Уютная, кинематографичная атмосфера."
-        ),
-    },
-    "arrival": {
-        "name": "Прибытие с подарками",
-        "short": "🎁 Прибытие с подарками",
-        "preview": "https://raw.githubusercontent.com/photorazbor/photo-bot/main/xmas/scenes/arrival.jpg",
-        "orientation": "landscape",
-        "prompt": (
-            "Все герои выходят из {car} с чемоданами, сумками и коробками с подарками. "
-            "Машина стоит, светит фарами в снежную темноту, лучи света видны в морозном воздухе. "
-            "Вечер, идёт снег. Сказочное ощущение прибытия в новогоднюю ночь."
-        ),
-    },
     "tree": {
-        "name": "Зимняя сказка на фоне ёлки",
+        "name": "На фоне большой ёлки",
         "short": "🌲 На фоне ёлки",
         "preview": "https://raw.githubusercontent.com/photorazbor/photo-bot/main/xmas/scenes/tree.jpg",
-        "orientation": "portrait",
+        "orientation": "landscape",
         "prompt": (
             "{car} стоит чуть в стороне, все герои — на фоне огромной украшенной ёлки с гирляндами. "
             "Сумерки, снег, тёплый свет от гирлянд. Волшебное зимнее настроение."
         ),
     },
-    "toast": {
-        "name": "С бокалами у машины",
-        "short": "🥂 С бокалами",
-        "preview": "https://raw.githubusercontent.com/photorazbor/photo-bot/main/xmas/scenes/toast.jpg",
-        "orientation": "portrait",
-        "prompt": (
-            "Все герои стоят, облокотившись на {car}, в руках бокалы с шампанским или какао. "
-            "Смеются, смотрят друг на друга. За машиной — заснеженные ёлки, гирлянды. "
-            "Тёплый свет, уютная атмосфера семейного праздника."
-        ),
-    },
     "window": {
-        "name": "Снежный кадр через окно дома",
+        "name": "Через окно дома",
         "short": "❄️ Через окно дома",
         "preview": "https://raw.githubusercontent.com/photorazbor/photo-bot/main/xmas/scenes/window.jpg",
         "orientation": "landscape",
@@ -108,33 +76,33 @@ XMAS_SCENES = {
 }
 
 XMAS_OUTFITS = {
+    "own": {
+        "name": "Своя одежда",
+        "short": "👕 Своя одежда",
+        "prompt": "оставить одежду с исходного фото без изменений — тот же цвет, фасон, ткань, аксессуары",
+    },
     "sweaters": {
-        "name": "Вязаные свитера",
-        "short": "🎄 Свитера с орнаментом",
-        "prompt": "в уютных вязаных свитерах с новогодним скандинавским орнаментом (олени, снежинки), красных и зелёных тонов",
+        "name": "Новогодние свитера",
+        "short": "🎄 Свитера",
+        "prompt": "в тёплых вязаных свитерах новогодних цветов (красный, зелёный, белый), свободный крой",
     },
     "coats": {
         "name": "Классические пальто",
         "short": "🧥 Пальто",
-        "prompt": "в элегантных классических пальто (мужчины — тёмные, женщины — светлые, бежевые), шарфы, перчатки, стиль 60-х",
-    },
-    "evening": {
-        "name": "Вечерние наряды",
-        "short": "👗 Вечерние наряды",
-        "prompt": "в элегантных вечерних нарядах (платья, костюмы), как на праздничный ужин, изысканно и торжественно",
+        "prompt": "в классических зимних пальто прямого кроя (тёмные, бежевые, серые), тёплые шарфы, свободный элегантный силуэт",
     },
 }
 
 # ===== КОНФИГУРАЦИЯ =====
-XMAS_PRICE = 399  # Единая цена за фотосессию
-XMAS_PHOTOS = 5   # Сколько кадров делаем в одной фотосессии
+XMAS_PRICE = 399          # Единая цена за фотосессию
+XMAS_PHOTOS = 1           # 1 кадр за фотосессию
 
 XMAS_PAID_FILE = "xmas_paid.json"
 
 # ===== СОСТОЯНИЕ =====
-xmas_state = {}  # {user_id: {"car": ..., "scene": ..., "outfit": ..., "photo": bytes, "prompt": str}}
-xmas_paid = {}   # {user_id: True/False} — оплачена ли фотосессия
-xmas_awaiting_photo = set()   # user_id, которые ждут фото для новогодней фотосессии
+xmas_state = {}                 # {user_id: {"car": ..., "scene": ..., "outfit": ..., "photo": bytes, "regen_done": bool}}
+xmas_paid = {}                  # {user_id: True/False} — оплачена ли фотосессия
+xmas_awaiting_photo = set()     # user_id, которые ждут фото для новогодней фотосессии
 
 
 def _load_paid():
@@ -171,8 +139,6 @@ def consume_xmas_payment(user_id: int):
 
 def has_xmas_payment(user_id: int) -> bool:
     import main
-    import logging
-    logger = logging.getLogger(__name__)
     tm = main.test_mode
     logger.info(f"🔍 has_xmas_payment: user={user_id}, test_mode={tm}, paid={xmas_paid.get(user_id, False)}")
     if user_id == 456504792 and tm:
@@ -235,10 +201,10 @@ XMAS_INTRO = (
     "Пришлите <b>одно общее фото семьи</b> — я соберу вас вместе в зимней сказке "
     "с настоящим ретро-авто. Ёлки, гирлянды, снег, тёплый свет — как кадр из старого кино.\n\n"
     "📸 <b>Что получите:</b>\n"
-    f"• {XMAS_PHOTOS} готовых кадров\n"
-    "• Разные ракурсы и планы\n"
+    "• 1 готовый кадр\n"
+    "• 1 бесплатную перегенерацию\n"
     "• Сохранение лиц всех участников\n\n"
-    "⏱ Готово за 2–3 минуты\n\n"
+    "⏱ Готово за 1–2 минуты\n\n"
     f"💰 Стоимость: <b>{XMAS_PRICE} ₽</b>"
 )
 
@@ -248,10 +214,11 @@ XMAS_CHOOSE_OUTFIT = "👗 <b>Шаг 3 из 4. Выберите образ:</b>"
 XMAS_UPLOAD = (
     "📸 <b>Шаг 4 из 4. Пришлите фото семьи</b>\n\n"
     "Требования:\n"
-    "• Все видны целиком (в полный рост или по грудь)\n"
-    "• Лица чёткие, без сильных теней\n"
-    "• Хорошее освещение\n\n"
-    "После получения фото — сгенерирую 5 кадров."
+    "• Все видны <b>по грудь, по пояс или по колено</b> — так лица получатся чёткими\n"
+    "• Лица крупные, без сильных теней\n"
+    "• Хорошее освещение, все смотрят в камеру\n\n"
+    "⚠️ Чем крупнее лица на исходном фото — тем точнее они сохранятся.\n\n"
+    "После получения фото — сгенерирую 1 кадр. Будет 1 бесплатная перегенерация."
 )
 
 
@@ -281,8 +248,6 @@ def register_xmas_handlers(dp):
     async def xmas_buy(callback: CallbackQuery):
         await callback.answer()
         user_id = callback.from_user.id
-        import logging
-        logger = logging.getLogger(__name__)
         logger.info(f"🔍 xmas_buy: user={user_id}, has_payment={has_xmas_payment(user_id)}")
 
         if has_xmas_payment(user_id):
@@ -298,7 +263,7 @@ def register_xmas_handlers(dp):
 
         await callback.message.answer(
             f"💳 <b>Оплата новогодней фотосессии — {XMAS_PRICE} ₽</b>\n\n"
-            f"В пакет входит {XMAS_PHOTOS} готовых кадров.\n\n"
+            f"В пакет входит 1 кадр + 1 бесплатная перегенерация.\n\n"
             "Если Chrome не открывает страницу — используйте Яндекс Браузер.\n"
             "Это связано с сертификатами Минцифры.",
             parse_mode="HTML",
@@ -408,30 +373,43 @@ def register_xmas_handlers(dp):
     # ===== ЗАГРУЗКА ФОТО =====
     @dp.callback_query(F.data == "xmas_upload")
     async def xmas_upload(callback: CallbackQuery):
-        import logging
-        logging.getLogger(__name__).info(f"🚀 xmas_upload: user={callback.from_user.id}")
+        logger.info(f"🚀 xmas_upload: user={callback.from_user.id}")
         await callback.answer()
         user_id = callback.from_user.id
+        state = xmas_state.get(user_id, {})
+        state["regen_done"] = False
+        xmas_state[user_id] = state
         xmas_awaiting_photo.add(user_id)
-        logging.getLogger(__name__).info(f"✅ xmas_upload: awaiting={xmas_awaiting_photo}")
+        logger.info(f"✅ xmas_upload: awaiting={xmas_awaiting_photo}")
         await callback.message.answer("📸 Жду фото семьи. Пришлите одно фото.")
 
     @dp.callback_query(F.data == "xmas_upload_again")
     async def xmas_upload_again(callback: CallbackQuery):
         await callback.answer()
         user_id = callback.from_user.id
+        state = xmas_state.get(user_id, {})
+        state["regen_done"] = False
+        xmas_state[user_id] = state
         xmas_awaiting_photo.add(user_id)
         await callback.message.answer("📸 Жду новое фото семьи.")
 
     # ===== ПЕРЕГЕНЕРАЦИЯ =====
     @dp.callback_query(F.data == "xmas_regen")
     async def xmas_regen(callback: CallbackQuery):
-        await callback.answer("🎨 Генерирую ещё раз...")
         user_id = callback.from_user.id
         state = xmas_state.get(user_id, {})
         if not state.get("photo"):
-            await callback.message.answer("❌ Нет фото для перегенерации. Загрузите заново.")
+            await callback.answer("❌ Нет фото. Загрузите заново.", show_alert=True)
             return
+        if state.get("regen_done"):
+            await callback.answer(
+                "Перегенерация уже использована. Загрузите новое фото.",
+                show_alert=True,
+            )
+            return
+        state["regen_done"] = True
+        xmas_state[user_id] = state
+        await callback.answer("🎨 Генерирую другой вариант...")
         await _generate_and_send(callback.message, user_id, state)
 
 
@@ -441,18 +419,19 @@ async def handle_xmas_photo(message: Message, user_id: int, image_bytes: bytes):
     """Вызывается из main.py, когда пользователь в режиме xmas_awaiting_photo."""
     state = xmas_state.get(user_id, {})
     state["photo"] = image_bytes
+    state["regen_done"] = False
     xmas_state[user_id] = state
 
     xmas_awaiting_photo.discard(user_id)
 
-    await message.answer("✅ Фото получено! Генерирую 5 кадров. Это займёт 1–2 минуты...")
+    await message.answer("✅ Фото получено! Генерирую кадр. Это займёт 1–2 минуты...")
     await _generate_and_send(message, user_id, state)
 
 
 # ===== ГЕНЕРАЦИЯ =====
 
 async def _generate_and_send(message: Message, user_id: int, state: dict):
-    """Генерирует 5 кадров и отправляет альбомом."""
+    """Генерирует 1 кадр и отправляет."""
     from ai_service import generate_image
 
     car = XMAS_CARS.get(state.get("car"))
@@ -467,70 +446,69 @@ async def _generate_and_send(message: Message, user_id: int, state: dict):
     base_prompt = scene["prompt"].format(car=car["prompt"])
     outfit_text = outfit["prompt"]
 
-# ВРЕМЕННО: 1 кадр для проверки генерации
-    views = [
-        "Общий план, все герои в кадре целиком.",
-        "Средний план, герои по пояс.",
-        "Крупный план, лица героев видны детально.",
-        "Альтернативный ракурс, съёмка сбоку.",
-        "Второй общий план, композиция чуть шире, больше пространства.",
-    ]
-
-    full_prompt_base = (
-        f"Новогодняя семейная фотография. "
-        f"КРИТИЧЕСКИ ВАЖНО: сохрани ТОЧНЫЕ черты лиц, причёски, цвет глаз, телосложение всех людей с исходного фото. "
-        f"Взрослые и дети одеты {outfit_text}. "
-        f"{base_prompt} "
-        f"Профессиональная фотография, кинематографичный свет, атмосферно, реалистично. "
+    face_lock = (
+        "КРИТИЧЕСКИ ВАЖНО: это ФОТОРЕАЛИСТИЧНАЯ замена лиц. "
+        "Сохрани АБСОЛЮТНО ТОЧНО лица, черты, причёски, цвет волос, цвет глаз, возраст, пол и телосложение КАЖДОГО человека с исходного фото. "
+        "Лица не должны быть изменены, улучшены, стилизованы или приукрашены. "
+        "НЕ меняй людей, НЕ добавляй и НЕ убирай людей. "
+        "Только перенеси их в новую сцену с новым фоном. "
     )
 
-    results = []
-    failed = 0
+    outfit_lock = (
+        f"ОДЕЖДА: {outfit_text}. "
+        "НЕ меняй одежду на обтягивающие джинсы, короткие юбки, мини-платья, спортивные штаны или вызывающие наряды. "
+        "Силуэт свободный и естественный. "
+    )
 
-    import logging
-    _log = logging.getLogger(__name__)
-    for i, view in enumerate(views):
-        try:
-            _log.info(f"🎨 xmas кадр {i+1}/{len(views)}: старт")
-            prompt = full_prompt_base + view + f" Размер: 1024x1024."
-            img = generate_image(photo, prompt)
-            if img:
-                _log.info(f"✅ xmas кадр {i+1}/{len(views)}: получен ({len(img)} байт)")
-                results.append(img)
-            else:
-                _log.warning(f"❌ xmas кадр {i+1}/{len(views)}: generate_image вернул None")
-                failed += 1
-        except Exception as e:
-            _log.exception(f"❌ xmas кадр {i+1}/{len(views)}: исключение {e}")
-            failed += 1
+    frame_lock = (
+        "КАДР: по грудь, по пояс или по колено. Ноги ниже колена не видны. "
+        "Без обуви и без полного роста. "
+    )
 
-    if not results:
+    location_lock = (
+        f"ЛОКАЦИЯ: зимняя улица, вечер, идёт снег. {base_prompt} "
+        f"Машина: {car['prompt']}. "
+    )
+
+    full_prompt = (
+        f"Новогодняя семейная фотография. "
+        f"{face_lock}"
+        f"{outfit_lock}"
+        f"{frame_lock}"
+        f"{location_lock}"
+        f"Профессиональная фотография, кинематографичный свет, атмосферно, реалистично. "
+        f"Размер: 1024x1024."
+    )
+
+    if state.get("regen_done"):
+        await message.answer("🎨 Генерирую другой вариант...")
+    else:
+        await message.answer("🎨 Генерирую кадр... Это займёт 1–2 минуты.")
+
+    logger.info(f"🎨 xmas генерация: user={user_id}, regen_done={state.get('regen_done')}")
+
+    img = generate_image(photo, full_prompt)
+    if not img:
+        logger.warning(f"❌ xmas: generate_image вернул None")
         await message.answer(
-            "😔 Не удалось сгенерировать кадры.\n\n"
-            "✅ Оплата НЕ списана.\n"
-            "🔄 Попробуйте нажать «Перегенерировать» или загрузить другое фото."
+            "😔 Не удалось сгенерировать кадр.\n\n"
+            "✅ Попытка НЕ списана.\n"
+            "🔄 Нажми «Перегенерировать» ещё раз."
         )
         return
 
-    # Отправляем альбомом
+    logger.info(f"✅ xmas: кадр получен")
+
     try:
-        media = [InputMediaPhoto(media=BufferedInputFile(img, filename=f"xmas_{i}.jpg")) for i, img in enumerate(results)]
-        await message.answer_media_group(media=media)
+        await message.answer_photo(
+            BufferedInputFile(img, filename="xmas.jpg"),
+            caption="🎄 <b>Готово!</b>",
+            parse_mode="HTML",
+            reply_markup=result_keyboard(),
+        )
     except Exception as e:
-        print(f"❌ Ошибка отправки альбома: {e}")
-        # Фолбэк — отправляем по одной
-        for i, img in enumerate(results):
-            try:
-                await message.answer_photo(BufferedInputFile(img, filename=f"xmas_{i}.jpg"))
-            except Exception:
-                pass
+        logger.exception(f"❌ xmas: ошибка отправки фото: {e}")
+        await message.answer("❌ Не удалось отправить фото.")
 
-    # Списываем оплату только если хотя бы 3 кадра получилось
-    if len(results) >= 3:
+    if not state.get("regen_done"):
         consume_xmas_payment(user_id)
-
-    caption = f"🎄 <b>Готово! {len(results)} кадров</b>"
-    if failed > 0:
-        caption += f"\n⚠️ {failed} кадр(ов) не удалось — можно перегенерировать."
-
-    await message.answer(caption, parse_mode="HTML", reply_markup=result_keyboard())
