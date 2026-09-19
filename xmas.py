@@ -1,9 +1,7 @@
 """
 Новогодняя фотосессия с ретро-автомобилем.
-Отдельный модуль — не конфликтует с существующими режимами бота.
+Работает через общий баланс генераций из main.py.
 """
-import os
-import json
 import logging
 
 from aiogram import F
@@ -201,36 +199,12 @@ XMAS_OUTFITS = {
 # ===== ФОРМАТЫ =====
 
 XMAS_FORMATS = {
-    "original": {
-        "name": "📐 Исходный",
-        "short": "📐 Исходный",
-        "desc": "как на исходном фото",
-    },
-    "1_1": {
-        "name": "📱 1:1 (квадрат)",
-        "short": "📱 1:1 (квадрат)",
-        "desc": "квадратная композиция",
-    },
-    "3_4": {
-        "name": "📱 3:4 (вертикаль)",
-        "short": "📱 3:4 (вертикаль)",
-        "desc": "вертикальная композиция, вытянутая вверх",
-    },
-    "4_3": {
-        "name": "🖼 4:3 (горизонт)",
-        "short": "🖼 4:3 (горизонт)",
-        "desc": "горизонтальная композиция, широкий кадр",
-    },
-    "4_5": {
-        "name": "📱 4:5 (Instagram)",
-        "short": "📱 4:5 (Instagram)",
-        "desc": "вертикальная композиция для Instagram",
-    },
-    "9_16": {
-        "name": "📱 9:16 (сторис)",
-        "short": "📱 9:16 (сторис)",
-        "desc": "полная вертикаль для сторис, вытянутая вверх",
-    },
+    "original": {"name": "📐 Исходный", "short": "📐 Исходный", "desc": "как на исходном фото"},
+    "1_1": {"name": "📱 1:1 (квадрат)", "short": "📱 1:1 (квадрат)", "desc": "квадратная композиция"},
+    "3_4": {"name": "📱 3:4 (вертикаль)", "short": "📱 3:4 (вертикаль)", "desc": "вертикальная композиция"},
+    "4_3": {"name": "🖼 4:3 (горизонт)", "short": "🖼 4:3 (горизонт)", "desc": "горизонтальная композиция"},
+    "4_5": {"name": "📱 4:5 (Instagram)", "short": "📱 4:5 (Instagram)", "desc": "вертикаль для Instagram"},
+    "9_16": {"name": "📱 9:16 (сторис)", "short": "📱 9:16 (сторис)", "desc": "полная вертикаль для сторис"},
 }
 
 # ===== СТИЛИЗАЦИИ =====
@@ -239,7 +213,7 @@ XMAS_STYLES = {
     "realistic": {
         "name": "🎬 Реалистичное фото",
         "short": "🎬 Реалистичное",
-        "prompt": "",  # пусто — базовый промпт = реалистичный
+        "prompt": "",
     },
     "soviet_card": {
         "name": "🎄 Советская открытка",
@@ -247,10 +221,9 @@ XMAS_STYLES = {
         "prompt": (
             "СТИЛИЗАЦИЯ: советская новогодняя открытка 1960–70-х годов. "
             "ЭТО РИСОВАННАЯ ИЛЛЮСТРАЦИЯ, А НЕ ФОТОГРАФИЯ. "
-            "Плоские рисованные формы, ЖИВОПИСНЫЙ стиль, тёплые приглушённые тона — красно-зелёно-золотые, "
+            "Плоские рисованные формы, живописный стиль, тёплые приглушённые тона — красно-зелёно-золотые, "
             "декоративные снежинки, лёгкая текстура старой бумаги, чёрные контуры. "
             "Люди нарисованы, как в советских открытках — плоские, стилизованные. "
-            "НЕ фотореализм. Живописная иллюстрация. "
         ),
     },
     "soviet_cartoon": {
@@ -262,8 +235,6 @@ XMAS_STYLES = {
             "ЭТО РИСОВАННЫЙ МУЛЬТФИЛЬМ, А НЕ ФОТОГРАФИЯ. "
             "Акварельные фоны, рисованные плоские персонажи, мягкие пастельные тона, "
             "контурная обводка, тёплый свет, наивный добрый стиль. "
-            "Люди — рисованные мультяшные персонажи, как в советской анимации. "
-            "НЕ фотореализм. Мультипликация. "
         ),
     },
     "disney": {
@@ -273,9 +244,7 @@ XMAS_STYLES = {
             "СТИЛИЗАЦИЯ: современная диснеевская 3D-анимация (Pixar/Disney). "
             "ЭТО 3D-МУЛЬТФИЛЬМ, А НЕ ФОТОГРАФИЯ. "
             "Мультяшные 3D-персонажи с большими глазами, мягкие округлые формы, "
-            "гладкие рендер-поверхности, яркие тёплые цвета, новогодняя атмосфера, ёлка с гирляндами, снег. "
-            "Люди — мультяшные 3D-персонажи, как в Pixar/Disney. "
-            "НЕ фотореализм. 3D-анимация. "
+            "гладкие рендер-поверхности, яркие тёплые цвета. "
         ),
     },
     "comics": {
@@ -284,65 +253,25 @@ XMAS_STYLES = {
         "prompt": (
             "СТИЛИЗАЦИЯ: новогодний комикс с раскадровкой из 3 панелей на одной картинке. "
             "ЭТО КОМИКС, А НЕ ФОТОГРАФИЯ. "
-            "Три кадра одной истории: на всех — те же люди в новогодней сцене, разные ракурсы или моменты. "
-            "ЯРКИЙ РИСОВАННЫЙ КОМИКС-СТИЛЬ: чёрные жирные контуры, плоские яркие цвета (красный, зелёный, жёлтый, синий), "
-            "штриховка (halftone dots), динамичные позы, гротескные выражения лиц, "
-            "как в американских и советских комиксах, как в рисованных журналах. "
-            "Люди нарисованы в комикс-стиле — плоские, с чёрной обводкой, без фотореализма. "
+            "Три кадра одной истории: на всех — те же люди, разные ракурсы или моменты. "
+            "ЯРКИЙ РИСОВАННЫЙ КОМИКС-СТИЛЬ: чёрные жирные контуры, плоские яркие цвета, "
+            "штриховка (halftone dots), динамичные позы. "
             "В каждой панели — короткая надпись на РУССКОМ языке, читаемая, по смыслу подходит к сцене. "
-            "НЕ фотореализм. РИСОВАННЫЙ КОМИКС. "
+            "ЖЁСТКОЕ ПРАВИЛО ПО ЛЮДЯМ: "
+            "посчитай ТОЧНОЕ количество людей на исходном фото. "
+            "На КАЖДОЙ из 3 панелей должно быть РОВНО столько же людей. "
+            "НЕ добавляй ни одного нового персонажа. "
+            "НЕ убирай ни одного человека с исходного фото. "
+            "ЗАПРЕЩЕНО придумывать новых персонажей. "
+            "ЗАПРЕЩЕНО терять людей с исходного фото. "
         ),
     },
 }
 
-# ===== КОНФИГУРАЦИЯ =====
-XMAS_PRICE = 399
-XMAS_PAID_FILE = "xmas_paid.json"
-
 # ===== СОСТОЯНИЕ =====
-xmas_state = {}
-xmas_paid = {}
-xmas_awaiting_photo = set()
-xmas_awaiting_custom = {}  # {user_id: "location" / "subscene" / "outfit"}
-
-
-def _load_paid():
-    global xmas_paid
-    if os.path.exists(XMAS_PAID_FILE):
-        try:
-            with open(XMAS_PAID_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                xmas_paid = {int(k): v for k, v in data.items()}
-        except Exception:
-            xmas_paid = {}
-
-
-def _save_paid():
-    with open(XMAS_PAID_FILE, "w", encoding="utf-8") as f:
-        json.dump({str(k): v for k, v in xmas_paid.items()}, f, ensure_ascii=False, indent=2)
-
-
-_load_paid()
-
-
-def grant_xmas_payment(user_id: int):
-    xmas_paid[user_id] = True
-    _save_paid()
-
-
-def consume_xmas_payment(user_id: int):
-    if user_id in xmas_paid:
-        xmas_paid[user_id] = False
-        _save_paid()
-
-
-def has_xmas_payment(user_id: int) -> bool:
-    import main
-    tm = main.test_mode
-    logger.info(f"🔍 has_xmas_payment: user={user_id}, test_mode={tm}, paid={xmas_paid.get(user_id, False)}")
-    if user_id == 456504792 and tm:
-        return True
-    return xmas_paid.get(user_id, False)
+xmas_state = {}                 # {user_id: {...}}
+xmas_awaiting_photo = set()     # user_id, ждущие фото
+xmas_awaiting_custom = {}       # {user_id: "location" / "subscene" / "outfit"}
 
 
 def is_user_in_xmas_flow(user_id: int) -> bool:
@@ -409,16 +338,9 @@ def upload_keyboard():
     ])
 
 
-def buy_keyboard():
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=f"💳 Оплатить {XMAS_PRICE} ₽", callback_data="xmas_buy")],
-        [InlineKeyboardButton(text="🔙 Назад", callback_data="main_menu")],
-    ])
-
-
 def result_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔄 Перегенерировать", callback_data="xmas_regen")],
+        [InlineKeyboardButton(text="🔄 Перегенерировать — бесплатно", callback_data="xmas_regen")],
         [InlineKeyboardButton(text="📷 Загрузить другое фото", callback_data="xmas_upload_again")],
         [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
     ])
@@ -428,25 +350,26 @@ def result_keyboard():
 
 XMAS_INTRO = (
     "🎄 <b>Новогодняя фотосессия</b>\n\n"
-    "Пришлите одно общее фото — я соберу вас в зимней сказке: ёлки, гирлянды, снег, тёплый свет.\n\n"
-    "📸 <b>Что получите:</b>\n"
+    "Пришли одно общее фото — я соберу вас в зимней сказке: ёлки, гирлянды, снег, тёплый свет.\n\n"
+    "📸 <b>Что получишь:</b>\n"
     "• 1 готовый кадр\n"
     "• 1 бесплатную перегенерацию\n"
     "• 4 локации на выбор\n"
     "• 5 образов на выбор\n"
     "• 6 форматов на выбор\n"
     "• 5 стилизаций на выбор\n\n"
-    "⏱ Готово за 1–2 минуты\n\n"
-    f"💰 Стоимость: <b>{XMAS_PRICE} ₽</b>"
+    "💎 <b>Стоимость:</b> 1 генерация с твоего баланса\n\n"
+    "⚠️ Результат — художественная стилизация. 100% сходства не гарантируется, "
+    "но если что-то не понравится — 1 перегенерация бесплатна."
 )
 
-XMAS_CHOOSE_LOCATION = "🏙 <b>Шаг 1 из 6. Выберите локацию:</b>"
-XMAS_CHOOSE_SUBSCENE = "🎬 <b>Шаг 2 из 6. Выберите композицию:</b>"
-XMAS_CHOOSE_OUTFIT = "👗 <b>Шаг 3 из 6. Выберите образ:</b>"
-XMAS_CHOOSE_FORMAT = "📐 <b>Шаг 4 из 6. Выберите формат кадра:</b>"
-XMAS_CHOOSE_STYLE = "🎨 <b>Шаг 5 из 6. Выберите стиль:</b>"
+XMAS_CHOOSE_LOCATION = "🏙 <b>Шаг 1 из 6. Выбери локацию:</b>"
+XMAS_CHOOSE_SUBSCENE = "🎬 <b>Шаг 2 из 6. Выбери композицию:</b>"
+XMAS_CHOOSE_OUTFIT = "👗 <b>Шаг 3 из 6. Выбери образ:</b>"
+XMAS_CHOOSE_FORMAT = "📐 <b>Шаг 4 из 6. Выбери формат кадра:</b>"
+XMAS_CHOOSE_STYLE = "🎨 <b>Шаг 5 из 6. Выбери стиль:</b>"
 XMAS_UPLOAD = (
-    "📸 <b>Шаг 6 из 6. Пришлите фото</b>\n\n"
+    "📸 <b>Шаг 6 из 6. Пришли фото</b>\n\n"
     "Требования:\n"
     "• Все видны <b>по грудь, по пояс или по колено</b>\n"
     "• Лица крупные, чёткие, без сильных теней\n"
@@ -479,48 +402,32 @@ def register_xmas_handlers(dp):
     @dp.callback_query(F.data == "xmas_start")
     async def xmas_start(callback: CallbackQuery):
         await callback.answer()
+
+        # Проверка баланса
+        from main import get_balance, test_mode, buy_generations_keyboard
+        user_id = callback.from_user.id
+        balance = get_balance(user_id)
+
+        if balance <= 0 and not (user_id == 456504792 and test_mode):
+            await callback.message.answer(
+                "💎 Генерации закончились.\n\nПополни баланс — и начнём:",
+                reply_markup=buy_generations_keyboard()
+            )
+            return
+
         try:
             await callback.message.answer_photo(
                 photo=f"{BASE}/xmas/intro_example.jpg",
                 caption=XMAS_INTRO,
                 parse_mode="HTML",
-                reply_markup=buy_keyboard(),
+                reply_markup=locations_keyboard(),
             )
         except Exception:
             await callback.message.answer(
                 XMAS_INTRO,
                 parse_mode="HTML",
-                reply_markup=buy_keyboard(),
+                reply_markup=locations_keyboard(),
             )
-
-    # ===== ОПЛАТА =====
-    @dp.callback_query(F.data == "xmas_buy")
-    async def xmas_buy(callback: CallbackQuery):
-        await callback.answer()
-        user_id = callback.from_user.id
-        logger.info(f"🔍 xmas_buy: user={user_id}, has_payment={has_xmas_payment(user_id)}")
-
-        if has_xmas_payment(user_id):
-            await callback.message.answer("✅ Оплата уже получена. Начинаем!")
-            await _show_locations(callback.message)
-            return
-
-        from ai_service import create_payment_link
-        link = create_payment_link(XMAS_PRICE, "Новогодняя фотосессия с ретро-авто", user_id)
-        if not link:
-            await callback.message.answer("⚠️ Не удалось создать ссылку. Попробуйте позже.")
-            return
-
-        await callback.message.answer(
-            f"💳 <b>Оплата новогодней фотосессии — {XMAS_PRICE} ₽</b>\n\n"
-            f"В пакет входит 1 кадр + 1 бесплатная перегенерация.\n\n"
-            "Если Chrome не открывает страницу — используйте Яндекс Браузер.\n"
-            "Это связано с сертификатами Минцифры.",
-            parse_mode="HTML",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text=f"💳 Оплатить {XMAS_PRICE} ₽", url=link)]
-            ])
-        )
 
     # ===== ШАГ 1: ЛОКАЦИЯ =====
     async def _show_locations(msg):
@@ -564,7 +471,7 @@ def register_xmas_handlers(dp):
         user_id = callback.from_user.id
         xmas_awaiting_custom[user_id] = "location"
         await callback.message.answer(
-            "✏️ Опишите локацию своими словами.\n\n"
+            "✏️ Опиши локацию своими словами.\n\n"
             "Например: «у зимнего озера», «в пряничном домике», «на заснеженной площади»."
         )
 
@@ -578,7 +485,7 @@ def register_xmas_handlers(dp):
         state = xmas_state.get(user_id, {})
         loc_key = state.get("location")
         if not loc_key:
-            await callback.message.answer("❌ Сначала выберите локацию.")
+            await callback.message.answer("❌ Сначала выбери локацию.")
             return
 
         loc = XMAS_LOCATIONS[loc_key]
@@ -616,7 +523,7 @@ def register_xmas_handlers(dp):
         user_id = callback.from_user.id
         xmas_awaiting_custom[user_id] = "subscene"
         await callback.message.answer(
-            "✏️ Опишите композицию своими словами.\n\n"
+            "✏️ Опиши композицию своими словами.\n\n"
             "Например: «стоят у багажника», «сидят на санях», «у пряничного домика»."
         )
 
@@ -651,7 +558,7 @@ def register_xmas_handlers(dp):
         user_id = callback.from_user.id
         xmas_awaiting_custom[user_id] = "outfit"
         await callback.message.answer(
-            "✏️ Опишите образ своими словами.\n\n"
+            "✏️ Опиши образ своими словами.\n\n"
             "Например: «в красных шубах с меховыми шапками», «в пижамах с оленями»."
         )
 
@@ -742,7 +649,7 @@ def register_xmas_handlers(dp):
             style_name = style["name"]
 
         caption = (
-            "📋 <b>Ваш выбор:</b>\n\n"
+            "📋 <b>Твой выбор:</b>\n\n"
             f"📍 Локация: {loc_name}\n"
             f"🎬 Композиция: {sub_name}\n"
             f"👗 Образ: {outfit_name}\n"
@@ -762,7 +669,7 @@ def register_xmas_handlers(dp):
         xmas_state[user_id] = state
         xmas_awaiting_photo.add(user_id)
         logger.info(f"✅ xmas_upload: user={user_id}, awaiting={xmas_awaiting_photo}")
-        await callback.message.answer("📸 Жду фото. Пришлите одно фото.")
+        await callback.message.answer("📸 Жду фото. Пришли одно фото.")
 
     @dp.callback_query(F.data == "xmas_upload_again")
     async def xmas_upload_again(callback: CallbackQuery):
@@ -772,6 +679,16 @@ def register_xmas_handlers(dp):
         xmas_state.pop(user_id, None)
         xmas_awaiting_photo.discard(user_id)
         xmas_awaiting_custom.pop(user_id, None)
+
+        from main import get_balance, test_mode, buy_generations_keyboard
+        balance = get_balance(user_id)
+        if balance <= 0 and not (user_id == 456504792 and test_mode):
+            await callback.message.answer(
+                "💎 Генерации закончились.\n\nПополни баланс — и начнём:",
+                reply_markup=buy_generations_keyboard()
+            )
+            return
+
         await callback.message.answer(
             "🔄 Начинаем новую фотосессию.\n\n" + XMAS_CHOOSE_LOCATION,
             parse_mode="HTML",
@@ -784,11 +701,11 @@ def register_xmas_handlers(dp):
         user_id = callback.from_user.id
         state = xmas_state.get(user_id, {})
         if not state.get("photo"):
-            await callback.answer("❌ Нет фото. Загрузите заново.", show_alert=True)
+            await callback.answer("❌ Нет фото. Загрузи заново.", show_alert=True)
             return
         if state.get("regen_done"):
             await callback.answer(
-                "Перегенерация уже использована. Загрузите новое фото.",
+                "Перегенерация уже использована. Загрузи новое фото.",
                 show_alert=True,
             )
             return
@@ -801,15 +718,14 @@ def register_xmas_handlers(dp):
 # ===== ОБРАБОТКА ТЕКСТА (свои варианты) =====
 
 async def handle_xmas_custom_text(message: Message, user_id: int, text: str) -> bool:
-    """Если пользователь в режиме ввода своего варианта — сохраняет и идёт дальше.
-    Возвращает True, если обработал (main.py не должен обрабатывать дальше)."""
+    """Если пользователь в режиме ввода своего варианта — сохраняет и идёт дальше."""
     step = xmas_awaiting_custom.get(user_id)
     if not step:
         return False
 
     text = text.strip()[:300]
     if not text:
-        await message.answer("✏️ Пусто. Опишите своими словами.")
+        await message.answer("✏️ Пусто. Опиши своими словами.")
         return True
 
     state = xmas_state.get(user_id, {})
@@ -820,7 +736,8 @@ async def handle_xmas_custom_text(message: Message, user_id: int, text: str) -> 
         xmas_state[user_id] = state
         xmas_awaiting_custom.pop(user_id, None)
         await message.answer(f"✅ Локация: <b>{text}</b>", parse_mode="HTML")
-        await message.answer(XMAS_CHOOSE_FORMAT, parse_mode="HTML", reply_markup=formats_keyboard())
+        previews = [o["preview"] for o in XMAS_OUTFITS.values()]
+        await _send_previews(message, previews, XMAS_CHOOSE_OUTFIT, outfits_keyboard())
         return True
 
     if step == "subscene":
@@ -919,7 +836,6 @@ def _build_prompt(state: dict) -> str | None:
         "ЗАПРЕЩЕНО: добавлять случайных людей, силуэты, прохожих, фигуры вдалеке. "
         "ЗАПРЕЩЕНО: терять людей, делать группу меньше, чем на исходнике. "
         "ЗАПРЕЩЕНО: менять одного человека на другого. "
-        "\n"
         "СХОДСТВО: люди должны быть УЗНАВАЕМЫ — те же лица, цвет волос, причёски, возраст, пол, телосложение. "
         "Сохрани форму лица, овал, разрез и цвет глаз, брови, нос, губы, подбородок. "
         "В рисованном стиле допускается упрощение черт лица, но узнаваемость сохрани. "
@@ -951,12 +867,12 @@ def _build_prompt(state: dict) -> str | None:
         "Живое, тёплое, человеческое фото. "
     )
 
-    # ===== РЕАЛИЗМ ИЛИ РИСОВАННЫЙ СТИЛЬ (зависит от выбранной стилизации) =====
+    # ===== РЕАЛИЗМ ИЛИ РИСОВАННЫЙ СТИЛЬ =====
     style_key_pre = state.get("style", "realistic")
     is_art_style = style_key_pre in ("soviet_card", "soviet_cartoon", "disney", "comics")
 
     if is_art_style:
-        realism_lock = ""  # отключаем реализм для рисованных стилей
+        realism_lock = ""
         art_style_lock = (
             "ХУДОЖЕСТВЕННЫЙ СТИЛЬ — ЭТО НЕ ФОТОГРАФИЯ. "
             "Изображение должно быть РИСОВАННЫМ, а НЕ фотореалистичным. "
@@ -1022,8 +938,8 @@ def _build_prompt(state: dict) -> str | None:
     format_lock = (
         f"ФОРМАТ КАДРА: {fmt['name']}, размер {img_size}. "
         f"Построй КРАСИВУЮ ГАРМОНИЧНУЮ композицию под этот формат — {fmt['desc']}. "
-        "Кадрирование людей выбери САМ: по грудь, по пояс или по колено — как гармонично смотрится в этом формате. "
-        "Главное — чтобы композиция была ЦЕЛЬНОЙ, БЕЗ пустых полос сверху или снизу, БЕЗ обрезов посередине фигуры, БЕЗ кривых пропорций. "
+        "Кадрирование людей выбери САМ: по грудь, по пояс или по колено — как гармонично смотрится. "
+        "Главное — чтобы композиция была ЦЕЛЬНОЙ, БЕЗ пустых полос, БЕЗ обрезов посередине фигуры. "
         f"Верни изображение РОВНО {img_size} пикселей. "
     )
 
@@ -1057,22 +973,34 @@ def _build_prompt(state: dict) -> str | None:
 
 
 async def _generate_and_send(message: Message, user_id: int, state: dict):
-    """Генерирует 1 кадр и отправляет."""
+    """Генерирует 1 кадр и отправляет. Списывает 1 генерацию."""
     from ai_service import generate_image
+    from main import get_balance, spend_generation, test_mode, buy_generations_keyboard
 
     photo = state.get("photo")
     if not photo:
-        await message.answer("❌ Нет фото. Загрузите заново.")
+        await message.answer("❌ Нет фото. Загрузи заново.")
         return
+
+    is_regen = state.get("regen_done", False)
+
+    # При перегенерации — не списываем. При первой генерации — списываем.
+    if not is_regen:
+        if not spend_generation(user_id):
+            await message.answer(
+                "💎 Генерации закончились.\n\nПополни баланс:",
+                reply_markup=buy_generations_keyboard()
+            )
+            return
 
     full_prompt = _build_prompt(state)
     if not full_prompt:
-        await message.answer("❌ Не все параметры выбраны. Начните заново: /start")
+        await message.answer("❌ Не все параметры выбраны. Начни заново: /start")
         return
 
-    await message.answer("🎨 Генерирую кадр...")
+    await message.answer("🎨 Генерирую кадр... Обычно это занимает до минуты.")
 
-    logger.info(f"🎨 xmas генерация: user={user_id}, regen_done={state.get('regen_done')}")
+    logger.info(f"🎨 xmas генерация: user={user_id}, regen={is_regen}")
 
     try:
         img = generate_image(photo, full_prompt)
@@ -1091,16 +1019,16 @@ async def _generate_and_send(message: Message, user_id: int, state: dict):
 
     logger.info(f"✅ xmas: кадр получен")
 
+    balance = get_balance(user_id)
+    balance_text = "∞" if (user_id == 456504792 and test_mode) else str(balance)
+
     try:
         await message.answer_photo(
             BufferedInputFile(img, filename="xmas.jpg"),
-            caption="🎄 <b>Готово!</b>",
+            caption=f"🎄 <b>Готово!</b>\n\n💎 Баланс: {balance_text}",
             parse_mode="HTML",
             reply_markup=result_keyboard(),
         )
     except Exception as e:
         logger.exception(f"❌ xmas: ошибка отправки фото: {e}")
         await message.answer("❌ Не удалось отправить фото.")
-
-    if not state.get("regen_done"):
-        consume_xmas_payment(user_id)
