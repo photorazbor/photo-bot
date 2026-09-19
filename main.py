@@ -959,38 +959,65 @@ if user_mode.get(user_id, "").startswith("studio_"):
     await bot.send_message(chat_id, "Что дальше?", reply_markup=studio_kb)
     return
 
-        if user_mode.get(user_id, "").startswith("doc_"):
-            doc_kb = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="🔄 Перегенерировать — бесплатно", callback_data=f"doc_retry_{user_id}")],
-                [InlineKeyboardButton(text="📸 Новый документ", callback_data=f"doc_next_{user_id}")],
-                [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
-            ])
-            await bot.send_message(chat_id, "Что дальше?", reply_markup=doc_kb)
-            return
+if user_mode.get(user_id, "").startswith("doc_"):
+    if mode == "retry" or gen_retry_count.get(user_id, 0) >= 1:
+        doc_kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📸 Новый документ", callback_data=f"doc_next_{user_id}")],
+            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
+        ])
+    else:
+        doc_kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🔄 Перегенерировать — бесплатно", callback_data=f"doc_retry_{user_id}")],
+            [InlineKeyboardButton(text="📸 Новый документ", callback_data=f"doc_next_{user_id}")],
+            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
+        ])
+    await bot.send_message(chat_id, "Что дальше?", reply_markup=doc_kb)
+    return
 
-        if is_flat_lay:
-            flat_kb = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="✏️ Доработать", callback_data=f"flat_refine_{gen_type}_{user_id}")],
-                [InlineKeyboardButton(text="🔄 Перегенерировать", callback_data=f"gen_retry_{gen_type}_{user_id}")],
-                [InlineKeyboardButton(text="👍 Хорошо", callback_data=f"fb_good_{user_id}"),
-                 InlineKeyboardButton(text="👎 Плохо", callback_data=f"fb_bad_{user_id}")],
-                [InlineKeyboardButton(text=f"💎 Баланс: {balance_text}", callback_data="my_balance")],
-                [InlineKeyboardButton(text="📷 Новый Flat Lay", callback_data=f"flat_new_{user_id}")],
-                [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
-            ])
-            await bot.send_message(chat_id, "Что дальше?", reply_markup=flat_kb)
-        else:
-            post_kb = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="✏️ Доработать результат", callback_data=f"gen_refine_{gen_type}_{user_id}")],
-                [InlineKeyboardButton(text="🔄 Перегенерировать (бесплатно)", callback_data=f"gen_retry_{gen_type}_{user_id}")],
-                [InlineKeyboardButton(text="⚡ Усилить (-1 ген.)", callback_data=f"gen_boost_menu_{gen_type}_{user_id}")],
-                [InlineKeyboardButton(text="👍 Хорошо", callback_data=f"fb_good_{user_id}"),
-                 InlineKeyboardButton(text="👎 Плохо", callback_data=f"fb_bad_{user_id}")],
-                [InlineKeyboardButton(text=f"💎 Баланс: {balance_text}", callback_data="my_balance")],
-                [InlineKeyboardButton(text="📷 Новое фото", callback_data=f"new_photo_same_{user_id}")],
-                [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
-            ])
-            await bot.send_message(chat_id, "Что дальше?", reply_markup=post_kb)
+if is_flat_lay:
+    if mode == "retry" or gen_retry_count.get(user_id, 0) >= 1:
+        flat_kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="✏️ Доработать", callback_data=f"flat_refine_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="👍 Хорошо", callback_data=f"fb_good_{user_id}"),
+             InlineKeyboardButton(text="👎 Плохо", callback_data=f"fb_bad_{user_id}")],
+            [InlineKeyboardButton(text=f"💎 Баланс: {balance_text}", callback_data="my_balance")],
+            [InlineKeyboardButton(text="📷 Новый Flat Lay", callback_data=f"flat_new_{user_id}")],
+            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
+        ])
+    else:
+        flat_kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="✏️ Доработать", callback_data=f"flat_refine_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="🔄 Перегенерировать", callback_data=f"gen_retry_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="👍 Хорошо", callback_data=f"fb_good_{user_id}"),
+             InlineKeyboardButton(text="👎 Плохо", callback_data=f"fb_bad_{user_id}")],
+            [InlineKeyboardButton(text=f"💎 Баланс: {balance_text}", callback_data="my_balance")],
+            [InlineKeyboardButton(text="📷 Новый Flat Lay", callback_data=f"flat_new_{user_id}")],
+            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
+        ])
+    await bot.send_message(chat_id, "Что дальше?", reply_markup=flat_kb)
+else:
+    if mode == "retry" or gen_retry_count.get(user_id, 0) >= 1:
+        post_kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="✏️ Доработать результат", callback_data=f"gen_refine_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="⚡ Усилить (-1 ген.)", callback_data=f"gen_boost_menu_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="👍 Хорошо", callback_data=f"fb_good_{user_id}"),
+             InlineKeyboardButton(text="👎 Плохо", callback_data=f"fb_bad_{user_id}")],
+            [InlineKeyboardButton(text=f"💎 Баланс: {balance_text}", callback_data="my_balance")],
+            [InlineKeyboardButton(text="📷 Новое фото", callback_data=f"new_photo_same_{user_id}")],
+            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
+        ])
+    else:
+        post_kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="✏️ Доработать результат", callback_data=f"gen_refine_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="🔄 Перегенерировать (бесплатно)", callback_data=f"gen_retry_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="⚡ Усилить (-1 ген.)", callback_data=f"gen_boost_menu_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="👍 Хорошо", callback_data=f"fb_good_{user_id}"),
+             InlineKeyboardButton(text="👎 Плохо", callback_data=f"fb_bad_{user_id}")],
+            [InlineKeyboardButton(text=f"💎 Баланс: {balance_text}", callback_data="my_balance")],
+            [InlineKeyboardButton(text="📷 Новое фото", callback_data=f"new_photo_same_{user_id}")],
+            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
+        ])
+    await bot.send_message(chat_id, "Что дальше?", reply_markup=post_kb)
 
         last_prompt[user_id] = wish if wish else ""
         last_format[user_id] = fmt if fmt else ""
