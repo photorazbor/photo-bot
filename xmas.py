@@ -198,6 +198,47 @@ XMAS_OUTFITS = {
     },
 }
 
+# ===== ФОРМАТЫ =====
+
+XMAS_FORMATS = {
+    "original": {
+        "name": "📐 Исходный",
+        "short": "📐 Исходный",
+        "desc": "Как на исходном фото",
+        "size_key": None,
+    },
+    "1_1": {
+        "name": "📱 1:1 (квадрат)",
+        "short": "📱 1:1 (квадрат)",
+        "desc": "Квадратная композиция",
+        "size_key": "1024x1024",
+    },
+    "3_4": {
+        "name": "📱 3:4 (вертикаль)",
+        "short": "📱 3:4 (вертикаль)",
+        "desc": "Вертикальный кадр",
+        "size_key": "768x1024",
+    },
+    "4_3": {
+        "name": "🖼 4:3 (горизонт)",
+        "short": "🖼 4:3 (горизонт)",
+        "desc": "Горизонтальный кадр",
+        "size_key": "1024x768",
+    },
+    "4_5": {
+        "name": "📱 4:5 (Instagram)",
+        "short": "📱 4:5 (Instagram)",
+        "desc": "Вертикаль для Instagram",
+        "size_key": "896x1080",
+    },
+    "9_16": {
+        "name": "📱 9:16 (сторис)",
+        "short": "📱 9:16 (сторис)",
+        "desc": "Полная вертикаль для сторис",
+        "size_key": "720x1280",
+    },
+}
+
 # ===== КОНФИГУРАЦИЯ =====
 XMAS_PRICE = 399
 XMAS_PAID_FILE = "xmas_paid.json"
@@ -285,10 +326,18 @@ def outfits_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
+def formats_keyboard():
+    rows = []
+    for key, fmt in XMAS_FORMATS.items():
+        rows.append([InlineKeyboardButton(text=fmt["short"], callback_data=f"xmas_fmt_{key}")])
+    rows.append([InlineKeyboardButton(text="🔙 Назад", callback_data="xmas_back_outfit")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
 def upload_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📸 Загрузить фото", callback_data="xmas_upload")],
-        [InlineKeyboardButton(text="🔙 Назад", callback_data="xmas_back_outfit")],
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="xmas_back_format")],
     ])
 
 
@@ -321,11 +370,12 @@ XMAS_INTRO = (
     f"💰 Стоимость: <b>{XMAS_PRICE} ₽</b>"
 )
 
-XMAS_CHOOSE_LOCATION = "🏙 <b>Шаг 1 из 4. Выберите локацию:</b>"
-XMAS_CHOOSE_SUBSCENE = "🎬 <b>Шаг 2 из 4. Выберите композицию:</b>"
-XMAS_CHOOSE_OUTFIT = "👗 <b>Шаг 3 из 4. Выберите образ:</b>"
+XMAS_CHOOSE_LOCATION = "🏙 <b>Шаг 1 из 5. Выберите локацию:</b>"
+XMAS_CHOOSE_SUBSCENE = "🎬 <b>Шаг 2 из 5. Выберите композицию:</b>"
+XMAS_CHOOSE_OUTFIT = "👗 <b>Шаг 3 из 5. Выберите образ:</b>"
+XMAS_CHOOSE_FORMAT = "📐 <b>Шаг 4 из 5. Выберите формат кадра:</b>"
 XMAS_UPLOAD = (
-    "📸 <b>Шаг 4 из 4. Пришлите фото</b>\n\n"
+    "📸 <b>Шаг 5 из 5. Пришлите фото</b>\n\n"
     "Требования:\n"
     "• Все видны <b>по грудь, по пояс или по колено</b>\n"
     "• Лица крупные, чёткие, без сильных теней\n"
@@ -518,12 +568,36 @@ def register_xmas_handlers(dp):
         state["outfit"] = outfit_key
         xmas_state[user_id] = state
 
-        await _show_upload(callback.message, state)
+        await _show_formats(callback.message)
 
     @dp.callback_query(F.data == "xmas_back_outfit")
     async def xmas_back_outfit(callback: CallbackQuery):
         await callback.answer()
         await _show_outfits(callback.message)
+
+        # ===== ШАГ 4: ФОРМАТ =====
+    async def _show_formats(msg):
+        await msg.answer(XMAS_CHOOSE_FORMAT, parse_mode="HTML", reply_markup=formats_keyboard())
+
+    @dp.callback_query(F.data.startswith("xmas_fmt_"))
+    async def xmas_format(callback: CallbackQuery):
+        await callback.answer()
+        fmt_key = callback.data.replace("xmas_fmt_", "")
+        if fmt_key not in XMAS_FORMATS:
+            await callback.message.answer("❌ Формат не найден.")
+            return
+
+        user_id = callback.from_user.id
+        state = xmas_state.get(user_id, {})
+        state["format"] = fmt_key
+        xmas_state[user_id] = state
+
+        await _show_upload(callback.message, state)
+
+    @dp.callback_query(F.data == "xmas_back_format")
+    async def xmas_back_format(callback: CallbackQuery):
+        await callback.answer()
+        await _show_formats(callback.message)
 
     @dp.callback_query(F.data == "xmas_custom_outfit")
     async def xmas_custom_outfit(callback: CallbackQuery):
@@ -563,11 +637,17 @@ def register_xmas_handlers(dp):
             if outfit:
                 outfit_name = outfit["name"]
 
+        fmt_name = "—"
+        fmt = XMAS_FORMATS.get(state.get("format", ""))
+        if fmt:
+            fmt_name = fmt["name"]
+
         caption = (
             "📋 <b>Ваш выбор:</b>\n\n"
             f"📍 Локация: {loc_name}\n"
             f"🎬 Композиция: {sub_name}\n"
-            f"👗 Образ: {outfit_name}\n\n"
+            f"👗 Образ: {outfit_name}\n"
+            f"📐 Формат: {fmt_name}\n\n"
             f"{XMAS_UPLOAD}"
         )
         await msg.answer(caption, parse_mode="HTML", reply_markup=upload_keyboard())
@@ -661,12 +741,13 @@ async def handle_xmas_custom_text(message: Message, user_id: int, text: str) -> 
         xmas_state[user_id] = state
         xmas_awaiting_custom.pop(user_id, None)
         await message.answer(f"✅ Образ: <b>{text}</b>", parse_mode="HTML")
-        # Показываем сводку
-        await _show_summary_after_custom(message, state)
+        # Показываем выбор формата
+        await message.answer(
+            XMAS_CHOOSE_FORMAT,
+            parse_mode="HTML",
+            reply_markup=formats_keyboard(),
+        )
         return True
-
-    return False
-
 
 async def _show_summary_after_custom(msg, state):
     loc_name = state.get("custom_location") or (
@@ -674,12 +755,17 @@ async def _show_summary_after_custom(msg, state):
     )
     sub_name = state.get("custom_subscene") or "—"
     outfit_name = state.get("custom_outfit") or "—"
+    fmt_name = "—"
+    fmt = XMAS_FORMATS.get(state.get("format", ""))
+    if fmt:
+        fmt_name = fmt["name"]
 
     caption = (
         "📋 <b>Ваш выбор:</b>\n\n"
         f"📍 Локация: {loc_name}\n"
         f"🎬 Композиция: {sub_name}\n"
-        f"👗 Образ: {outfit_name}\n\n"
+        f"👗 Образ: {outfit_name}\n"
+        f"📐 Формат: {fmt_name}\n\n"
         f"{XMAS_UPLOAD}"
     )
     await msg.answer(caption, parse_mode="HTML", reply_markup=upload_keyboard())
@@ -843,6 +929,34 @@ def _build_prompt(state: dict) -> str | None:
         "ВАЖНО: кожа людей должна оставаться гладкой и свежей — НЕ усиливай морщины, НЕ добавляй текстуру, НЕ делай тени резкими. "
     )
 
+    # ===== ФОРМАТ =====
+    from main import get_size_for_format
+    fmt_key = state.get("format", "1_1")
+    fmt = XMAS_FORMATS.get(fmt_key, XMAS_FORMATS["1_1"])
+    photo_bytes = state.get("photo")
+    img_size = get_size_for_format(fmt_key, photo_bytes)
+
+    if fmt_key == "1_1":
+        fmt_desc = "квадратная композиция"
+    elif fmt_key == "3_4":
+        fmt_desc = "вертикальная композиция, вытянутая вверх"
+    elif fmt_key == "4_3":
+        fmt_desc = "горизонтальная композиция, широкий кадр"
+    elif fmt_key == "4_5":
+        fmt_desc = "вертикальная композиция для Instagram"
+    elif fmt_key == "9_16":
+        fmt_desc = "полная вертикаль для сторис, вытянутая вверх"
+    else:
+        fmt_desc = "композиция как на исходном фото"
+
+    format_lock = (
+        f"ФОРМАТ КАДРА: {fmt['name']}, размер {img_size}. "
+        f"Построй КРАСИВУЮ ГАРМОНИЧНУЮ композицию под этот формат — {fmt_desc}. "
+        "Кадрирование людей выбери САМ: по грудь, по пояс или по колено — как гармонично смотрится в этом формате. "
+        "Главное — чтобы композиция была ЦЕЛЬНОЙ, БЕЗ пустых полос сверху или снизу, БЕЗ обрезов посередине фигуры, БЕЗ кривых пропорций. "
+        f"Верни изображение РОВНО {img_size} пикселей. "
+    )
+
     full = (
         f"Новогодняя фотография. "
         f"{face_lock}"
@@ -853,8 +967,9 @@ def _build_prompt(state: dict) -> str | None:
         f"{location_lock}"
         f"{atmosphere_lock}"
         f"{realism_lock}"
+        f"{format_lock}"
         f"Финальный стиль: атмосферно, тепло, живо, реалистично, кинематографично. "
-        f"Размер: 1024x1024."
+        f"Размер: {img_size}."
     )
     return full
 
