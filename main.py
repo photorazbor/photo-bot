@@ -1189,6 +1189,7 @@ async def handle_new_photo(callback: CallbackQuery):
     reset_xmas_state(callback.from_user.id)
     user_mode[callback.from_user.id] = "free"
     flat_lay_active[callback.from_user.id] = False
+    style_active.pop(callback.from_user.id, None)
     await callback.message.answer("Присылай фото — жду! 📷")
     await callback.answer()
 
@@ -1199,6 +1200,7 @@ async def handle_main_menu(callback: CallbackQuery):
     reset_xmas_state(callback.from_user.id)
     user_mode[callback.from_user.id] = "free"
     flat_lay_active[callback.from_user.id] = False
+    style_active.pop(callback.from_user.id, None)
     PHOTO_BASE = "https://raw.githubusercontent.com/photorazbor/photo-bot/main"
     balance = get_balance(callback.from_user.id)
     balance_text = "∞" if (callback.from_user.id == 456504792 and test_mode) else str(balance)
@@ -1236,6 +1238,7 @@ async def handle_tools_menu(callback: CallbackQuery):
     user_id = callback.from_user.id
     user_mode[user_id] = "free"
     flat_lay_active[user_id] = False
+    style_active.pop(user_id, None)
     balance = get_balance(user_id)
     balance_text = "∞" if (user_id == 456504792 and test_mode) else str(balance)
     await callback.message.answer(
@@ -1293,6 +1296,7 @@ async def handle_style_photo_inline(callback: CallbackQuery):
     user_id = callback.from_user.id
     user_mode[user_id] = "style_photo"
     flat_lay_active[user_id] = False
+    style_active.pop(user_id, None)   # ← сброс при входе в стилизацию заново
     balance = get_balance(user_id)
     await callback.message.answer(
         f"🎨 <b>Стилизация</b>\n\n"
@@ -2768,11 +2772,10 @@ async def handle_gen_style(callback: CallbackQuery):
     gen_wish[user_id] = wish
     user_mode[user_id] = f"gen_wish_{gen_type}"
     gen_format[user_id] = "original"
-    style_active[user_id] = True   # ← добавили
+    style_active[user_id] = True
     await callback.answer("🎨 Применяю стиль...")
     await do_generation(user_id, callback.message.chat.id, gen_type, check_diff=False)
     user_mode[user_id] = "free"
-    style_active.pop(user_id, None)  # ← добавили (сброс после генерации)
 
 
 # ===== ЛОГИКА КУРСА =====
