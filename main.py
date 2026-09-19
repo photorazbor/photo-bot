@@ -943,14 +943,21 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
         )
 
         # Кнопки после генерации
-        if user_mode.get(user_id, "").startswith("studio_"):
-            studio_kb = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="🔄 Перегенерировать — бесплатно", callback_data=f"studio_retry_{user_id}")],
-                [InlineKeyboardButton(text="📸 Создать ещё портрет", callback_data=f"studio_next_{user_id}")],
-                [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
-            ])
-            await bot.send_message(chat_id, "Что дальше?", reply_markup=studio_kb)
-            return
+if user_mode.get(user_id, "").startswith("studio_"):
+    # После перегенерации кнопку "Перегенерировать" не показываем
+    if mode == "retry" or gen_retry_count.get(user_id, 0) >= 1:
+        studio_kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📸 Создать ещё портрет", callback_data=f"studio_next_{user_id}")],
+            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
+        ])
+    else:
+        studio_kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🔄 Перегенерировать — бесплатно", callback_data=f"studio_retry_{user_id}")],
+            [InlineKeyboardButton(text="📸 Создать ещё портрет", callback_data=f"studio_next_{user_id}")],
+            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
+        ])
+    await bot.send_message(chat_id, "Что дальше?", reply_markup=studio_kb)
+    return
 
         if user_mode.get(user_id, "").startswith("doc_"):
             doc_kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -1522,18 +1529,26 @@ async def handle_portrait_format(callback: CallbackQuery):
 @dp.callback_query(F.data.startswith("studio_retry_"))
 async def handle_studio_retry(callback: CallbackQuery):
     user_id = int(callback.data.split("_")[-1])
+
     if gen_retry_count.get(user_id, 0) >= 1:
         await callback.answer("Лимит перегенераций исчерпан.", show_alert=True)
         return
+
     saved_wish = last_prompt.get(user_id, "")
     saved_fmt = last_format.get(user_id, "")
     if saved_wish:
         gen_wish[user_id] = saved_wish
     if saved_fmt:
         gen_format[user_id] = saved_fmt
+
     old_photo = last_photo.get(user_id)
+
+    # ВАЖНО: ставим режим studio_, чтобы do_generation показал правильные кнопки
+    user_mode[user_id] = "studio_retry"
+
     await callback.answer("🔄 Перегенерирую...")
     await do_generation(user_id, callback.message.chat.id, "paid", check_diff=False, mode="retry")
+
     new_photo = last_photo.get(user_id)
     if new_photo != old_photo:
         gen_retry_count[user_id] = 1
