@@ -99,6 +99,7 @@ gen_fail_count = {}
 gen_fail_time = {}
 flat_lay_active = {}
 flat_lay_style = {}
+style_active = {}   # True, если генерация идёт из «Стилизации»
 last_prompt = {}
 last_format = {}
 interior_active = {}
@@ -972,6 +973,21 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
                     [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
                 ])
             await bot.send_message(chat_id, "Что дальше?", reply_markup=doc_kb)
+            return
+
+                if style_active.get(user_id, False):
+            if mode == "retry" or gen_retry_count.get(user_id, 0) >= 1:
+                post_kb = InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="🎨 Новая стилизация", callback_data="style_photo")],
+                    [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
+                ])
+            else:
+                post_kb = InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="🔄 Перегенерировать (бесплатно)", callback_data=f"gen_retry_{gen_type}_{user_id}")],
+                    [InlineKeyboardButton(text="🎨 Новая стилизация", callback_data="style_photo")],
+                    [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
+                ])
+            await bot.send_message(chat_id, "Что дальше?", reply_markup=post_kb)
             return
 
         if is_flat_lay:
@@ -2752,9 +2768,11 @@ async def handle_gen_style(callback: CallbackQuery):
     gen_wish[user_id] = wish
     user_mode[user_id] = f"gen_wish_{gen_type}"
     gen_format[user_id] = "original"
+    style_active[user_id] = True   # ← добавили
     await callback.answer("🎨 Применяю стиль...")
     await do_generation(user_id, callback.message.chat.id, gen_type, check_diff=False)
     user_mode[user_id] = "free"
+    style_active.pop(user_id, None)  # ← добавили (сброс после генерации)
 
 
 # ===== ЛОГИКА КУРСА =====
