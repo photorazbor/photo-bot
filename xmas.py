@@ -278,6 +278,12 @@ def is_user_in_xmas_flow(user_id: int) -> bool:
     """True, если пользователь в середине флоу xmas, но НЕ на шаге загрузки фото."""
     return user_id in xmas_state and user_id not in xmas_awaiting_photo
 
+def reset_xmas_state(user_id: int):
+    """Сбрасывает состояние xmas для пользователя (при выходе в другое меню)."""
+    xmas_state.pop(user_id, None)
+    xmas_awaiting_photo.discard(user_id)
+    xmas_awaiting_custom.pop(user_id, None)
+
 
 # ===== КЛАВИАТУРЫ =====
 
