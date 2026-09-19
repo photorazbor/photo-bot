@@ -1099,6 +1099,8 @@ async def handle_new_photo_same(callback: CallbackQuery):
 
 @dp.callback_query(F.data == "new_photo")
 async def handle_new_photo(callback: CallbackQuery):
+    from xmas import reset_xmas_state
+    reset_xmas_state(callback.from_user.id)
     user_mode[callback.from_user.id] = "free"
     flat_lay_active[callback.from_user.id] = False
     await callback.message.answer("Присылай фото — жду! 📷")
@@ -1108,6 +1110,9 @@ async def handle_new_photo(callback: CallbackQuery):
 @dp.callback_query(F.data == "main_menu")
 async def handle_main_menu(callback: CallbackQuery):
     await callback.answer()
+    # Сброс xmas-состояния при выходе в главное меню
+    from xmas import reset_xmas_state
+    reset_xmas_state(callback.from_user.id)
     user_mode[callback.from_user.id] = "free"
     flat_lay_active[callback.from_user.id] = False
     PHOTO_BASE = "https://raw.githubusercontent.com/photorazbor/photo-bot/main"
@@ -2289,6 +2294,14 @@ async def handle_non_photo(message: Message):
         return
     # ===== конец =====
 
+    # Сброс xmas при смене инструмента через текстовые кнопки
+    if text in ("🛠 Инструменты", "📸 Разобрать фото", "✂️ Редактор",
+                "📷 Flat Lay", "🎨 Стилизация", "🏠 Главное меню",
+                "🎓 Мини-курс", "🎯 Авторский разбор", "💎 Баланс",
+                "💛 Поддержать проект", "👤 Об авторе"):
+        from xmas import reset_xmas_state
+        reset_xmas_state(user_id)
+
     if mode in ("gen_wish_free", "gen_wish_paid"):
         gen_wish[user_id] = text
         await do_generation(user_id, message.chat.id, "paid")
@@ -2325,6 +2338,8 @@ async def handle_non_photo(message: Message):
         return
 
     if text == "🛠 Инструменты":
+        from xmas import reset_xmas_state
+        reset_xmas_state(user_id)
         balance = get_balance(user_id)
         balance_text = "∞" if (user_id == 456504792 and test_mode) else str(balance)
         await message.answer(
