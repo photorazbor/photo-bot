@@ -180,7 +180,14 @@ Drawings: line, dashed_line, circle, frame, arrow, grid_thirds, crop_frame.
         "max_tokens": 1000,
     }
 
-    response = requests.post(f"{BASE_URL}/chat/completions", headers=headers, json=payload, timeout=60)
+    try:
+        response = requests.post(f"{BASE_URL}/chat/completions", headers=headers, json=payload, timeout=90)
+    except requests.exceptions.Timeout:
+        logger.error("❌ analyze_photo: TIMEOUT (90 секунд)")
+        return None
+    except requests.exceptions.RequestException as e:
+        logger.exception(f"❌ analyze_photo: ошибка запроса: {e}")
+        return None
 
     logger.info(f"🔍 analyze_photo: статус={response.status_code}, ответ={response.text[:500]}")
 
@@ -202,8 +209,9 @@ Drawings: line, dashed_line, circle, frame, arrow, grid_thirds, crop_frame.
         logger.error(f"❌ Не удалось распарсить JSON: {e}\nОтвет модели: {raw_text[:500]}")
         return None
 
+
 def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
-    """Генерирует изображение через Gemini Image API на CheapAI (Формат 1)."""
+    """Генерирует изображение через Gemini Image API на CheapAI."""
     data_url = _image_bytes_to_data_url(image_bytes)
 
     headers = {
@@ -226,61 +234,29 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
         "max_tokens": 2000,
     }
 
-    response = requests.post(f"{BASE_URL}/chat/completions", headers=headers, json=payload, timeout=70)
+    logger.info(f"🔍 generate_image: отправляю запрос, model={payload.get('model')}")
 
-    # if response.status_code != 200:
-    #     print("CheapAI не ответил, пробую SpeShu...")
-    #     spe_shu_headers = {
-    #         "Authorization": f"Bearer {SPESHU_API_KEY}",
-    #         "Content-Type": "application/json"
-    #     }
-    #     spesh_task = requests.post(
-    #         "https://speshu.ai/api/v1/async/media/tasks",
-    #         headers=spe_shu_headers,
-    #         json={
-    #             "model": "nano-banana-2",
-    #             "input": {
-    #                 "prompt": prompt,
-    #                 "images": [{"type": "url", "data": data_url}]
-    #             }
-    #         },
-    #         timeout=45
-    #     )
-    #     if spesh_task.status_code not in (200, 201):
-    #         print(f"Ошибка SpeShu: {spesh_task.status_code} {spesh_task.text}")
-    #         return None
-    # 
-    #     task_id = spesh_task.json().get("data", {}).get("taskId")
-    #     if not task_id:
-    #         print("Нет taskId от SpeShu")
-    #         return None
-    # 
-    #     import time
-    #     for _ in range(60):
-    #         time.sleep(3)
-    #         spesh_result = requests.get(
-    #             f"https://speshu.ai/api/v1/async/media/tasks/{task_id}",
-    #             headers=spe_shu_headers,
-    #             timeout=30
-    #         )
-    #         if spesh_result.status_code == 200:
-    #             result_data = spesh_result.json().get("data", {})
-    #             status = result_data.get("status")
-    #             if status == "success":
-    #                 result_json = result_data.get("resultJson", {})
-    #                 image_url = result_json.get("url") or result_json.get("image_url") or result_json.get("output")
-    #                 if image_url:
-    #                     image_response = requests.get(image_url, timeout=45)
-    #                     if image_response.status_code == 200:
-    #                         return image_response.content
-    #                 break
-    #             elif status == "fail":
-    #                 print(f"SpeShu fail: {result_data.get('failMsg')}")
-    #                 break
-    #     print("SpeShu не вернул результат")
-    #     return None
+    try:
+        response = requests.post(f"{BASE_URL}/chat/completions", headers=headers, json=payload, timeout=180)
+    except requests.exceptions.Timeout:
+        logger.error("❌ generate_image: TIMEOUT (180 секунд)")
+        return None
+    except requests.exceptions.RequestException as e:
+        logger.exception(f"❌ generate_image: ошибка запроса: {e}")
+        return None
 
-    result = response.json()
+    logger.info(f"🔍 generate_image: HTTP {response.status_code}, длина ответа={len(response.text)}")
+
+    if response.status_code != 200:
+        logger.error(f"❌ generate_image: API вернул {response.status_code}: {response.text[:500]}")
+        return None
+
+    try:
+        result = response.json()
+    except Exception as e:
+        logger.exception(f"❌ generate_image: не удалось распарсить JSON: {e}, ответ={response.text[:300]}")
+        return None
+
     try:
         content = result["choices"][0]["message"]["content"]
 
@@ -292,21 +268,20 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
         if content.startswith("iVBOR") or content.startswith("/9j/"):
             return base64.b64decode(content)
 
-        print(f"Не удалось извлечь изображение из ответа: {content[:200]}...")
+        logger.warning(f"⚠️ generate_image: не удалось извлечь картинку из ответа: {content[:300]}")
         return None
 
     except Exception as e:
-        print(f"Не удалось извлечь изображение: {e}")
+        logger.exception(f"❌ generate_image: ошибка парсинга: {e}")
         return None
 
 
 def create_payment_link(amount: float, purpose: str, user_id: int = None) -> str | None:
     if not TOCHKA_API_TOKEN:
-        print("Ошибка: TOCHKA_API_TOKEN не задан в config.py")
+        logger.error("Ошибка: TOCHKA_API_TOKEN не задан в config.py")
         return None
 
     url = "https://enter.tochka.com/uapi/acquiring/v1.0/payments"
-
     payment_link_id = str(uuid.uuid4())
 
     payload = {
@@ -335,7 +310,7 @@ def create_payment_link(amount: float, purpose: str, user_id: int = None) -> str
     try:
         response = requests.post(url, json=payload, headers=headers, timeout=30, verify="russian_certs.pem")
         if response.status_code not in (200, 201):
-            print(f"Ошибка API Точки: {response.status_code} {response.text[:300]}")
+            logger.error(f"Ошибка API Точки: {response.status_code} {response.text[:300]}")
             return None
         data = response.json()
         payment_link = data.get("Data", {}).get("paymentLink")
@@ -344,8 +319,8 @@ def create_payment_link(amount: float, purpose: str, user_id: int = None) -> str
         if payment_link:
             return payment_link
         else:
-            print(f"В ответе нет paymentLink: {data}")
+            logger.error(f"В ответе нет paymentLink: {data}")
             return None
     except Exception as e:
-        print(f"Ошибка создания платежа: {e}")
+        logger.exception(f"Ошибка создания платежа: {e}")
         return None
