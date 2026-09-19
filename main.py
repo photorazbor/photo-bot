@@ -2430,8 +2430,16 @@ async def handle_photo(message: Message):
     image_bytes = image_to_bytes(image)
 
     # ===== Новогодняя фотосессия =====
+    from xmas import is_user_in_xmas_flow
     if user_id in xmas_awaiting_photo:
         await handle_xmas_photo(message, user_id, image_bytes)
+        return
+    if is_user_in_xmas_flow(user_id):
+        await message.answer(
+            "⚠️ Вы ещё не завершили настройку фотосессии.\n\n"
+            "Вернитесь назад и выберите все параметры до конца, "
+            "а потом нажмите «📸 Загрузить фото»."
+        )
         return
     
     last_photo[user_id] = image_bytes
