@@ -975,7 +975,7 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
             await bot.send_message(chat_id, "Что дальше?", reply_markup=doc_kb)
             return
 
-            if style_active.get(user_id, False):
+        if style_active.get(user_id, False):
             if mode == "retry" or gen_retry_count.get(user_id, 0) >= 1:
                 post_kb = InlineKeyboardMarkup(inline_keyboard=[
                     [InlineKeyboardButton(text="🎨 Новая стилизация", callback_data="style_photo")],
