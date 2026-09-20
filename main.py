@@ -1888,6 +1888,55 @@ async def handle_gen_go_ok(callback: CallbackQuery):
     parts = callback.data.split("_")
     gen_type = parts[3]
     user_id = int(parts[4])
+    await callback.answer()
+
+    analysis = last_analysis.get(user_id, {})
+    what_is_wrong = analysis.get("what_is_wrong", "")
+    how_to_fix = analysis.get("how_to_fix", "")
+
+    # Что будет сделано — на основе анализа
+    detail = ""
+    if what_is_wrong and what_is_wrong != "---":
+        detail += f"\n\n🎯 <b>На основе анализа:</b>\n{what_is_wrong}"
+    if how_to_fix and how_to_fix != "---":
+        detail += f"\n\n💡 <b>Как исправить:</b>\n{how_to_fix}"
+
+    text = (
+        "✨ <b>Улучшить фото</b>\n\n"
+        "ИИ исправит ошибки композиции, света и цвета, "
+        "которые были найдены в анализе:\n"
+        "• Выровняет горизонт\n"
+        "• Улучшит свет и тени\n"
+        "• Исправит композицию по правилу третей\n"
+        "• Уберёт случайный мусор с фона\n"
+        "• Сделает цвета естественнее\n\n"
+        "💾 <b>Что сохранится:</b>\n"
+        "• Все люди, их лица, причёски, одежда\n"
+        "• Сюжет и атмосфера кадра\n"
+        "• Объекты с исходного фото\n"
+        f"{detail}\n\n"
+        "⚠️ <b>Важно:</b> ИИ не всегда точно понимает замысел автора "
+        "и может ошибаться. Результат — художественная обработка, "
+        "а не 100% гарантия. Если что-то не понравится — можно "
+        "перегенерировать бесплатно.\n\n"
+        "💰 Стоимость: 1 генерация"
+    )
+
+    await callback.message.answer(
+        text,
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="✅ Улучшить", callback_data=f"confirm_ok_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="🔙 Назад", callback_data="main_menu")],
+        ])
+    )
+
+
+@dp.callback_query(F.data.startswith("confirm_ok_"))
+async def handle_confirm_ok(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    gen_type = parts[2]
+    user_id = int(parts[3])
     gen_wish[user_id] = _build_analysis_prompt(user_id)
     await callback.answer("Запускаю генерацию...")
     await do_generation(user_id, callback.message.chat.id, gen_type)
@@ -1920,6 +1969,53 @@ async def handle_gen_go_full(callback: CallbackQuery):
     parts = callback.data.split("_")
     gen_type = parts[3]
     user_id = int(parts[4])
+    await callback.answer()
+
+    analysis = last_analysis.get(user_id, {})
+    what_is_wrong = analysis.get("what_is_wrong", "")
+    how_to_fix = analysis.get("how_to_fix", "")
+
+    detail = ""
+    if what_is_wrong and what_is_wrong != "---":
+        detail += f"\n\n🎯 <b>На основе анализа:</b>\n{what_is_wrong}"
+    if how_to_fix and how_to_fix != "---":
+        detail += f"\n\n💡 <b>Как исправить:</b>\n{how_to_fix}"
+
+    text = (
+        "🎨 <b>Полная переработка</b>\n\n"
+        "ИИ заново выстроит кадр — это заметное изменение, а не лёгкая правка:\n"
+        "• Перестроит композицию по правилу третей\n"
+        "• Изменит позу и положение людей\n"
+        "• Полностью переработает свет\n"
+        "• Заменит или улучшит фон\n"
+        "• Сделает кадр кинематографичнее\n\n"
+        "💾 <b>Что сохранится:</b>\n"
+        "• Все люди с исходного фото\n"
+        "• Черты лиц, причёски, одежда\n"
+        "• Сюжет и общий замысел\n"
+        f"{detail}\n\n"
+        "⚠️ <b>Важно:</b> полная переработка сильно меняет кадр. "
+        "ИИ может не угадать с замыслом или деталями. "
+        "Результат — художественная интерпретация, а не 100% точность. "
+        "Если что-то не понравится — 1 бесплатная перегенерация.\n\n"
+        "💰 Стоимость: 1 генерация"
+    )
+
+    await callback.message.answer(
+        text,
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="✅ Переработать", callback_data=f"confirm_full_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="🔙 Назад", callback_data="main_menu")],
+        ])
+    )
+
+
+@dp.callback_query(F.data.startswith("confirm_full_"))
+async def handle_confirm_full(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    gen_type = parts[2]
+    user_id = int(parts[3])
     analysis = last_analysis.get(user_id, {})
     what_is_wrong = analysis.get("what_is_wrong", "")
     how_to_fix = analysis.get("how_to_fix", "")
@@ -1964,15 +2060,58 @@ async def handle_gen_go_retouch(callback: CallbackQuery):
     parts = callback.data.split("_")
     gen_type = parts[3]
     user_id = int(parts[4])
-    gen_wish[user_id] = (
-        "ОБЯЗАТЕЛЬНО сделай видимую ретушь кожи. "
-        "Сгладь ВСЕ морщины и складки на лице, шее и руках. "
-        "Убери тёмные круги под глазами, покраснения, пигментные пятна. "
-        "Кожа должна стать ЗАМЕТНО более гладкой и ровной. "
-        "Сохрани черты лица и текстуру. "
-        "НЕ меняй позу, фон, свет, композицию, одежду."
+    await callback.answer()
+
+    text = (
+        "💫 <b>Ретушь портрета</b>\n\n"
+        "Что будет сделано:\n"
+        "• Сглаживание морщин и складок на лице и шее\n"
+        "• Убраны тёмные круги и мешки под глазами\n"
+        "• Убраны покраснения и пигментные пятна\n"
+        "• Смягчены резкие тени на лице\n"
+        "• Осветлён и очищен взгляд\n"
+        "• Причёска станет аккуратнее\n\n"
+        "💾 <b>Что НЕ изменится:</b>\n"
+        "• Черты лица, форма носа, губ, разрез глаз\n"
+        "• Фон, одежда, поза, свет, композиция\n"
+        "• Естественная текстура кожи (без «пластика»)\n\n"
+        "⚠️ <b>Важно:</b> ИИ может ошибаться. Иногда ретушь "
+        "получается слишком сильной или наоборот слабой. "
+        "Результат — художественная обработка. "
+        "Если что-то не понравится — 1 бесплатная перегенерация.\n\n"
+        "💰 Стоимость: 1 генерация"
     )
-    await callback.answer("Запускаю генерацию...")
+
+    await callback.message.answer(
+        text,
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="✅ Ретушировать", callback_data=f"confirm_retouch_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="🔙 Назад", callback_data="main_menu")],
+        ])
+    )
+
+
+@dp.callback_query(F.data.startswith("confirm_retouch_"))
+async def handle_confirm_retouch(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    gen_type = parts[2]
+    user_id = int(parts[3])
+    gen_wish[user_id] = (
+        "Сделай ПРОФЕССИОНАЛЬНУЮ РЕТУШЬ ПОРТРЕТА. "
+        "ЛИЦО И ШЕЯ: "
+        "сгладь мелкие морщины и складки, СОХРАНИ естественную текстуру кожи. "
+        "Убери тёмные круги и мешки под глазами. "
+        "Убери покраснения, пигментные пятна, неровности тона. "
+        "Смягчи резкие тени на лице. "
+        "НЕ делай кожу пластиковой — сохрани поры и естественность. "
+        "ГЛАЗА: сделай взгляд ясным, убери красноту, добавь блик. "
+        "ВОЛОСЫ: убери выбившиеся волоски, сделай причёску аккуратнее. "
+        "НЕ меняй черты лица, форму носа, губ, разрез глаз. "
+        "НЕ трогай фон, одежду, позу, свет, композицию. "
+        "Сохрани всех людей с фото."
+    )
+    await callback.answer("Запускаю ретушь...")
     await do_generation(user_id, callback.message.chat.id, gen_type)
     user_mode[user_id] = "free"
 
