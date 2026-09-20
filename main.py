@@ -3089,14 +3089,15 @@ STYLE_PROMPTS = {
         "НЕ меняй людей и композицию."
     ),
     "funny": (
-        "Преврати фото в смешной детский рисунок в стиле дудл. "
-        "Намеренно неуклюжий, комичный — как будто нарисовал ребёнок. "
-        "Грубый чёрный контур, как мелком или карандашом. "
-        "Небрежная раскраска каракулями — цвет выходит за контуры. "
-        "Лица и фигуры людей упрощены и утрированы, но узнаваемы. "
-        "СОХРАНИ всех людей с фото — никого не убирай и не добавляй. "
-        "Это должно выглядеть ЗАБАВНО и ПО-ДОБРОМУ, а не страшно. "
-        "Фон — простой, схематичный, как у ребёнка."
+        "Turn this photo into a doodle-style character that looks "
+        "intentionally ugly and funny, similar to a child's crayon drawing. "
+        "Use a rough black outline like crayon or pencil, "
+        "with messy scribble coloring. "
+        "Keep ALL people from the original photo — do not remove or add anyone. "
+        "Faces and bodies simplified and exaggerated, but still recognizable. "
+        "The result should look FUNNY and KIND, not scary. "
+        "Background — simple, schematic, like a child's drawing. "
+        "Vibrant child-like colors."
     ),
 }
 
