@@ -796,7 +796,14 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
                 prompt += " Усиль обработку ЗНАЧИТЕЛЬНО. Изменения должны быть очень заметными. "
 
         elif wish and wish.lower() != "ок":
-            prompt = f"{wish} Размер: {img_size}. "
+            prompt = (
+                f"{wish} "
+                f"ВАЖНО: сохрани всех людей, их лица, одежду, причёски, аксессуары и объекты с исходного фото. "
+                f"НЕ добавляй новых людей, животных, предметов, которых не было на исходном фото. "
+                f"НЕ убирай существующие объекты. "
+                f"Сохрани общий смысл, сюжет и атмосферу кадра. "
+                f"Размер: {img_size}. "
+            )
             if mode == "retry":
                 prompt += " Сделай ДРУГОЙ вариант. Не повторяй предыдущий результат. "
             elif mode == "boost":
@@ -1827,12 +1834,61 @@ async def handle_gen_start(callback: CallbackQuery):
 
 
 # ===== ОБРАБОТЧИКИ ДЕЙСТВИЙ ГЕНЕРАЦИИ =====
+def _build_analysis_prompt(user_id: int) -> str:
+    """Собирает промпт на основе результатов анализа фото."""
+    analysis = last_analysis.get(user_id, {})
+    error_type = analysis.get("error_type", "")
+    what_is_wrong = analysis.get("what_is_wrong", "")
+    how_to_fix = analysis.get("how_to_fix", "")
+
+    parts = [
+        "Улучши это фото как опытный ретушёр и композитор. ",
+        "СОХРАНИ идею, концепцию и сюжет исходного кадра. ",
+        "СОХРАНИ всех людей и объекты с исходного фото — не добавляй новых и не убирай существующих. ",
+        "СОХРАНИ черты лиц, одежду, причёски в точности. ",
+        "СОХРАНИ стиль съёмки и атмосферу — фото должно остаться узнаваемым. ",
+    ]
+
+    # Конкретные ошибки из анализа
+    if what_is_wrong and what_is_wrong != "---":
+        parts.append(f"КОНКРЕТНАЯ ОШИБКА КАДРА: {what_is_wrong}. ")
+
+    if how_to_fix and how_to_fix != "---":
+        parts.append(f"КАК ИСПРАВИТЬ: {how_to_fix}. ")
+
+    # Подсказки по типу ошибки
+    if "horizon" in error_type:
+        parts.append("ОБЯЗАТЕЛЬНО выровняй горизонт до идеально ровного. ")
+    if "thirds" in error_type:
+        parts.append("ОБЯЗАТЕЛЬНО примени правило третей — смести главный объект к одной из третей кадра, добавь воздуха. ")
+    if "distortion" in error_type:
+        parts.append("ОБЯЗАТЕЛЬНО исправь дисторсию и завалы по краям кадра. ")
+    if "pose" in error_type:
+        parts.append("Сделай позу человека естественнее и изящнее, но не меняй её кардинально. ")
+    if "lighting" in error_type:
+        parts.append("Исправь освещение: убери пересветы, вытяни тени, сделай свет мягче и объемнее. ")
+    if "shadow" in error_type:
+        if "художественный" not in (what_is_wrong or "").lower():
+            parts.append("Убери тень фотографа и лишние тени. ")
+        else:
+            parts.append("Сохрани художественную тень как задумано автором. ")
+    if "cropping" in error_type:
+        parts.append("Обрежь лишнее по краям, выстрой аккуратную композицию. ")
+    if "framing" in error_type:
+        parts.append("Улучши фрейминг: сделай кадр цельным, без обрезов по конечностям. ")
+    if "fill_frame" in error_type:
+        parts.append("Заполни кадр гармонично — объект не должен быть потерян в пустоте. ")
+
+    parts.append("Сделай изменения ЗАМЕТНЫМИ, но не разрушай исходный замысел. ")
+    return "".join(parts)
+
+
 @dp.callback_query(F.data.startswith("gen_go_ok_"))
 async def handle_gen_go_ok(callback: CallbackQuery):
     parts = callback.data.split("_")
     gen_type = parts[3]
     user_id = int(parts[4])
-    gen_wish[user_id] = "Улучши фото: выровняй горизонт, убери мусор, исправь свет и цвета."
+    gen_wish[user_id] = _build_analysis_prompt(user_id)
     await callback.answer("Запускаю генерацию...")
     await do_generation(user_id, callback.message.chat.id, gen_type)
     user_mode[user_id] = "free"
@@ -1843,7 +1899,17 @@ async def handle_gen_go_deep(callback: CallbackQuery):
     parts = callback.data.split("_")
     gen_type = parts[3]
     user_id = int(parts[4])
-    gen_wish[user_id] = "ОБЯЗАТЕЛЬНО выровняй горизонт. Убери весь мусор. Сделай кадр чистым."
+    analysis = last_analysis.get(user_id, {})
+    what_is_wrong = analysis.get("what_is_wrong", "")
+    how_to_fix = analysis.get("how_to_fix", "")
+    base = _build_analysis_prompt(user_id)
+    gen_wish[user_id] = (
+        f"{base} "
+        f"Сделай ГЛУБОКОЕ улучшение — обработай кадр тщательно. "
+        f"{'Конкретно: ' + what_is_wrong + '. ' if what_is_wrong and what_is_wrong != '---' else ''}"
+        f"{'Решение: ' + how_to_fix + '. ' if how_to_fix and how_to_fix != '---' else ''}"
+        f"Изменения должны быть ОЧЕНЬ заметными. "
+    )
     await callback.answer("Запускаю генерацию...")
     await do_generation(user_id, callback.message.chat.id, gen_type)
     user_mode[user_id] = "free"
@@ -1854,7 +1920,18 @@ async def handle_gen_go_full(callback: CallbackQuery):
     parts = callback.data.split("_")
     gen_type = parts[3]
     user_id = int(parts[4])
-    gen_wish[user_id] = "Полностью переработай кадр: позу, фон, свет. Сохрани лицо и одежду."
+    analysis = last_analysis.get(user_id, {})
+    what_is_wrong = analysis.get("what_is_wrong", "")
+    how_to_fix = analysis.get("how_to_fix", "")
+    gen_wish[user_id] = (
+        f"Полностью переработай кадр: композицию, позу, фон, свет. "
+        f"СОХРАНИ идею и сюжет исходного фото. "
+        f"СОХРАНИ всех людей, их лица, одежду, причёски. "
+        f"НЕ добавляй новых людей и объектов. "
+        f"{'Исправь ошибку: ' + what_is_wrong + '. ' if what_is_wrong and what_is_wrong != '---' else ''}"
+        f"{'Решение: ' + how_to_fix + '. ' if how_to_fix and how_to_fix != '---' else ''}"
+        f"Сделай кадр значительно красивее и гармоничнее. "
+    )
     await callback.answer("Запускаю генерацию...")
     await do_generation(user_id, callback.message.chat.id, gen_type)
     user_mode[user_id] = "free"
