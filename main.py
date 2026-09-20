@@ -2339,15 +2339,79 @@ async def handle_gen_boost(callback: CallbackQuery):
     boost_type = parts[2]
     gen_type = parts[3]
     user_id = int(parts[4])
-    boosts = {
-        "horizon": "САМОЕ ГЛАВНОЕ: выровняй горизонт до идеально ровного.",
-        "clean": "Убери ВЕСЬ мусор с фона. Сделай кадр чистым.",
-        "light": "Полностью переработай освещение.",
-        "pose": "Сделай позу значительно изящнее.",
-        "full": "Полная переработка кадра.",
-        "retouch": "Сделай ретушь ТОЛЬКО кожи лица и шеи.",
-    }
-    wish = boosts.get(boost_type, "Улучши фото")
+
+    analysis = last_analysis.get(user_id, {})
+    what_is_wrong = analysis.get("what_is_wrong", "")
+    how_to_fix = analysis.get("how_to_fix", "")
+
+    # Общие правила — сохраняем идею, людей, лица, одежду
+    base_rules = (
+        "СОХРАНИ идею, сюжет и атмосферу исходного фото. "
+        "СОХРАНИ всех людей, их лица, причёски, одежду и аксессуары в точности. "
+        "НЕ добавляй новых людей, животных, предметов, которых не было на фото. "
+        "НЕ убирай существующие объекты. "
+    )
+    analysis_block = ""
+    if what_is_wrong and what_is_wrong != "---":
+        analysis_block += f"КОНКРЕТНАЯ ОШИБКА КАДРА: {what_is_wrong}. "
+    if how_to_fix and how_to_fix != "---":
+        analysis_block += f"КАК ИСПРАВИТЬ: {how_to_fix}. "
+
+    if boost_type == "horizon":
+        wish = (
+            f"{base_rules}"
+            f"САМОЕ ГЛАВНОЕ: выровняй горизонт до идеально ровного. "
+            f"{analysis_block}"
+            f"Не трогай остальное — только горизонт. "
+        )
+    elif boost_type == "clean":
+        wish = (
+            f"{base_rules}"
+            f"Убери ВЕСЬ мусор с фона: случайные предметы, провода, урны, прохожих. "
+            f"Сделай фон чистым и аккуратным. "
+            f"{analysis_block}"
+        )
+    elif boost_type == "light":
+        wish = (
+            f"{base_rules}"
+            f"Полностью переработай освещение: убери пересветы, вытяни тени, "
+            f"сделай свет мягче, объёмнее и естественнее. "
+            f"{analysis_block}"
+        )
+    elif boost_type == "pose":
+        wish = (
+            f"{base_rules}"
+            f"Сделай позу человека значительно естественнее и изящнее. "
+            f"Исправь зажатость, положение рук и корпуса. "
+            f"НЕ меняй лицо. "
+            f"{analysis_block}"
+        )
+    elif boost_type == "retouch":
+        wish = (
+            f"{base_rules}"
+            f"Сделай ретушь ТОЛЬКО кожи лица и шеи: сгладь морщины, убери покраснения, "
+            f"тёмные круги под глазами, пигментацию. "
+            f"НЕ меняй позу, фон, свет, композицию, одежду. "
+            f"{analysis_block}"
+        )
+    elif boost_type == "full":
+        wish = (
+            f"{base_rules}"
+            f"Полностью переработай кадр: композицию, позу, фон, свет. "
+            f"Сделай его значительно красивее и гармоничнее. "
+            f"Выстрой композицию по правилу третей, добавь воздуха, "
+            f"улучши свет, убери лишнее с фона. "
+            f"Сохрани сюжет и всех людей. "
+            f"{analysis_block}"
+            f"Изменения должны быть ОЧЕНЬ заметными. "
+        )
+    else:
+        wish = (
+            f"{base_rules}"
+            f"Улучши фото значительно. "
+            f"{analysis_block}"
+        )
+
     gen_wish[user_id] = wish
     gen_used_count[user_id] = 0
     await callback.answer("⚡ Усиливаю...")
