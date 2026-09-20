@@ -3240,6 +3240,14 @@ async def daily_report():
 async def main():
     global MAIN_LOOP
     MAIN_LOOP = asyncio.get_running_loop()
+
+    # === Удаляем Telegram-вебхук, чтобы polling работал без конфликта ===
+    try:
+        await bot.delete_webhook(drop_pending_updates=True)
+        logger.info("✅ Telegram-вебхук удалён, работаем через polling")
+    except Exception as e:
+        logger.error(f"⚠️ Не удалось удалить вебхук: {e}")
+
     flask_thread = Thread(target=run_flask)
     flask_thread.daemon = True
     flask_thread.start()
