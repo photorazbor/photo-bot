@@ -100,6 +100,7 @@ gen_fail_time = {}
 flat_lay_active = {}
 flat_lay_style = {}
 style_active = {}   # True, если генерация идёт из «Стилизации»
+editor_mode = {}    # True, если пользователь пришёл из Редактора
 last_prompt = {}
 last_format = {}
 interior_active = {}
@@ -1180,6 +1181,18 @@ async def handle_new_photo_same(callback: CallbackQuery):
     parts = callback.data.split("_")
     user_id = int(parts[-1])
     flat_lay_active[user_id] = False
+
+    # Если пришли из Редактора — остаёмся в Редакторе
+    if editor_mode.get(user_id):
+        user_mode[user_id] = "change_format"
+        await callback.answer()
+        await callback.message.answer(
+            "✂️ Пришли новое фото для редактора.",
+            parse_mode="HTML"
+        )
+        return
+
+    # Иначе — как раньше (возврат в анализ)
     await callback.answer()
     await callback.message.answer("Просто пришли новое фото.", parse_mode="HTML")
 
@@ -1190,6 +1203,7 @@ async def handle_new_photo(callback: CallbackQuery):
     user_mode[callback.from_user.id] = "free"
     flat_lay_active[callback.from_user.id] = False
     style_active.pop(callback.from_user.id, None)
+    editor_mode.pop(callback.from_user.id, None)
     await callback.message.answer("Присылай фото — жду! 📷")
     await callback.answer()
 
@@ -1202,6 +1216,7 @@ async def handle_main_menu(callback: CallbackQuery):
     flat_lay_active[callback.from_user.id] = False
     style_active.pop(callback.from_user.id, None)
     PHOTO_BASE = "https://raw.githubusercontent.com/photorazbor/photo-bot/main"
+    editor_mode.pop(callback.from_user.id, None)
     balance = get_balance(callback.from_user.id)
     balance_text = "∞" if (callback.from_user.id == 456504792 and test_mode) else str(balance)
 
@@ -1240,6 +1255,7 @@ async def handle_tools_menu(callback: CallbackQuery):
     flat_lay_active[user_id] = False
     style_active.pop(user_id, None)
     balance = get_balance(user_id)
+    editor_mode.pop(user_id, None)
     balance_text = "∞" if (user_id == 456504792 and test_mode) else str(balance)
     await callback.message.answer(
         f"🛠 <b>Инструменты</b>\n\n"
@@ -1388,6 +1404,7 @@ async def handle_change_format(callback: CallbackQuery):
     user_id = callback.from_user.id
     user_mode[user_id] = "change_format"
     flat_lay_active[user_id] = False
+    editor_mode[user_id] = True
     balance = get_balance(user_id)
     await callback.message.answer(
         f"✂️ <b>Редактор</b>\n\n"
@@ -3170,6 +3187,7 @@ async def handle_non_photo(message: Message):
     if text == "🏠 Главное меню":
         user_mode[user_id] = "free"
         flat_lay_active[user_id] = False
+        editor_mode.pop(user_id, None)
         PHOTO_BASE = "https://raw.githubusercontent.com/photorazbor/photo-bot/main"
         balance = get_balance(user_id)
         balance_text = "∞" if (user_id == 456504792 and test_mode) else str(balance)
