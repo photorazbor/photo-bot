@@ -1140,12 +1140,19 @@ async def _generate_and_send(message: Message, user_id: int, state: dict):
 
     try:
         img = generate_image(photo, full_prompt)
+        if not img:
+            logger.warning("⚠️ xmas: первая попытка не удалась, пробую ещё раз")
+            await message.answer("🔄 Сервис задумался, пробую ещё раз...")
+            img = generate_image(photo, full_prompt)
     except Exception as e:
         logger.exception(f"❌ xmas: исключение при генерации: {e}")
         img = None
 
     if not img:
         logger.warning(f"❌ xmas: generate_image вернул None")
+        # Если это была перегенерация — сбрасываем флаг, чтобы можно было попробовать снова
+        state["regen_done"] = False
+        xmas_state[user_id] = state
         await message.answer(
             "😔 Не удалось сгенерировать кадр.\n\n"
             "✅ Попытка НЕ списана.\n"
