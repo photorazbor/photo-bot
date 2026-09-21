@@ -3691,6 +3691,7 @@ async def handle_non_photo(message: Message):
                 [InlineKeyboardButton(text="✂️ Редактор", callback_data="change_format")],
                 [InlineKeyboardButton(text="📷 Flat Lay", callback_data="flat_lay")],
                 [InlineKeyboardButton(text="🎨 Стилизация", callback_data="style_photo")],
+                [InlineKeyboardButton(text="🖼️ По референсу (Pinterest)", callback_data="ref_style")],
                 [InlineKeyboardButton(text="📄 Фото на документы", callback_data="doc_photo")],
                 [InlineKeyboardButton(text="🧑💼 Студийный портрет", callback_data="studio_portrait")],
             ])
@@ -3744,17 +3745,24 @@ async def handle_non_photo(message: Message):
             )
         return
     if text == "🔮 Карта дня":
-        from daily import _show_card, _was_shown_today, _can_get_free
-        from main import get_balance, buy_generations_keyboard, test_mode
         user_mode[user_id] = "daily"
-        if _was_shown_today(user_id):
-            await message.answer(
-                "🌙 <b>Ты уже получил карту сегодня.</b>\n\n"
-                "Возвращайся завтра — Вселенная подготовит новое послание.",
-                parse_mode="HTML"
-            )
-            user_mode[user_id] = "free"
-            return
+        await message.answer(
+            "🔮 <b>Карта дня</b>\n\n"
+            "Каждый день Вселенная готовит для тебя послание.\n"
+            "Одна карта — один день. Один ритуал.\n\n"
+            "🆓 Первые 3 дня — бесплатно.\n"
+            "💎 Дальше — 1 генерация с баланса.\n\n"
+            "📸 Ритуал дня связан с фотографией —\n"
+            "сделай кадр и разбери его через бота.\n\n"
+            "Нажми, чтобы открыть карту 👇",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="✨ Открыть карту дня", callback_data="daily_open")],
+                [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
+            ])
+        )
+        user_mode[user_id] = "free"
+        return
         if _can_get_free(user_id):
             await _show_card(message, user_id, is_free=True)
             user_mode[user_id] = "free"
