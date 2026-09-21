@@ -3743,6 +3743,44 @@ async def handle_non_photo(message: Message):
                 reply_markup=xmas_locations_keyboard()
             )
         return
+    if text == "🔮 Карта дня":
+        from daily import _show_card, _was_shown_today, _can_get_free
+        from main import get_balance, buy_generations_keyboard, test_mode
+        user_mode[user_id] = "daily"
+        if _was_shown_today(user_id):
+            await message.answer(
+                "🌙 <b>Ты уже получил карту сегодня.</b>\n\n"
+                "Возвращайся завтра — Вселенная подготовит новое послание.",
+                parse_mode="HTML"
+            )
+            user_mode[user_id] = "free"
+            return
+        if _can_get_free(user_id):
+            await _show_card(message, user_id, is_free=True)
+            user_mode[user_id] = "free"
+            return
+        balance = get_balance(user_id)
+        if balance <= 0 and not (user_id == 456504792 and test_mode):
+            await message.answer(
+                "💎 <b>Три бесплатные карты дня уже использованы.</b>\n\n"
+                "Пополни баланс, чтобы продолжить.",
+                parse_mode="HTML",
+                reply_markup=buy_generations_keyboard()
+            )
+            user_mode[user_id] = "free"
+            return
+        await message.answer(
+            "🔮 <b>Карта дня — платно</b>\n\n"
+            "Стоимость: <b>1 генерация</b>.\n"
+            f"💎 Твой баланс: {balance}",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="✅ Получить карту (1 ген.)", callback_data="daily_pay")],
+                [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
+            ])
+        )
+        user_mode[user_id] = "free"
+        return
     if text == "📸 Разобрать фото":
         user_mode[user_id] = "free"
         flat_lay_active[user_id] = False
