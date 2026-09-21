@@ -436,7 +436,7 @@ XMAS_INTRO = (
     "• 4 локации на выбор\n"
     "• 5 образов на выбор\n"
     "• 6 форматов на выбор\n"
-    "• 5 стилизаций на выбор\n\n"
+    "• 6 стилизаций на выбор\n\n"
     "💎 <b>Стоимость:</b> 1 генерация с твоего баланса\n\n"
     "⚠️ Результат — художественная стилизация. 100% сходства не гарантируется, "
     "но если что-то не понравится — 1 перегенерация бесплатна."
@@ -682,6 +682,40 @@ def register_xmas_handlers(dp):
         state["style"] = style_key
         xmas_state[user_id] = state
 
+        # Для стиля «Советская сказка» — показать выбор композиции персонажей
+        if style_key == "soviet_fairy":
+            await callback.message.answer(
+                "🎄 <b>Как расположить персонажей?</b>\n\n"
+                "🐰 В этом стиле появятся Дед Мороз, Снегурочка "
+                "и советские сказочные звери.\n\n"
+                "Выбери композицию:",
+                parse_mode="HTML",
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="🎄 Обычная композиция", callback_data="xmas_arrange_normal")],
+                    [InlineKeyboardButton(text="💫 Хоровод", callback_data="xmas_arrange_chorovod")],
+                    [InlineKeyboardButton(text="🔙 Назад", callback_data="xmas_back_format")],
+                ])
+            )
+            return
+
+        await _show_upload(callback.message, state)
+
+    @dp.callback_query(F.data == "xmas_arrange_normal")
+    async def xmas_arrange_normal(callback: CallbackQuery):
+        await callback.answer()
+        user_id = callback.from_user.id
+        state = xmas_state.get(user_id, {})
+        state["chorovod"] = False
+        xmas_state[user_id] = state
+        await _show_upload(callback.message, state)
+
+    @dp.callback_query(F.data == "xmas_arrange_chorovod")
+    async def xmas_arrange_chorovod(callback: CallbackQuery):
+        await callback.answer()
+        user_id = callback.from_user.id
+        state = xmas_state.get(user_id, {})
+        state["chorovod"] = True
+        xmas_state[user_id] = state
         await _show_upload(callback.message, state)
 
     @dp.callback_query(F.data == "xmas_back_style")
@@ -902,6 +936,24 @@ def _build_prompt(state: dict) -> str | None:
     else:
         location_text = loc.get("intro", loc["name"])
 
+    # Блок про хоровод — только для советской сказки
+    chorovod_lock = ""
+    if state.get("style") == "soviet_fairy" and state.get("chorovod"):
+        chorovod_lock = (
+            "КОМПОЗИЦИЯ — ХОРОВОД: "
+            "Все персонажи встали в один большой круг и водят хоровод. "
+            "Держатся за руки, улыбаются, движение по кругу. "
+            "В кругу — люди с исходного фото, советские сказочные звери "
+            "(зайцы, белки, медвежата, снегири, снеговики), "
+            "Дед Мороз и Снегурочка. "
+            "Дед Мороз — в красной шубе, с посохом, борода. "
+            "Снегурочка — в голубой шубе, кокошник. "
+            "Кто-то в хороводе стоит, кто-то присел, кто-то тянет руки. "
+            "Все радостные, праздничные. "
+            "В центре круга — ёлка с гирляндами и звездой. "
+            "Вокруг — снег, снежинки, сугробы. "
+        )
+
     face_lock = (
         "КОЛИЧЕСТВО ЛЮДЕЙ: посчитай ТОЧНО, сколько людей на исходном фото. "
         "На новой картинке — РОВНО СТОЛЬКО ЖЕ. "
@@ -938,7 +990,7 @@ def _build_prompt(state: dict) -> str | None:
 
     # ===== РЕАЛИЗМ ИЛИ РИСОВАННЫЙ СТИЛЬ =====
     style_key_pre = state.get("style", "realistic")
-    is_art_style = style_key_pre in ("soviet_card", "soviet_cartoon", "disney", "comics")
+    is_art_style = style_key_pre in ("soviet_card", "soviet_fairy", "soviet_cartoon", "disney", "comics")
 
     if is_art_style:
         realism_lock = ""
@@ -1027,6 +1079,7 @@ def _build_prompt(state: dict) -> str | None:
 
     full = (
         f"Новогодняя иллюстрация. "
+        f"{chorovod_lock}"
         f"{face_lock}"
         f"{face_realism_lock}"
         f"{outfit_lock}"
