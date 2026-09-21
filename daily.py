@@ -232,7 +232,7 @@ DAILY_THEMES = [
 ]
 
 # ===== СОСТОЯНИЕ =====
-daily_state = {}        # {user_id: {"streak": 3, "last_date": "2026-09-21"}}
+daily_state = {}
 FREE_DAYS_LIMIT = 3
 
 
@@ -248,16 +248,22 @@ def _get_user_state(user_id: int) -> dict:
 
 def _can_get_free(user_id: int) -> bool:
     """Проверяет, может ли пользователь получить бесплатную карту."""
+    from main import test_mode
+    if user_id == 456504792 and test_mode:
+        return True
     state = _get_user_state(user_id)
     today = _get_today()
     if state["last_date"] == today:
-        return False  # уже получал сегодня
+        return False
     if state["streak"] >= FREE_DAYS_LIMIT:
-        return False  # лимит исчерпан
+        return False
     return True
 
 
 def _was_shown_today(user_id: int) -> bool:
+    from main import test_mode
+    if user_id == 456504792 and test_mode:
+        return False
     state = _get_user_state(user_id)
     return state["last_date"] == _get_today()
 
@@ -292,23 +298,23 @@ def reset_daily_state(user_id: int):
 
 
 def is_user_in_daily_flow(user_id: int) -> bool:
-    return False  # карта дня не требует ожидания фото
+    return False
 
 
 # ===== ПРОМПТ =====
 def _build_card_prompt(theme: dict, prediction: str) -> str:
     return (
-        f"Создай мистическую карту дня в стиле таро, вертикальный формат 9:16. "
+        "Создай мистическую карту дня в стиле таро, вертикальный формат 9:16. "
         f"Тема карты: {theme['name']}. "
         f"Мистический символ в центре: {theme['symbol']}. "
-        f"Стиль: винтажная иллюстрация, глубокие цвета, звёзды, луна, туман, магия. "
-        f"Атмосфера: таинственная, вдохновляющая, тёплая. "
-        f"ТЕКСТ НА КАРТИНКЕ (на русском, читаемый, красивым шрифтом): "
+        "Стиль: винтажная иллюстрация, глубокие цвета, звёзды, луна, туман, магия. "
+        "Атмосфера: таинственная, вдохновляющая, тёплая. "
+        "ТЕКСТ НА КАРТИНКЕ (на русском, читаемый, красивым шрифтом): "
         f"Вверху карты крупно — название: «{theme['name']}». "
         f"Внизу карты — короткое послание на 2-3 строки: «{prediction}». "
-        f"Стиль текста: рукописный или винтажный, как на старинной карте таро. "
-        f"Не добавляй лишний текст, только название и послание. "
-        f"Без водяных знаков, без подписей, без рамок со словами."
+        "Стиль текста: рукописный или винтажный, как на старинной карте таро. "
+        "Не добавляй лишний текст, только название и послание. "
+        "Без водяных знаков, без подписей, без рамок со словами."
     )
 
 
@@ -319,12 +325,34 @@ def register_daily_handlers(dp):
     @dp.callback_query(F.data == "daily_card")
     async def handle_daily_card(callback: CallbackQuery):
         await callback.answer()
-        from main import get_balance, buy_generations_keyboard, test_mode, spend_generation, user_mode
+        from main import user_mode
 
         user_id = callback.from_user.id
         user_mode[user_id] = "daily"
 
-        # Проверка: уже получал сегодня?
+        await callback.message.answer(
+            "🔮 <b>Карта дня</b>\n\n"
+            "Каждый день Вселенная готовит для тебя послание.\n"
+            "Одна карта — один день. Один ритуал.\n\n"
+            "🆓 Первые 3 дня — бесплатно.\n"
+            "💎 Дальше — 1 генерация с баланса.\n\n"
+            "📸 Ритуал дня связан с фотографией —\n"
+            "сделай кадр и разбери его через бота.\n\n"
+            "Нажми, чтобы открыть карту 👇",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="✨ Открыть карту дня", callback_data="daily_open")],
+                [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
+            ])
+        )
+
+    @dp.callback_query(F.data == "daily_open")
+    async def handle_daily_open(callback: CallbackQuery):
+        await callback.answer()
+        from main import get_balance, buy_generations_keyboard, test_mode, user_mode
+
+        user_id = callback.from_user.id
+
         if _was_shown_today(user_id):
             await callback.message.answer(
                 "🌙 <b>Ты уже получил карту сегодня.</b>\n\n"
@@ -336,14 +364,12 @@ def register_daily_handlers(dp):
             )
             return
 
-        # Проверка: бесплатный лимит
         is_free = _can_get_free(user_id)
 
         if is_free:
             await _show_card(callback.message, user_id, is_free=True)
             return
 
-        # Лимит исчерпан — платно
         balance = get_balance(user_id)
         if balance <= 0 and not (user_id == 456504792 and test_mode):
             await callback.message.answer(
@@ -417,10 +443,8 @@ async def _show_card(message: Message, user_id: int, is_free: bool, already_paid
         image = None
 
     if image is None:
-        # Откат лимита
         if is_free and not already_paid:
             _rollback_free(user_id)
-        # Откат генерации если платная
         if not is_free and already_paid and not (user_id == 456504792 and test_mode):
             free_used = free_generations.get(user_id, 0)
             if free_used > 0:
@@ -461,5 +485,6 @@ async def _show_card(message: Message, user_id: int, is_free: bool, already_paid
             [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
         ])
     )
+
     from main import user_mode
     user_mode[user_id] = "free"
