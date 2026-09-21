@@ -48,6 +48,11 @@ from reference import (
     is_user_in_ref_flow,
 )
 
+from daily import (
+    register_daily_handlers,
+    reset_daily_state,
+)
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -65,7 +70,7 @@ FREE_ANALYSIS_PER_DAY = 5
 
 USER_KEYBOARD = ReplyKeyboardMarkup(
     keyboard=[
-        [KeyboardButton(text="🎄 Новогодняя фотосессия")],
+        [KeyboardButton(text="🎄 Новогодняя фотосессия"), KeyboardButton(text="🔮 Карта дня")],
         [KeyboardButton(text="📸 Разобрать фото"), KeyboardButton(text="🛠 Инструменты")],
         [KeyboardButton(text="🎓 Мини-курс"), KeyboardButton(text="🎯 Авторский разбор")],
         [KeyboardButton(text="💎 Баланс"), KeyboardButton(text="💛 Поддержать проект")],
@@ -1105,6 +1110,7 @@ async def handle_start(message: Message):
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🎄 Новогодняя фотосессия", callback_data="xmas_start")],
+            [InlineKeyboardButton(text="🔮 Карта дня", callback_data="daily_card")],
             [InlineKeyboardButton(text="📸 Разобрать фото", callback_data="new_photo")],
             [InlineKeyboardButton(text="🛠 Инструменты", callback_data="tools_menu")],
             [InlineKeyboardButton(text="🎯 Авторский разбор", callback_data="author_review")],
@@ -1215,6 +1221,7 @@ async def handle_new_photo_same(callback: CallbackQuery):
 async def handle_new_photo(callback: CallbackQuery):
     reset_xmas_state(callback.from_user.id)
     reset_ref_state(callback.from_user.id)
+    reset_daily_state(callback.from_user.id)
     user_mode[callback.from_user.id] = "free"
     flat_lay_active[callback.from_user.id] = False
     style_active.pop(callback.from_user.id, None)
@@ -1228,6 +1235,7 @@ async def handle_main_menu(callback: CallbackQuery):
     await callback.answer()
     reset_xmas_state(callback.from_user.id)
     reset_ref_state(callback.from_user.id)
+    reset_daily_state(callback.from_user.id)
     user_mode[callback.from_user.id] = "free"
     flat_lay_active[callback.from_user.id] = False
     style_active.pop(callback.from_user.id, None)
@@ -1267,6 +1275,7 @@ async def handle_tools_menu(callback: CallbackQuery):
     await callback.answer()
     reset_xmas_state(callback.from_user.id)
     reset_ref_state(callback.from_user.id)
+    reset_daily_state(callback.from_user.id)
     user_id = callback.from_user.id
     user_mode[user_id] = "free"
     flat_lay_active[user_id] = False
@@ -3618,6 +3627,7 @@ async def handle_non_photo(message: Message):
                 "💛 Поддержать проект", "👤 Об авторе", "🎄 Новогодняя фотосессия"):
         reset_xmas_state(user_id)
         reset_ref_state(user_id)
+        reset_daily_state(user_id)
 
     if mode in ("gen_wish_free", "gen_wish_paid"):
         gen_wish[user_id] = text
@@ -3784,6 +3794,7 @@ async def handle_non_photo(message: Message):
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="🎄 Новогодняя фотосессия", callback_data="xmas_start")],
+                [InlineKeyboardButton(text="🔮 Карта дня", callback_data="daily_card")],
                 [InlineKeyboardButton(text="📸 Разобрать фото", callback_data="new_photo")],
                 [InlineKeyboardButton(text="🛠 Инструменты", callback_data="tools_menu")],
                 [InlineKeyboardButton(text="🎯 Авторский разбор", callback_data="author_review")],
@@ -3850,6 +3861,7 @@ async def main():
     asyncio.create_task(daily_report())
     register_xmas_handlers(dp)
     register_reference_handlers(dp)
+    register_daily_handlers(dp)
     await dp.start_polling(bot)
 
 
