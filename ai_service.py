@@ -388,67 +388,6 @@ def generate_image_from_text(prompt: str) -> bytes | None:
         logger.exception(f"❌ generate_image_from_text: ошибка парсинга: {e}")
         return None
 
-
-def analyze_reference(reference_bytes: bytes) -> str | None:
-    """Анализирует референс и возвращает краткое описание сцены."""
-    ref_url = _image_bytes_to_data_url(reference_bytes)
-
-    headers = {
-        "Authorization": f"Bearer {OPENAI_API_KEY}",
-        "Content-Type": "application/json",
-    }
-
-    prompt = (
-        "Опиши это изображение КРАТКО (5-7 строк, без воды):\n"
-        "1. Поза человека (как стоит/сидит, куда руки, ноги)\n"
-        "2. Ракурс камеры и кадрирование\n"
-        "3. Свет: направление, жёсткость, цвет\n"
-        "4. Тени: от чего, куда падают\n"
-        "5. Фон и обстановка\n"
-        "6. Одежда и аксессуары\n"
-        "7. Атмосфера, стиль, тонирование\n"
-        "Формат: короткий текст, только суть. Без вступлений."
-    )
-
-    payload = {
-        "model": "gemini-3.8-flash",
-        "stream": False,
-        "messages": [
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": prompt},
-                    {"type": "image_url", "image_url": {"url": ref_url}},
-                ],
-            }
-        ],
-        "max_tokens": 500,
-    }
-
-    try:
-        response = requests.post(f"{BASE_URL}/chat/completions", headers=headers, json=payload, timeout=60)
-    except requests.exceptions.Timeout:
-        logger.error("❌ analyze_reference: TIMEOUT")
-        return None
-    except requests.exceptions.RequestException as e:
-        logger.exception(f"❌ analyze_reference: ошибка запроса: {e}")
-        return None
-
-    logger.info(f"🔍 analyze_reference: HTTP {response.status_code}")
-
-    if response.status_code != 200:
-        logger.error(f"❌ analyze_reference: API вернул {response.status_code}: {response.text[:300]}")
-        return None
-
-    try:
-        result = response.json()
-        text = result["choices"][0]["message"]["content"]
-        return text.strip()
-    except Exception as e:
-        logger.exception(f"❌ analyze_reference: ошибка парсинга: {e}")
-        return None
-
-
 def create_payment_link(amount: float, purpose: str, user_id: int = None) -> str | None:
     if not TOCHKA_API_TOKEN:
         logger.error("Ошибка: TOCHKA_API_TOKEN не задан в config.py")
