@@ -41,6 +41,13 @@ from xmas import (
     locations_keyboard as xmas_locations_keyboard,
 )
 
+from reference import (
+    register_reference_handlers,
+    handle_reference_photo,
+    reset_ref_state,
+    is_user_in_ref_flow,
+)
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -1207,6 +1214,7 @@ async def handle_new_photo_same(callback: CallbackQuery):
 @dp.callback_query(F.data == "new_photo")
 async def handle_new_photo(callback: CallbackQuery):
     reset_xmas_state(callback.from_user.id)
+    reset_ref_state(callback.from_user.id)
     user_mode[callback.from_user.id] = "free"
     flat_lay_active[callback.from_user.id] = False
     style_active.pop(callback.from_user.id, None)
@@ -1219,6 +1227,7 @@ async def handle_new_photo(callback: CallbackQuery):
 async def handle_main_menu(callback: CallbackQuery):
     await callback.answer()
     reset_xmas_state(callback.from_user.id)
+    reset_ref_state(callback.from_user.id)
     user_mode[callback.from_user.id] = "free"
     flat_lay_active[callback.from_user.id] = False
     style_active.pop(callback.from_user.id, None)
@@ -1257,6 +1266,7 @@ async def handle_main_menu(callback: CallbackQuery):
 async def handle_tools_menu(callback: CallbackQuery):
     await callback.answer()
     reset_xmas_state(callback.from_user.id)
+    reset_ref_state(callback.from_user.id)
     user_id = callback.from_user.id
     user_mode[user_id] = "free"
     flat_lay_active[user_id] = False
@@ -1273,6 +1283,7 @@ async def handle_tools_menu(callback: CallbackQuery):
             [InlineKeyboardButton(text="✂️ Редактор", callback_data="change_format")],
             [InlineKeyboardButton(text="📷 Flat Lay (предметная съёмка)", callback_data="flat_lay")],
             [InlineKeyboardButton(text="🎨 Стилизация", callback_data="style_photo")],
+            [InlineKeyboardButton(text="🖼️ По референсу (Pinterest)", callback_data="ref_style")],
             [InlineKeyboardButton(text="📄 Фото на документы", callback_data="doc_photo")],
             [InlineKeyboardButton(text="🧑💼 Студийный портрет", callback_data="studio_portrait")],
         ])
@@ -2622,6 +2633,11 @@ async def handle_photo(message: Message):
         )
         return
 
+    if is_user_in_ref_flow(user_id):
+        handled = await handle_reference_photo(message, user_id, image_bytes)
+        if handled:
+            return
+
     last_photo[user_id] = image_bytes
     original_photo[user_id] = image_bytes
     gen_retry_count[user_id] = 0
@@ -3601,6 +3617,7 @@ async def handle_non_photo(message: Message):
                 "🎓 Мини-курс", "🎯 Авторский разбор", "💎 Баланс",
                 "💛 Поддержать проект", "👤 Об авторе", "🎄 Новогодняя фотосессия"):
         reset_xmas_state(user_id)
+        reset_ref_state(user_id)
 
     if mode in ("gen_wish_free", "gen_wish_paid"):
         gen_wish[user_id] = text
@@ -3832,6 +3849,7 @@ async def main():
     flask_thread.start()
     asyncio.create_task(daily_report())
     register_xmas_handlers(dp)
+    register_reference_handlers(dp)
     await dp.start_polling(bot)
 
 
