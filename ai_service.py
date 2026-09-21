@@ -237,7 +237,7 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
     logger.info(f"🔍 generate_image: отправляю запрос, model={payload.get('model')}")
 
     try:
-        response = requests.post(f"{BASE_URL}/chat/completions", headers=headers, json=payload, timeout=180)
+        response = requests.post(f"{BASE_URL}/chat/completions", headers=headers, json=payload, timeout=300)
     except requests.exceptions.Timeout:
         logger.error("❌ generate_image: TIMEOUT (180 секунд)")
         return None
