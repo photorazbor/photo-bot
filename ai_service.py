@@ -308,7 +308,7 @@ def generate_image_with_reference(reference_bytes: bytes, user_photo_bytes: byte
     logger.info(f"🔍 generate_image_with_reference: отправляю 2 изображения")
 
     try:
-        response = requests.post(f"{BASE_URL}/chat/completions", headers=headers, json=payload, timeout=180)
+        response = requests.post(f"{BASE_URL}/chat/completions", headers=headers, json=payload, timeout=300)
     except requests.exceptions.Timeout:
         logger.error("❌ generate_image_with_reference: TIMEOUT")
         return None
