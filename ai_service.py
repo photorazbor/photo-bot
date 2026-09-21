@@ -336,6 +336,58 @@ def generate_image_with_reference(reference_bytes: bytes, user_photo_bytes: byte
         logger.exception(f"❌ generate_image_with_reference: ошибка парсинга: {e}")
         return None
 
+def generate_image_from_text(prompt: str) -> bytes | None:
+    """Генерирует изображение БЕЗ входного фото — только по текстовому промпту."""
+    headers = {
+        "Authorization": f"Bearer {OPENAI_API_KEY}",
+        "Content-Type": "application/json",
+    }
+
+    payload = {
+        "model": "gemini-3.1-flash-image-preview",
+        "modalities": ["image", "text"],
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                ],
+            }
+        ],
+        "max_tokens": 2000,
+    }
+
+    logger.info(f"🔍 generate_image_from_text: отправляю запрос")
+
+    try:
+        response = requests.post(f"{BASE_URL}/chat/completions", headers=headers, json=payload, timeout=180)
+    except requests.exceptions.Timeout:
+        logger.error("❌ generate_image_from_text: TIMEOUT")
+        return None
+    except requests.exceptions.RequestException as e:
+        logger.exception(f"❌ generate_image_from_text: ошибка запроса: {e}")
+        return None
+
+    logger.info(f"🔍 generate_image_from_text: HTTP {response.status_code}")
+
+    if response.status_code != 200:
+        logger.error(f"❌ API вернул {response.status_code}: {response.text[:500]}")
+        return None
+
+    try:
+        result = response.json()
+        content = result["choices"][0]["message"]["content"]
+        match = re.search(r"data:image/[^;]+;base64,([A-Za-z0-9+/=]+)", content)
+        if match:
+            return base64.b64decode(match.group(1))
+        if content.startswith("iVBOR") or content.startswith("/9j/"):
+            return base64.b64decode(content)
+        logger.warning(f"⚠️ Не удалось извлечь картинку: {content[:300]}")
+        return None
+    except Exception as e:
+        logger.exception(f"❌ generate_image_from_text: ошибка парсинга: {e}")
+        return None
+
 
 def create_payment_link(amount: float, purpose: str, user_id: int = None) -> str | None:
     if not TOCHKA_API_TOKEN:
