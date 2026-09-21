@@ -275,6 +275,67 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
         logger.exception(f"❌ generate_image: ошибка парсинга: {e}")
         return None
 
+def generate_image_with_reference(reference_bytes: bytes, user_photo_bytes: bytes, prompt: str) -> bytes | None:
+    """
+    Генерирует изображение на основе ДВУХ картинок:
+    - reference_bytes: референс (откуда берём стиль, сцену, композицию)
+    - user_photo_bytes: фото пользователя (откуда берём лицо, человека)
+    """
+    ref_url = _image_bytes_to_data_url(reference_bytes)
+    user_url = _image_bytes_to_data_url(user_photo_bytes)
+
+    headers = {
+        "Authorization": f"Bearer {OPENAI_API_KEY}",
+        "Content-Type": "application/json",
+    }
+
+    payload = {
+        "model": "gemini-3.1-flash-image-preview",
+        "modalities": ["image", "text"],
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": ref_url}},
+                    {"type": "image_url", "image_url": {"url": user_url}},
+                ],
+            }
+        ],
+        "max_tokens": 2000,
+    }
+
+    logger.info(f"🔍 generate_image_with_reference: отправляю 2 изображения")
+
+    try:
+        response = requests.post(f"{BASE_URL}/chat/completions", headers=headers, json=payload, timeout=180)
+    except requests.exceptions.Timeout:
+        logger.error("❌ generate_image_with_reference: TIMEOUT")
+        return None
+    except requests.exceptions.RequestException as e:
+        logger.exception(f"❌ generate_image_with_reference: ошибка запроса: {e}")
+        return None
+
+    logger.info(f"🔍 generate_image_with_reference: HTTP {response.status_code}")
+
+    if response.status_code != 200:
+        logger.error(f"❌ API вернул {response.status_code}: {response.text[:500]}")
+        return None
+
+    try:
+        result = response.json()
+        content = result["choices"][0]["message"]["content"]
+        match = re.search(r"data:image/[^;]+;base64,([A-Za-z0-9+/=]+)", content)
+        if match:
+            return base64.b64decode(match.group(1))
+        if content.startswith("iVBOR") or content.startswith("/9j/"):
+            return base64.b64decode(content)
+        logger.warning(f"⚠️ Не удалось извлечь картинку: {content[:300]}")
+        return None
+    except Exception as e:
+        logger.exception(f"❌ generate_image_with_reference: ошибка парсинга: {e}")
+        return None
+
 
 def create_payment_link(amount: float, purpose: str, user_id: int = None) -> str | None:
     if not TOCHKA_API_TOKEN:
