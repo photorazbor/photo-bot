@@ -461,3 +461,5 @@ async def _show_card(message: Message, user_id: int, is_free: bool, already_paid
             [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
         ])
     )
+    from main import user_mode
+    user_mode[user_id] = "free"
