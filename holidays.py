@@ -714,7 +714,10 @@ def _build_prompt(state: dict) -> str | None:
         f"{format_lock}"
         f"{style_lock}"
         f"{final_line} "
-        f"Размер: {img_size}."
+        f"ОБЯЗАТЕЛЬНО: размер изображения РОВНО {img_size}. "
+        f"Не квадрат и не стандарт — именно {fmt['name']}. "
+        f"Композиция выстроена под этот формат, "
+        f"главный объект в кадре, без пустых полос по краям."
     )
     return full
 
