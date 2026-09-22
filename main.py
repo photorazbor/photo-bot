@@ -62,6 +62,14 @@ dp = Dispatcher()
 MAIN_LOOP = None
 flask_app = Flask(__name__)
 
+from holidays import (
+    register_holidays_handlers,
+    handle_holiday_photo,
+    reset_holiday_state,
+    is_user_in_holiday_flow,
+    holiday_awaiting_photo,
+)
+
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 
 # ===== КОНСТАНТЫ =====
@@ -70,7 +78,7 @@ FREE_ANALYSIS_PER_DAY = 5
 
 USER_KEYBOARD = ReplyKeyboardMarkup(
     keyboard=[
-        [KeyboardButton(text="🎄 Новогодняя фотосессия"), KeyboardButton(text="🔮 Карта дня")],
+        [KeyboardButton(text="🎉 Праздники"), KeyboardButton(text="🔮 Карта дня")],
         [KeyboardButton(text="📸 Разобрать фото"), KeyboardButton(text="🛠 Инструменты")],
         [KeyboardButton(text="🎓 Мини-курс"), KeyboardButton(text="🎯 Авторский разбор")],
         [KeyboardButton(text="💎 Баланс"), KeyboardButton(text="💛 Поддержать проект")],
@@ -2653,6 +2661,10 @@ async def handle_photo(message: Message):
         if handled:
             return
 
+    if user_id in holiday_awaiting_photo:
+        await handle_holiday_photo(message, user_id, image_bytes)
+        return
+
     last_photo[user_id] = image_bytes
     original_photo[user_id] = image_bytes
     gen_retry_count[user_id] = 0
@@ -3752,26 +3764,22 @@ async def handle_non_photo(message: Message):
             reply_markup=buy_generations_keyboard()
         )
         return
-    if text == "🎄 Новогодняя фотосессия":
-        balance = get_balance(user_id)
-        if balance <= 0 and not (user_id == 456504792 and test_mode):
-            await message.answer(
-                "💎 Генерации закончились.\n\nПополни баланс:",
-                reply_markup=buy_generations_keyboard()
-            )
-            return
+    if text == "🎉 Праздники":
+        reset_xmas_state(user_id)
+        reset_holiday_state(user_id)
+        from holidays import holidays_keyboard, HOLIDAYS_INTRO
         try:
             await message.answer_photo(
-                photo=f"https://raw.githubusercontent.com/photorazbor/photo-bot/main/xmas/intro_example.jpg",
-                caption=XMAS_INTRO,
+                photo="https://raw.githubusercontent.com/photorazbor/photo-bot/main/holidays/intro.jpg",
+                caption=HOLIDAYS_INTRO,
                 parse_mode="HTML",
-                reply_markup=xmas_locations_keyboard()
+                reply_markup=holidays_keyboard()
             )
         except Exception:
             await message.answer(
-                XMAS_INTRO,
+                HOLIDAYS_INTRO,
                 parse_mode="HTML",
-                reply_markup=xmas_locations_keyboard()
+                reply_markup=holidays_keyboard()
             )
         return
     if text == "🔮 Карта дня":
@@ -3912,6 +3920,7 @@ async def main():
     register_xmas_handlers(dp)
     register_reference_handlers(dp)
     register_daily_handlers(dp)
+    register_holidays_handlers(dp)
     await dp.start_polling(bot)
 
 
