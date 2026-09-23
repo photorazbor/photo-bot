@@ -82,6 +82,21 @@ def register_reference_handlers(dp):
 
 
 # ===== ОБРАБОТКА ФОТО =====
+def _compress_image(image_bytes: bytes, max_size: int = 1024) -> bytes:
+    """Сжимает картинку до max_size по длинной стороне, качество 85."""
+    try:
+        from PIL import Image as _Img
+        import io as _io
+        im = _Img.open(_io.BytesIO(image_bytes))
+        if max(im.size) > max_size:
+            im.thumbnail((max_size, max_size), _Img.LANCZOS)
+        buf = _io.BytesIO()
+        im.save(buf, format="JPEG", quality=85)
+        return buf.getvalue()
+    except Exception as e:
+        logger.warning(f"⚠️ ref_style: не удалось сжать картинку: {e}")
+        return image_bytes
+        
 async def handle_reference_photo(message: Message, user_id: int, image_bytes: bytes) -> bool:
     """
     Вызывается из main.handle_photo, если пользователь в ref_awaiting.
@@ -94,7 +109,7 @@ async def handle_reference_photo(message: Message, user_id: int, image_bytes: by
     from main import user_mode
 
     if step == "reference":
-        ref_photo[user_id] = image_bytes
+        ref_photo[user_id] = _compress_image(image_bytes)
         ref_awaiting[user_id] = "user_photo"
         await message.answer(
             "✅ Референс получен.\n\n"
@@ -105,7 +120,7 @@ async def handle_reference_photo(message: Message, user_id: int, image_bytes: by
         return True
 
     if step == "user_photo":
-        user_photo_ref[user_id] = image_bytes
+        user_photo_ref[user_id] = _compress_image(image_bytes)
         reference_bytes = ref_photo.get(user_id)
         user_photo_bytes = user_photo_ref.get(user_id)
 
@@ -189,6 +204,10 @@ async def handle_reference_photo(message: Message, user_id: int, image_bytes: by
         try:
             from ai_service import generate_image_with_reference
             result = generate_image_with_reference(reference_bytes, user_photo_bytes, prompt)
+            if not result:
+                logger.warning("⚠️ ref_style: первая попытка не удалась, пробую ещё раз")
+                await message.answer("🔄 Сервис задумался, пробую ещё раз...")
+                result = generate_image_with_reference(reference_bytes, user_photo_bytes, prompt)
         except Exception as e:
             logger.exception(f"❌ ref_style: ошибка генерации: {e}")
             result = None
