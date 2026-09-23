@@ -290,7 +290,7 @@ def generate_image_with_reference(reference_bytes: bytes, user_photo_bytes: byte
     }
 
     payload = {
-        "model": "gemini-3.1-flash-image-preview",
+        "model": "gemini-3.1-flash-image",
         "modalities": ["image", "text"],
         "messages": [
             {
