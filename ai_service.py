@@ -220,7 +220,7 @@ def generate_image(image_bytes: bytes, prompt: str) -> bytes | None:
     }
 
     payload = {
-        "model": "gemini-3.1-flash-image-preview",
+        "model": "gemini-3.1-flash-image",
         "modalities": ["image", "text"],
         "messages": [
             {
