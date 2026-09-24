@@ -1148,6 +1148,7 @@ def _build_prompt(state: dict) -> str | None:
         final_line = "Финальный стиль: атмосферно, тепло, живо, реалистично, кинематографично."
 
     full = (
+        f"{style_lock} "        # ← ПЕРВЫМ
         f"Новогодняя иллюстрация. "
         f"{face_lock}"
         f"{face_realism_lock}"
@@ -1162,7 +1163,6 @@ def _build_prompt(state: dict) -> str | None:
         f"{realism_lock}"
         f"{art_style_lock}"
         f"{format_lock}"
-        f"{style_lock}"
         f"{final_line} "
         f"Размер: {img_size}."
     )
