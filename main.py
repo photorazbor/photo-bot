@@ -1505,8 +1505,28 @@ async def handle_studio_portrait(callback: CallbackQuery):
         f"Сделаю студийный портрет: мягкий свет, красивый фон, аккуратный образ.\n\n"
         f"💰 Стоимость: 1 генерация\n"
         f"💎 Твой баланс: {balance}\n\n"
-        "Перед съёмкой ознакомься с инструкцией.",
-        parse_mode="HTML",
+        "Вот пример — как преображается фото:",
+        parse_mode="HTML"
+    )
+    PHOTO_BASE = "https://raw.githubusercontent.com/photorazbor/photo-bot/main"
+    try:
+        await callback.message.answer_photo(
+            URLInputFile(f"{PHOTO_BASE}/examples/studio_portrait/before.jpg"),
+            caption="📷 <b>ДО</b> — обычное фото",
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        logger.warning(f"⚠️ Не удалось отправить before.jpg: {e}")
+    try:
+        await callback.message.answer_photo(
+            URLInputFile(f"{PHOTO_BASE}/examples/studio_portrait/after.jpg"),
+            caption="✨ <b>ПОСЛЕ</b> — студийный портрет",
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        logger.warning(f"⚠️ Не удалось отправить after.jpg: {e}")
+    await callback.message.answer(
+        "Перед съёмкой ознакомься с инструкцией или сразу загружай фото.",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="📖 Показать инструкцию", callback_data="studio_instruction")],
             [InlineKeyboardButton(text="📸 Я готов — загрузить фото", callback_data="studio_ready")],
