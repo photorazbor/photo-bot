@@ -442,11 +442,11 @@ XMAS_INTRO = (
     "но если что-то не понравится — 1 перегенерация бесплатна."
 )
 
-XMAS_CHOOSE_LOCATION = "🏙 <b>Шаг 1 из 6. Выбери локацию:</b>"
-XMAS_CHOOSE_SUBSCENE = "🎬 <b>Шаг 2 из 6. Выбери композицию:</b>"
-XMAS_CHOOSE_OUTFIT = "👗 <b>Шаг 3 из 6. Выбери образ:</b>"
-XMAS_CHOOSE_FORMAT = "📐 <b>Шаг 4 из 6. Выбери формат кадра:</b>"
-XMAS_CHOOSE_STYLE = "🎨 <b>Шаг 5 из 6. Выбери стиль:</b>"
+XMAS_CHOOSE_STYLE = "🎨 <b>Шаг 1 из 6. Выбери стиль:</b>"
+XMAS_CHOOSE_LOCATION = "🏙 <b>Шаг 2 из 6. Выбери локацию:</b>"
+XMAS_CHOOSE_SUBSCENE = "🎬 <b>Шаг 3 из 6. Выбери композицию:</b>"
+XMAS_CHOOSE_OUTFIT = "👗 <b>Шаг 4 из 6. Выбери образ:</b>"
+XMAS_CHOOSE_FORMAT = "📐 <b>Шаг 5 из 6. Выбери формат кадра:</b>"
 XMAS_UPLOAD = (
     "📸 <b>Шаг 6 из 6. Пришли фото</b>\n\n"
     "Требования:\n"
@@ -482,7 +482,6 @@ def register_xmas_handlers(dp):
     async def xmas_start(callback: CallbackQuery):
         await callback.answer()
 
-        # Проверка баланса
         from main import get_balance, test_mode, buy_generations_keyboard
         user_id = callback.from_user.id
         balance = get_balance(user_id)
@@ -497,15 +496,15 @@ def register_xmas_handlers(dp):
         try:
             await callback.message.answer_photo(
                 photo=f"{BASE}/xmas/intro_example.jpg",
-                caption=XMAS_INTRO,
+                caption=XMAS_INTRO + "\n\n" + XMAS_CHOOSE_STYLE,
                 parse_mode="HTML",
-                reply_markup=locations_keyboard(),
+                reply_markup=styles_keyboard(),
             )
         except Exception:
             await callback.message.answer(
-                XMAS_INTRO,
+                XMAS_INTRO + "\n\n" + XMAS_CHOOSE_STYLE,
                 parse_mode="HTML",
-                reply_markup=locations_keyboard(),
+                reply_markup=styles_keyboard(),
             )
 
     # ===== ШАГ 1: ЛОКАЦИЯ =====
@@ -658,7 +657,7 @@ def register_xmas_handlers(dp):
         state["format"] = fmt_key
         xmas_state[user_id] = state
 
-        await _show_styles(callback.message)
+        await _show_upload(callback.message, state)
 
     @dp.callback_query(F.data == "xmas_back_format")
     async def xmas_back_format(callback: CallbackQuery):
@@ -682,7 +681,32 @@ def register_xmas_handlers(dp):
         state["style"] = style_key
         xmas_state[user_id] = state
 
-        # Для стиля «Советская сказка» — показать выбор композиции персонажей
+        style_name = XMAS_STYLES[style_key]["name"]
+
+        # Показываем пример для стиля (если есть картинки)
+        await callback.message.answer(
+            f"🎨 <b>Стиль: {style_name}</b>\n\n"
+            "Вот пример — как преображается фото:",
+            parse_mode="HTML"
+        )
+        try:
+            await callback.message.answer_photo(
+                photo=f"{BASE}/xmas/{style_key}/before.jpg",
+                caption="📷 <b>ДО</b> — обычное фото",
+                parse_mode="HTML"
+            )
+        except Exception as e:
+            logger.warning(f"⚠️ Нет before.jpg для {style_key}: {e}")
+        try:
+            await callback.message.answer_photo(
+                photo=f"{BASE}/xmas/{style_key}/after.jpg",
+                caption=f"✨ <b>ПОСЛЕ</b> — {style_name}",
+                parse_mode="HTML"
+            )
+        except Exception as e:
+            logger.warning(f"⚠️ Нет after.jpg для {style_key}: {e}")
+
+        # Особый случай — советская сказка (выбор композиции)
         if style_key == "soviet_fairy":
             await callback.message.answer(
                 "🎄 <b>Как расположить персонажей?</b>\n\n"
@@ -693,12 +717,17 @@ def register_xmas_handlers(dp):
                 reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                     [InlineKeyboardButton(text="🎄 Обычная композиция", callback_data="xmas_arrange_normal")],
                     [InlineKeyboardButton(text="💫 Хоровод", callback_data="xmas_arrange_chorovod")],
-                    [InlineKeyboardButton(text="🔙 Назад", callback_data="xmas_back_format")],
+                    [InlineKeyboardButton(text="🔙 Назад", callback_data="xmas_back_style")],
                 ])
             )
             return
 
-        await _show_upload(callback.message, state)
+        # Дальше — выбор локации
+        await callback.message.answer(
+            XMAS_CHOOSE_LOCATION,
+            parse_mode="HTML",
+            reply_markup=locations_keyboard()
+        )
 
     @dp.callback_query(F.data == "xmas_arrange_normal")
     async def xmas_arrange_normal(callback: CallbackQuery):
@@ -707,7 +736,11 @@ def register_xmas_handlers(dp):
         state = xmas_state.get(user_id, {})
         state["chorovod"] = False
         xmas_state[user_id] = state
-        await _show_upload(callback.message, state)
+        await callback.message.answer(
+            XMAS_CHOOSE_LOCATION,
+            parse_mode="HTML",
+            reply_markup=locations_keyboard()
+        )
 
     @dp.callback_query(F.data == "xmas_arrange_chorovod")
     async def xmas_arrange_chorovod(callback: CallbackQuery):
@@ -716,7 +749,11 @@ def register_xmas_handlers(dp):
         state = xmas_state.get(user_id, {})
         state["chorovod"] = True
         xmas_state[user_id] = state
-        await _show_upload(callback.message, state)
+        await callback.message.answer(
+            XMAS_CHOOSE_LOCATION,
+            parse_mode="HTML",
+            reply_markup=locations_keyboard()
+        )
 
     @dp.callback_query(F.data == "xmas_back_style")
     async def xmas_back_style(callback: CallbackQuery):
