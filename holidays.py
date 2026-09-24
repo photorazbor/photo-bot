@@ -308,11 +308,11 @@ BIRTHDAY_INTRO = (
     "Начнём!"
 )
 
-BD_CHOOSE_LOCATION = "📍 <b>Шаг 1 из 5. Выбери локацию:</b>"
-BD_CHOOSE_SCENE = "🎬 <b>Шаг 2 из 5. Выбери сюжет:</b>"
-BD_CHOOSE_OUTFIT = "👗 <b>Шаг 3 из 5. Выбери образ:</b>"
-BD_CHOOSE_FORMAT = "📐 <b>Шаг 4 из 5. Выбери формат:</b>"
-BD_CHOOSE_STYLE = "🎨 <b>Шаг 5 из 5. Выбери стиль:</b>"
+BD_CHOOSE_STYLE = "🎨 <b>Шаг 1 из 5. Выбери стиль:</b>"
+BD_CHOOSE_LOCATION = "📍 <b>Шаг 2 из 5. Выбери локацию:</b>"
+BD_CHOOSE_SCENE = "🎬 <b>Шаг 3 из 5. Выбери сюжет:</b>"
+BD_CHOOSE_OUTFIT = "👗 <b>Шаг 4 из 5. Выбери образ:</b>"
+BD_CHOOSE_FORMAT = "📐 <b>Шаг 5 из 5. Выбери формат:</b>"
 BD_UPLOAD = (
     "📸 <b>Пришли фото</b>\n\n"
     "Требования:\n"
@@ -374,11 +374,10 @@ def register_holidays_handlers(dp):
             )
             return
         holiday_state[user_id] = {"holiday": "birthday"}
-        previews = [loc["preview"] for loc in BIRTHDAY_LOCATIONS.values()]
-        await _send_previews(
-            callback.message, previews,
-            BIRTHDAY_INTRO + "\n\n" + BD_CHOOSE_LOCATION,
-            bd_locations_keyboard()
+        await callback.message.answer(
+            BIRTHDAY_INTRO + "\n\n" + BD_CHOOSE_STYLE,
+            parse_mode="HTML",
+            reply_markup=bd_styles_keyboard()
         )
 
     # ===== ШАГ 1: ЛОКАЦИЯ =====
@@ -459,7 +458,7 @@ def register_holidays_handlers(dp):
         state = holiday_state.get(user_id, {})
         state["format"] = fmt_key
         holiday_state[user_id] = state
-        await callback.message.answer(BD_CHOOSE_STYLE, parse_mode="HTML", reply_markup=bd_styles_keyboard())
+        await _show_upload(callback.message, state)
 
     @dp.callback_query(F.data == "holiday_bd_back_fmt")
     async def bd_back_fmt(callback: CallbackQuery):
@@ -476,15 +475,42 @@ def register_holidays_handlers(dp):
             await callback.message.answer("❌ Стиль не найден.")
             return
         user_id = callback.from_user.id
-        state = holiday_state.get(user_id, {})
+        state = holiday_state.get(user_id, {"holiday": "birthday"})
         state["style"] = style_key
         holiday_state[user_id] = state
-        await _show_upload(callback.message, state)
 
-    @dp.callback_query(F.data == "holiday_bd_back_style")
-    async def bd_back_style(callback: CallbackQuery):
-        await callback.answer()
-        await callback.message.answer(BD_CHOOSE_STYLE, parse_mode="HTML", reply_markup=bd_styles_keyboard())
+        style_name = BIRTHDAY_STYLES[style_key]["name"]
+
+        # Показываем пример для стиля (если есть картинки)
+        await callback.message.answer(
+            f"🎨 <b>Стиль: {style_name}</b>\n\n"
+            "Вот пример — как преображается фото:",
+            parse_mode="HTML"
+        )
+        try:
+            await callback.message.answer_photo(
+                photo=f"{BASE}/examples/holidays/birthday/{style_key}/before.jpg",
+                caption="📷 <b>ДО</b> — обычное фото",
+                parse_mode="HTML"
+            )
+        except Exception as e:
+            logger.warning(f"⚠️ Нет before.jpg для {style_key}: {e}")
+        try:
+            await callback.message.answer_photo(
+                photo=f"{BASE}/examples/holidays/birthday/{style_key}/after.jpg",
+                caption=f"✨ <b>ПОСЛЕ</b> — {style_name}",
+                parse_mode="HTML"
+            )
+        except Exception as e:
+            logger.warning(f"⚠️ Нет after.jpg для {style_key}: {e}")
+
+        # Дальше — локации
+        previews = [loc["preview"] for loc in BIRTHDAY_LOCATIONS.values()]
+        await _send_previews(
+            callback.message, previews,
+            BD_CHOOSE_LOCATION,
+            bd_locations_keyboard()
+        )
 
     # ===== СВОДКА + ФОТО =====
 
@@ -538,11 +564,10 @@ def register_holidays_handlers(dp):
             )
             return
         holiday_state[user_id] = {"holiday": "birthday"}
-        previews = [loc["preview"] for loc in BIRTHDAY_LOCATIONS.values()]
-        await _send_previews(
-            callback.message, previews,
-            "🔄 Начинаем новую фотосессию.\n\n" + BD_CHOOSE_LOCATION,
-            bd_locations_keyboard()
+        await callback.message.answer(
+            "🔄 Начинаем новую фотосессию.\n\n" + BD_CHOOSE_STYLE,
+            parse_mode="HTML",
+            reply_markup=bd_styles_keyboard()
         )
 
     # ===== ПЕРЕГЕНЕРАЦИЯ =====
