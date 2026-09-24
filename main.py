@@ -990,6 +990,12 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
             return
 
         if user_mode.get(user_id, "").startswith("doc_"):
+            # Определяем размер по типу документа
+            _doc_type = doc_type_last.get(user_id, "passport")
+            if _doc_type == "3x4":
+                _size_text = "30×40 мм (3×4)"
+            else:
+                _size_text = "35×45 мм (паспорт РФ)"
             if mode == "retry" or gen_retry_count.get(user_id, 0) >= 1:
                 doc_kb = InlineKeyboardMarkup(inline_keyboard=[
                     [InlineKeyboardButton(text="📸 Новый документ", callback_data=f"doc_next_{user_id}")],
@@ -1001,6 +1007,16 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
                     [InlineKeyboardButton(text="📸 Новый документ", callback_data=f"doc_next_{user_id}")],
                     [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
                 ])
+            await bot.send_message(
+                chat_id,
+                "📄 <b>Что дальше с фото:</b>\n\n"
+                "1. Сохрани фото (нажми на картинку → «Сохранить в галерею»)\n"
+                "2. Отправь в фотосалон или распечатай сам\n"
+                f"3. Скажи в салоне: «Распечатайте по нормативу, размер {_size_text}»\n"
+                "4. Они сами откадрируют и сделают нужное количество\n\n"
+                "⚠️ Фото уже готово к печати — с запасом по краям.",
+                parse_mode="HTML"
+            )
             await bot.send_message(chat_id, "Что дальше?", reply_markup=doc_kb)
             return
 
