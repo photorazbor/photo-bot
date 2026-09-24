@@ -1372,8 +1372,31 @@ async def handle_doc_photo(callback: CallbackQuery):
         f"Сделаю аккуратный документ: белый фон, деловой образ, лёгкая ретушь.\n\n"
         f"💰 Стоимость: 1 генерация\n"
         f"💎 Твой баланс: {balance}\n\n"
-        "Перед съёмкой ознакомься с инструкцией.",
-        parse_mode="HTML",
+        "Вот пример — как преображается фото:",
+        parse_mode="HTML"
+    )
+    PHOTO_BASE = "https://raw.githubusercontent.com/photorazbor/photo-bot/main"
+    # Фото ДО
+    try:
+        await callback.message.answer_photo(
+            URLInputFile(f"{PHOTO_BASE}/examples/doc_photo/before.jpg"),
+            caption="📷 <b>ДО</b> — обычное фото",
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        logger.warning(f"⚠️ Не удалось отправить before.jpg: {e}")
+    # Фото ПОСЛЕ
+    try:
+        await callback.message.answer_photo(
+            URLInputFile(f"{PHOTO_BASE}/examples/doc_photo/after.jpg"),
+            caption="✨ <b>ПОСЛЕ</b> — фото на документы",
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        logger.warning(f"⚠️ Не удалось отправить after.jpg: {e}")
+    # Кнопки
+    await callback.message.answer(
+        "Перед съёмкой ознакомься с инструкцией или сразу загружай фото.",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="📖 Показать инструкцию", callback_data="doc_instruction")],
             [InlineKeyboardButton(text="📸 Я готов — загрузить фото", callback_data="doc_ready")],
