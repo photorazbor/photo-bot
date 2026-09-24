@@ -2297,8 +2297,28 @@ async def handle_flat_lay(callback: CallbackQuery):
             f"Я распознаю их и сделаю стильную композицию.\n\n"
             f"💰 Стоимость: 1 генерация\n"
             f"💎 Твой баланс: {balance}\n\n"
-            f"Выбери формат:",
-            parse_mode="HTML",
+            "Вот пример — как преображается кадр:",
+            parse_mode="HTML"
+        )
+        PHOTO_BASE = "https://raw.githubusercontent.com/photorazbor/photo-bot/main"
+        try:
+            await callback.message.answer_photo(
+                URLInputFile(f"{PHOTO_BASE}/examples/flat_lay/before.jpg"),
+                caption="📷 <b>ДО</b> — обычное фото",
+                parse_mode="HTML"
+            )
+        except Exception as e:
+            logger.warning(f"⚠️ Не удалось отправить before.jpg: {e}")
+        try:
+            await callback.message.answer_photo(
+                URLInputFile(f"{PHOTO_BASE}/examples/flat_lay/after.jpg"),
+                caption="✨ <b>ПОСЛЕ</b> — стильный Flat Lay",
+                parse_mode="HTML"
+            )
+        except Exception as e:
+            logger.warning(f"⚠️ Не удалось отправить after.jpg: {e}")
+        await callback.message.answer(
+            "Выбери формат:",
             reply_markup=keyboard
         )
     else:
