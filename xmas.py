@@ -691,7 +691,7 @@ def register_xmas_handlers(dp):
         )
         try:
             await callback.message.answer_photo(
-                photo=f"{BASE}/xmas/{style_key}/before.jpg",
+                photo=f"{BASE}/examples/xmas/{style_key}/before.jpg",
                 caption="📷 <b>ДО</b> — обычное фото",
                 parse_mode="HTML"
             )
@@ -699,13 +699,13 @@ def register_xmas_handlers(dp):
             logger.warning(f"⚠️ Нет before.jpg для {style_key}: {e}")
         try:
             await callback.message.answer_photo(
-                photo=f"{BASE}/xmas/{style_key}/after.jpg",
+                photo=f"{BASE}/examples/xmas/{style_key}/after.jpg",
                 caption=f"✨ <b>ПОСЛЕ</b> — {style_name}",
                 parse_mode="HTML"
             )
         except Exception as e:
             logger.warning(f"⚠️ Нет after.jpg для {style_key}: {e}")
-
+            
         # Особый случай — советская сказка (выбор композиции)
         if style_key == "soviet_fairy":
             await callback.message.answer(
