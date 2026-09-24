@@ -530,7 +530,9 @@ def register_xmas_handlers(dp):
             return
 
         user_id = callback.from_user.id
-        xmas_state[user_id] = {"location": loc_key}
+        state = xmas_state.get(user_id, {})
+        state["location"] = loc_key
+        xmas_state[user_id] = state
 
         loc = XMAS_LOCATIONS[loc_key]
         await _show_subscenes(callback.message, loc["type"], loc["name"])
