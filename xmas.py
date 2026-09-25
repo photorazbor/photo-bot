@@ -415,6 +415,7 @@ def styles_keyboard():
     rows = []
     for key, style in XMAS_STYLES.items():
         rows.append([InlineKeyboardButton(text=style["short"], callback_data=f"xmas_style_{key}")])
+    rows.append([InlineKeyboardButton(text="✏️ Свой стиль", callback_data="xmas_custom_style")])
     rows.append([InlineKeyboardButton(text="🏠 В главное меню", callback_data="main_menu")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
@@ -766,6 +767,28 @@ def register_xmas_handlers(dp):
             reply_markup=locations_keyboard()
         )
 
+    @dp.callback_query(F.data == "xmas_custom_style")
+    async def xmas_custom_style(callback: CallbackQuery):
+        await callback.answer()
+        user_id = callback.from_user.id
+        xmas_awaiting_custom[user_id] = "custom_style"
+        await callback.message.answer(
+            "✏️ <b>Свой стиль</b>\n\n"
+            "Опиши, какой стиль хочешь — как в фильме, как у художника, "
+            "или просто настроение.\n\n"
+            "<b>Примеры:</b>\n"
+            "• «как в фильме Уэс Андерсон»\n"
+            "• «стиль Тим Бёртон»\n"
+            "• «зимняя сказка»\n"
+            "• «как картина Ван Гога»\n"
+            "• «как обложка Vogue»\n"
+            "• «аниме Хаяо Миядзаки»\n"
+            "• «советский плакат 60-х»\n"
+            "• «как в кино нуар»\n\n"
+            "Напиши свой вариант <b>одним сообщением</b>.",
+            parse_mode="HTML"
+        )
+
     @dp.callback_query(F.data == "xmas_back_style")
     async def xmas_back_style(callback: CallbackQuery):
         await callback.answer()
@@ -911,6 +934,19 @@ async def handle_xmas_custom_text(message: Message, user_id: int, text: str) -> 
         await _send_previews(message, previews, XMAS_CHOOSE_OUTFIT, outfits_keyboard())
         return True
 
+    if step == "custom_style":
+        state["style"] = "custom"
+        state["custom_style"] = text
+        xmas_state[user_id] = state
+        xmas_awaiting_custom.pop(user_id, None)
+        await message.answer(f"✅ Стиль: <b>{text}</b>", parse_mode="HTML")
+        await message.answer(
+            XMAS_CHOOSE_LOCATION,
+            parse_mode="HTML",
+            reply_markup=locations_keyboard()
+        )
+        return True
+
     if step == "outfit":
         state["outfit"] = None
         state["custom_outfit"] = text
@@ -1047,7 +1083,8 @@ def _build_prompt(state: dict) -> str | None:
 
     # ===== РЕАЛИЗМ ИЛИ РИСОВАННЫЙ СТИЛЬ =====
     style_key_pre = state.get("style", "realistic")
-    is_art_style = style_key_pre in ("soviet_card", "soviet_fairy", "soviet_cartoon", "disney", "comics")
+    custom_style = state.get("custom_style", "")
+    is_art_style = style_key_pre in ("soviet_card", "soviet_fairy", "soviet_cartoon", "disney", "comics") or (style_key_pre == "custom" and custom_style)
 
     if is_art_style:
         realism_lock = ""
@@ -1141,8 +1178,20 @@ def _build_prompt(state: dict) -> str | None:
 
     # ===== СТИЛЬ =====
     style_key = state.get("style", "realistic")
-    style = XMAS_STYLES.get(style_key, XMAS_STYLES["realistic"])
-    style_lock = style["prompt"] if style["prompt"] else ""
+    custom_style = state.get("custom_style", "")
+
+    if style_key == "custom" and custom_style:
+        style_lock = (
+            f"СТИЛИЗАЦИЯ: {custom_style}. "
+            "ЭТО ХУДОЖЕСТВЕННАЯ СТИЛИЗАЦИЯ, А НЕ ФОТОГРАФИЯ. "
+            "НЕ делай фотографию с людьми — сделай ХУДОЖЕСТВЕННУЮ ИЛЛЮСТРАЦИЮ "
+            f"в стиле: {custom_style}. "
+            "СОХРАНИ всех людей с фото — никого не убирай и не добавляй. "
+            "ГЛАВНОЕ: результат должен быть в указанном стиле."
+        )
+    else:
+        style = XMAS_STYLES.get(style_key, XMAS_STYLES["realistic"])
+        style_lock = style["prompt"] if style["prompt"] else ""
 
     if is_art_style:
         final_line = "Финальный стиль: рисованная иллюстрация, художественный стиль."
