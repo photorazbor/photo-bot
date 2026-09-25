@@ -71,6 +71,15 @@ from holidays import (
     holiday_awaiting_photo,
 )
 
+from wedding import (
+    register_wedding_handlers,
+    handle_wedding_photo,
+    handle_wedding_custom_text,
+    reset_wedding_state,
+    is_user_in_wedding_flow,
+    wedding_awaiting_photo,
+)
+
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 
 # ===== КОНСТАНТЫ =====
@@ -2780,6 +2789,10 @@ async def handle_photo(message: Message):
         await handle_holiday_photo(message, user_id, image_bytes)
         return
 
+    if user_id in wedding_awaiting_photo:
+        await handle_wedding_photo(message, user_id, image_bytes)
+        return
+
     last_photo[user_id] = image_bytes
     original_photo[user_id] = image_bytes
     gen_retry_count[user_id] = 0
@@ -3781,13 +3794,19 @@ async def handle_non_photo(message: Message):
     if await handle_holiday_custom_text(message, user_id, text):
         return
 
-    if text in ("🛠 Инструменты", "📸 Разобрать фото", "✂️ Редактор",
-                "📷 Flat Lay", "🎨 Стилизация", "🏠 Главное меню",
+    if await handle_wedding_custom_text(message, user_id, text):
+        return
+
+    if text in ("🛠 Инструменты", "📸 Разобрать фото", "🏠 Главное меню",
                 "🎓 Мини-курс", "🎯 Авторский разбор", "💎 Баланс",
-                "💛 Поддержать проект", "👤 Об авторе", "🎉 Праздники"):
-        reset_xmas_state(user_id)
-        reset_ref_state(user_id)
-        reset_daily_state(user_id)
+                "💛 Поддержать проект", "👤 Об авторе", "🎉 Праздники",
+                "🔮 Карта дня"):
+        from xmas import xmas_awaiting_custom
+        from holidays import holiday_awaiting_custom
+        from wedding import wedding_awaiting_custom
+        xmas_awaiting_custom.pop(user_id, None)
+        holiday_awaiting_custom.pop(user_id, None)
+        wedding_awaiting_custom.pop(user_id, None)
 
     if mode in ("gen_wish_free", "gen_wish_paid"):
         gen_wish[user_id] = text
@@ -4039,6 +4058,7 @@ async def main():
     register_reference_handlers(dp)
     register_daily_handlers(dp)
     register_holidays_handlers(dp)
+    register_wedding_handlers(dp)
     await dp.start_polling(bot)
 
 
