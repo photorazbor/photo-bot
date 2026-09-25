@@ -1126,7 +1126,7 @@ async def handle_start(message: Message):
             "✨ <b>Улучшение фото:</b> ИИ исправит композицию, свет, уберёт лишнее и дорисует края.\n\n"
             "✂️ <b>Редактор:</b> меняй формат, улучшай, ретушируй, стилизуй.\n\n"
             "📷 <b>Flat Lay:</b> стильная предметная съёмка.\n\n"
-            "🎄 <b>Новогодняя фотосессия:</b> сказочные кадры с ретро-авто и ёлкой.\n\n"
+            "🎉 <b>Праздники:</b> новогодние и праздничные фотосессии.\n\n"
             "📄 <b>Фото на документы</b> и <b>студийный портрет:</b> быстро и аккуратно.\n\n"
             "🎓 <b>Мини-курс (10 дней):</b> с проверкой заданий. Первый день — бесплатно.\n\n"
             f"💎 <b>Твой баланс:</b> {balance_text} генераций\n\n"
@@ -1134,7 +1134,7 @@ async def handle_start(message: Message):
         ),
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🎄 Новогодняя фотосессия", callback_data="xmas_start")],
+            [InlineKeyboardButton(text="🎉 Праздники", callback_data="holidays_start")],
             [InlineKeyboardButton(text="🔮 Карта дня", callback_data="daily_card")],
             [InlineKeyboardButton(text="📸 Разобрать фото", callback_data="new_photo")],
             [InlineKeyboardButton(text="🛠 Инструменты", callback_data="tools_menu")],
@@ -1277,13 +1277,13 @@ async def handle_main_menu(callback: CallbackQuery):
             "✨ <b>Улучшение фото:</b> ИИ исправит композицию, свет, дорисует края.\n\n"
             "✂️ <b>Редактор:</b> формат, ретушь, стилизация.\n\n"
             "📷 <b>Flat Lay:</b> предметная съёмка.\n\n"
-            "🎄 <b>Новогодняя фотосессия:</b> сказочные кадры с ретро-авто.\n\n"
+            "🎉 <b>Праздники:</b> новогодние и праздничные фотосессии.\n\n"
             "🎓 <b>Мини-курс:</b> первый день бесплатно.\n\n"
             f"💎 <b>Твой баланс:</b> {balance_text} генераций"
         ),
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🎄 Новогодняя фотосессия", callback_data="xmas_start")],
+            [InlineKeyboardButton(text="🎉 Праздники", callback_data="holidays_start")],
             [InlineKeyboardButton(text="🔮 Карта дня", callback_data="daily_card")],
             [InlineKeyboardButton(text="📸 Разобрать фото", callback_data="new_photo")],
             [InlineKeyboardButton(text="🛠 Инструменты", callback_data="tools_menu")],
@@ -3780,7 +3780,7 @@ async def handle_non_photo(message: Message):
     if text in ("🛠 Инструменты", "📸 Разобрать фото", "✂️ Редактор",
                 "📷 Flat Lay", "🎨 Стилизация", "🏠 Главное меню",
                 "🎓 Мини-курс", "🎯 Авторский разбор", "💎 Баланс",
-                "💛 Поддержать проект", "👤 Об авторе", "🎄 Новогодняя фотосессия"):
+                "💛 Поддержать проект", "👤 Об авторе", "🎉 Праздники"):
         reset_xmas_state(user_id)
         reset_ref_state(user_id)
         reset_daily_state(user_id)
@@ -3965,7 +3965,7 @@ async def handle_non_photo(message: Message):
             ),
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="🎄 Новогодняя фотосессия", callback_data="xmas_start")],
+                [InlineKeyboardButton(text="🎉 Праздники", callback_data="holidays_start")],
                 [InlineKeyboardButton(text="🔮 Карта дня", callback_data="daily_card")],
                 [InlineKeyboardButton(text="📸 Разобрать фото", callback_data="new_photo")],
                 [InlineKeyboardButton(text="🛠 Инструменты", callback_data="tools_menu")],
