@@ -415,7 +415,7 @@ def styles_keyboard():
     rows = []
     for key, style in XMAS_STYLES.items():
         rows.append([InlineKeyboardButton(text=style["short"], callback_data=f"xmas_style_{key}")])
-    rows.append([InlineKeyboardButton(text="🔙 Назад", callback_data="xmas_back_format")])
+    rows.append([InlineKeyboardButton(text="🏠 В главное меню", callback_data="main_menu")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
