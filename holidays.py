@@ -16,7 +16,7 @@ from aiogram.types import (
 
 logger = logging.getLogger(__name__)
 
-BASE = "https://raw.githubusercontent.com/photorazbor/photo-bot/main"
+BASE = "https://raw.githubusercontent.com/photorazbor/photo-bot/main/examples"
 
 # ===== ЛОКАЦИИ ДНЯ РОЖДЕНИЯ =====
 
