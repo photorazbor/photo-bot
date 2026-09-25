@@ -16,6 +16,22 @@ from aiogram.types import (
 
 logger = logging.getLogger(__name__)
 
+import requests as _requests
+
+
+def _fetch_image(url: str) -> bytes | None:
+    """Скачивает картинку с URL. Возвращает bytes или None."""
+    try:
+        r = _requests.get(url, timeout=20)
+        if r.status_code == 200 and r.content:
+            return r.content
+    except Exception as e:
+        logger.warning(f"⚠️ Не удалось скачать {url}: {e}")
+    return None
+
+
+BASE_REF = "https://raw.githubusercontent.com/photorazbor/photo-bot/main/examples"
+
 # ===== СОСТОЯНИЕ =====
 ref_photo = {}       # {user_id: bytes} — референс
 user_photo_ref = {}  # {user_id: bytes} — фото пользователя
@@ -57,6 +73,20 @@ def register_reference_handlers(dp):
         reset_ref_state(user_id)
         ref_awaiting[user_id] = "reference"
 
+        # Показываем примеры коллажей (Pinterest + фото → результат)
+        for idx in (1, 2, 3):
+            example_bytes = _fetch_image(f"{BASE_REF}/ref_style/example_{idx}.jpg")
+            if not example_bytes:
+                continue
+            try:
+                await callback.message.answer_photo(
+                    BufferedInputFile(example_bytes, filename=f"example_{idx}.jpg"),
+                    caption="✨ <b>Pinterest + фото → результат</b>",
+                    parse_mode="HTML",
+                )
+            except Exception as e:
+                logger.warning(f"⚠️ Ошибка отправки example_{idx}.jpg: {e}")
+
         await callback.message.answer(
             "🖼️ <b>Фото по референсу</b>\n\n"
             "Как это работает:\n"
@@ -96,7 +126,8 @@ def _compress_image(image_bytes: bytes, max_size: int = 1024) -> bytes:
     except Exception as e:
         logger.warning(f"⚠️ ref_style: не удалось сжать картинку: {e}")
         return image_bytes
-        
+
+
 async def handle_reference_photo(message: Message, user_id: int, image_bytes: bytes) -> bool:
     """
     Вызывается из main.handle_photo, если пользователь в ref_awaiting.
