@@ -269,6 +269,35 @@ def _save_author_photo(order_time: str, index: int, image_bytes: bytes) -> str:
     return filename
 
 
+def _reset_all_flows(user_id: int):
+    """Сбрасывает все «ожидающие» состояния пользователя."""
+    try:
+        from xmas import reset_xmas_state
+        reset_xmas_state(user_id)
+    except Exception:
+        pass
+    try:
+        from holidays import reset_holiday_state
+        reset_holiday_state(user_id)
+    except Exception:
+        pass
+    try:
+        from wedding import reset_wedding_state
+        reset_wedding_state(user_id)
+    except Exception:
+        pass
+    try:
+        from reference import reset_ref_state
+        reset_ref_state(user_id)
+    except Exception:
+        pass
+    try:
+        from daily import reset_daily_state
+        reset_daily_state(user_id)
+    except Exception:
+        pass
+
+
 def _add_history(user_id: int, action: str, details: str = ""):
     stats_add_history(user_id, action, details)
 
@@ -1256,9 +1285,7 @@ async def handle_new_photo_same(callback: CallbackQuery):
 
 @dp.callback_query(F.data == "new_photo")
 async def handle_new_photo(callback: CallbackQuery):
-    reset_xmas_state(callback.from_user.id)
-    reset_ref_state(callback.from_user.id)
-    reset_daily_state(callback.from_user.id)
+    _reset_all_flows(callback.from_user.id)
     user_mode[callback.from_user.id] = "free"
     flat_lay_active[callback.from_user.id] = False
     style_active.pop(callback.from_user.id, None)
@@ -1270,6 +1297,7 @@ async def handle_new_photo(callback: CallbackQuery):
 @dp.callback_query(F.data == "main_menu")
 async def handle_main_menu(callback: CallbackQuery):
     await callback.answer()
+    _reset_all_flows(callback.from_user.id)
     reset_xmas_state(callback.from_user.id)
     reset_ref_state(callback.from_user.id)
     reset_daily_state(callback.from_user.id)
@@ -1311,6 +1339,7 @@ async def handle_main_menu(callback: CallbackQuery):
 @dp.callback_query(F.data == "tools_menu")
 async def handle_tools_menu(callback: CallbackQuery):
     await callback.answer()
+    _reset_all_flows(callback.from_user.id)
     reset_xmas_state(callback.from_user.id)
     reset_ref_state(callback.from_user.id)
     reset_daily_state(callback.from_user.id)
@@ -1374,6 +1403,7 @@ async def handle_my_balance(callback: CallbackQuery):
 @dp.callback_query(F.data == "style_photo")
 async def handle_style_photo_inline(callback: CallbackQuery):
     await callback.answer()
+    _reset_all_flows(callback.from_user.id)
     user_id = callback.from_user.id
     user_mode[user_id] = "style_photo"
     flat_lay_active[user_id] = False
@@ -1392,6 +1422,7 @@ async def handle_style_photo_inline(callback: CallbackQuery):
 @dp.callback_query(F.data == "doc_photo")
 async def handle_doc_photo(callback: CallbackQuery):
     await callback.answer()
+    _reset_all_flows(callback.from_user.id)
     user_id = callback.from_user.id
     user_mode[user_id] = "doc_photo"
     balance = get_balance(user_id)
@@ -1490,6 +1521,7 @@ async def handle_doctype(callback: CallbackQuery):
 @dp.callback_query(F.data == "change_format")
 async def handle_change_format(callback: CallbackQuery):
     await callback.answer()
+    _reset_all_flows(callback.from_user.id)
     user_id = callback.from_user.id
     user_mode[user_id] = "change_format"
     flat_lay_active[user_id] = False
@@ -1509,6 +1541,7 @@ async def handle_change_format(callback: CallbackQuery):
 @dp.callback_query(F.data == "studio_portrait")
 async def handle_studio_portrait(callback: CallbackQuery):
     await callback.answer()
+    _reset_all_flows(callback.from_user.id)
     user_id = callback.from_user.id
     user_mode[user_id] = "studio_portrait"
     balance = get_balance(user_id)
@@ -2292,6 +2325,7 @@ async def handle_gen_go_custom(callback: CallbackQuery):
 @dp.callback_query(F.data == "flat_lay")
 async def handle_flat_lay(callback: CallbackQuery):
     await callback.answer()
+    _reset_all_flows(callback.from_user.id)
     user_id = callback.from_user.id
     user_mode[user_id] = "flat_lay_format"
     flat_lay_active[user_id] = False
