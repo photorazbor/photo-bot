@@ -394,14 +394,12 @@ def register_holidays_handlers(dp):
         state = holiday_state.get(user_id, {"holiday": "birthday"})
         state["location"] = loc_key
         holiday_state[user_id] = state
-        previews = [s["preview"] for s in BIRTHDAY_SCENES.values()]
-        await _send_previews(callback.message, previews, BD_CHOOSE_SCENE, bd_scenes_keyboard())
+        await callback.message.answer(BD_CHOOSE_SCENE, parse_mode="HTML", reply_markup=bd_scenes_keyboard())
 
     @dp.callback_query(F.data == "holiday_bd_back_loc")
     async def bd_back_loc(callback: CallbackQuery):
         await callback.answer()
-        previews = [loc["preview"] for loc in BIRTHDAY_LOCATIONS.values()]
-        await _send_previews(callback.message, previews, BD_CHOOSE_LOCATION, bd_locations_keyboard())
+        await callback.message.answer(BD_CHOOSE_LOCATION, parse_mode="HTML", reply_markup=bd_locations_keyboard())
 
     # ===== ШАГ 2: СЮЖЕТ =====
 
@@ -416,14 +414,12 @@ def register_holidays_handlers(dp):
         state = holiday_state.get(user_id, {})
         state["scene"] = scene_key
         holiday_state[user_id] = state
-        previews = [o["preview"] for o in BIRTHDAY_OUTFITS.values()]
-        await _send_previews(callback.message, previews, BD_CHOOSE_OUTFIT, bd_outfits_keyboard())
+        await callback.message.answer(BD_CHOOSE_OUTFIT, parse_mode="HTML", reply_markup=bd_outfits_keyboard())
 
     @dp.callback_query(F.data == "holiday_bd_back_scene")
     async def bd_back_scene(callback: CallbackQuery):
         await callback.answer()
-        previews = [s["preview"] for s in BIRTHDAY_SCENES.values()]
-        await _send_previews(callback.message, previews, BD_CHOOSE_SCENE, bd_scenes_keyboard())
+        await callback.message.answer(BD_CHOOSE_SCENE, parse_mode="HTML", reply_markup=bd_scenes_keyboard())
 
     # ===== ШАГ 3: ОБРАЗ =====
 
@@ -443,8 +439,7 @@ def register_holidays_handlers(dp):
     @dp.callback_query(F.data == "holiday_bd_back_outfit")
     async def bd_back_outfit(callback: CallbackQuery):
         await callback.answer()
-        previews = [o["preview"] for o in BIRTHDAY_OUTFITS.values()]
-        await _send_previews(callback.message, previews, BD_CHOOSE_OUTFIT, bd_outfits_keyboard())
+        await callback.message.answer(BD_CHOOSE_OUTFIT, parse_mode="HTML", reply_markup=bd_outfits_keyboard())
 
     # ===== ШАГ 4: ФОРМАТ =====
 
@@ -490,7 +485,7 @@ def register_holidays_handlers(dp):
         )
         try:
             await callback.message.answer_photo(
-                photo=f"{BASE}/examples/holidays/birthday/{style_key}/before.jpg",
+                photo=f"{BASE}/holidays/birthday/{style_key}/before.jpg",
                 caption="📷 <b>ДО</b> — обычное фото",
                 parse_mode="HTML"
             )
@@ -498,7 +493,7 @@ def register_holidays_handlers(dp):
             logger.warning(f"⚠️ Нет before.jpg для {style_key}: {e}")
         try:
             await callback.message.answer_photo(
-                photo=f"{BASE}/examples/holidays/birthday/{style_key}/after.jpg",
+                photo=f"{BASE}/holidays/birthday/{style_key}/after.jpg",
                 caption=f"✨ <b>ПОСЛЕ</b> — {style_name}",
                 parse_mode="HTML"
             )
@@ -506,11 +501,10 @@ def register_holidays_handlers(dp):
             logger.warning(f"⚠️ Нет after.jpg для {style_key}: {e}")
 
         # Дальше — локации
-        previews = [loc["preview"] for loc in BIRTHDAY_LOCATIONS.values()]
-        await _send_previews(
-            callback.message, previews,
+        await callback.message.answer(
             BD_CHOOSE_LOCATION,
-            bd_locations_keyboard()
+            parse_mode="HTML",
+            reply_markup=bd_locations_keyboard()
         )
 
     @dp.callback_query(F.data == "holiday_bd_custom_style")
@@ -635,11 +629,10 @@ async def handle_holiday_custom_text(message: Message, user_id: int, text: str) 
         holiday_awaiting_custom.pop(user_id, None)
         await message.answer(f"✅ Стиль: <b>{text}</b>", parse_mode="HTML")
         # Дальше — локации
-        previews = [loc["preview"] for loc in BIRTHDAY_LOCATIONS.values()]
-        await _send_previews(
-            message, previews,
+        await message.answer(
             BD_CHOOSE_LOCATION,
-            bd_locations_keyboard()
+            parse_mode="HTML",
+            reply_markup=bd_locations_keyboard()
         )
         return True
 
