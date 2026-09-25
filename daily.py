@@ -328,6 +328,16 @@ def register_daily_handlers(dp):
         from main import user_mode
 
         user_id = callback.from_user.id
+
+        from reference import reset_ref_state
+        from xmas import reset_xmas_state
+        from holidays import reset_holiday_state
+        from wedding import reset_wedding_state
+        reset_ref_state(user_id)
+        reset_xmas_state(user_id)
+        reset_holiday_state(user_id)
+        reset_wedding_state(user_id)
+
         user_mode[user_id] = "daily"
 
         await callback.message.answer(
@@ -352,6 +362,15 @@ def register_daily_handlers(dp):
         from main import get_balance, buy_generations_keyboard, test_mode, user_mode
 
         user_id = callback.from_user.id
+
+        from reference import reset_ref_state
+        from xmas import reset_xmas_state
+        from holidays import reset_holiday_state
+        from wedding import reset_wedding_state
+        reset_ref_state(user_id)
+        reset_xmas_state(user_id)
+        reset_holiday_state(user_id)
+        reset_wedding_state(user_id)
 
         if _was_shown_today(user_id):
             await callback.message.answer(
