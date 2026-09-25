@@ -267,6 +267,7 @@ def bd_styles_keyboard():
     rows = []
     for key, style in BIRTHDAY_STYLES.items():
         rows.append([InlineKeyboardButton(text=style["short"], callback_data=f"holiday_bd_style_{key}")])
+    rows.append([InlineKeyboardButton(text="✏️ Свой стиль", callback_data="holiday_bd_custom_style")])
     rows.append([InlineKeyboardButton(text="🏠 В главное меню", callback_data="main_menu")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
@@ -512,6 +513,30 @@ def register_holidays_handlers(dp):
             bd_locations_keyboard()
         )
 
+    @dp.callback_query(F.data == "holiday_bd_custom_style")
+    async def bd_custom_style(callback: CallbackQuery):
+        await callback.answer()
+        user_id = callback.from_user.id
+        holiday_awaiting_custom[user_id] = "custom_style"
+        await callback.message.answer(
+            "✏️ <b>Свой стиль</b>\n\n"
+            "Опиши, какой стиль хочешь. Можешь написать <b>любой</b> — "
+            "от реалистичного фото до мультика.\n\n"
+            "<b>Примеры:</b>\n"
+            "• «как в фильме Уэс Андерсон»\n"
+            "• «стиль Тим Бёртон»\n"
+            "• «советская открытка 60-х»\n"
+            "• «как обложка Vogue»\n"
+            "• «аниме Хаяо Миядзаки»\n"
+            "• «картина маслом»\n"
+            "• «винтажный Polaroid»\n"
+            "• «диснеевский мультик»\n\n"
+            "Можно писать и <b>реалистичное</b>: «реалистичное фото в стиле журнала», "
+            "«праздничная фотосессия с плёночным эффектом».\n\n"
+            "Напиши свой вариант <b>одним сообщением</b>.",
+            parse_mode="HTML"
+        )
+
     # ===== СВОДКА + ФОТО =====
 
     async def _show_upload(msg, state):
@@ -589,6 +614,36 @@ def register_holidays_handlers(dp):
         holiday_state[user_id] = state
         await callback.answer("🎨 Генерирую другой вариант...")
         await _generate_and_send(callback.message, user_id, state)
+
+async def handle_holiday_custom_text(message: Message, user_id: int, text: str) -> bool:
+    """Если пользователь в режиме ввода своего стиля — сохраняет и идёт дальше."""
+    step = holiday_awaiting_custom.get(user_id)
+    if not step:
+        return False
+
+    text = text.strip()[:500]
+    if not text:
+        await message.answer("✏️ Пусто. Опиши стиль словами.")
+        return True
+
+    state = holiday_state.get(user_id, {})
+
+    if step == "custom_style":
+        state["style"] = "custom"
+        state["custom_style"] = text
+        holiday_state[user_id] = state
+        holiday_awaiting_custom.pop(user_id, None)
+        await message.answer(f"✅ Стиль: <b>{text}</b>", parse_mode="HTML")
+        # Дальше — локации
+        previews = [loc["preview"] for loc in BIRTHDAY_LOCATIONS.values()]
+        await _send_previews(
+            message, previews,
+            BD_CHOOSE_LOCATION,
+            bd_locations_keyboard()
+        )
+        return True
+
+    return False
 
 
 # ===== ОБРАБОТКА ФОТО =====
@@ -745,8 +800,18 @@ def _build_prompt(state: dict) -> str | None:
     )
 
     style_key = state.get("style", "realistic")
-    style = BIRTHDAY_STYLES.get(style_key, BIRTHDAY_STYLES["realistic"])
-    style_lock = style["prompt"] if style["prompt"] else ""
+    custom_style = state.get("custom_style", "")
+
+    if style_key == "custom" and custom_style:
+        style_lock = (
+            f"Примени художественный стиль: {custom_style}. "
+            "СОХРАНИ всех людей с фото — никого не убирай и не добавляй. "
+            "СОХРАНИ их лица, причёски, одежду. "
+            f"ГЛАВНОЕ: результат должен быть в стиле: {custom_style}."
+        )
+    else:
+        style = BIRTHDAY_STYLES.get(style_key, BIRTHDAY_STYLES["realistic"])
+        style_lock = style["prompt"] if style["prompt"] else ""
 
     if is_art_style:
         final_line = "Финальный стиль: рисованная иллюстрация."
