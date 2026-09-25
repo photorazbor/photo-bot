@@ -874,9 +874,9 @@ def register_xmas_handlers(dp):
             return
 
         await callback.message.answer(
-            "🔄 Начинаем новую фотосессию.\n\n" + XMAS_CHOOSE_LOCATION,
+            "🔄 Начинаем новую фотосессию.\n\n" + XMAS_CHOOSE_STYLE,
             parse_mode="HTML",
-            reply_markup=locations_keyboard()
+            reply_markup=styles_keyboard()
         )
 
     # ===== ПЕРЕГЕНЕРАЦИЯ =====
