@@ -1084,7 +1084,8 @@ def _build_prompt(state: dict) -> str | None:
     # ===== РЕАЛИЗМ ИЛИ РИСОВАННЫЙ СТИЛЬ =====
     style_key_pre = state.get("style", "realistic")
     custom_style = state.get("custom_style", "")
-    is_art_style = style_key_pre in ("soviet_card", "soviet_fairy", "soviet_cartoon", "disney", "comics") or (style_key_pre == "custom" and custom_style)
+    is_art_style = style_key_pre in ("soviet_card", "soviet_fairy", "soviet_cartoon", "disney", "comics")
+    # Кастомный стиль — НЕ арт по умолчанию. AI сам решит по промпту.
 
     if is_art_style:
         realism_lock = ""
@@ -1182,12 +1183,10 @@ def _build_prompt(state: dict) -> str | None:
 
     if style_key == "custom" and custom_style:
         style_lock = (
-            f"СТИЛИЗАЦИЯ: {custom_style}. "
-            "ЭТО ХУДОЖЕСТВЕННАЯ СТИЛИЗАЦИЯ, А НЕ ФОТОГРАФИЯ. "
-            "НЕ делай фотографию с людьми — сделай ХУДОЖЕСТВЕННУЮ ИЛЛЮСТРАЦИЮ "
-            f"в стиле: {custom_style}. "
+            f"Примени художественный стиль: {custom_style}. "
             "СОХРАНИ всех людей с фото — никого не убирай и не добавляй. "
-            "ГЛАВНОЕ: результат должен быть в указанном стиле."
+            "СОХРАНИ их лица, причёски, одежду. "
+            f"ГЛАВНОЕ: результат должен быть в стиле: {custom_style}."
         )
     else:
         style = XMAS_STYLES.get(style_key, XMAS_STYLES["realistic"])
