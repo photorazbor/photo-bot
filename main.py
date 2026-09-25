@@ -78,6 +78,8 @@ from wedding import (
     reset_wedding_state,
     is_user_in_wedding_flow,
     wedding_awaiting_photo,
+    wedding_awaiting_names,
+    wedding_awaiting_date,
 )
 
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
@@ -3803,8 +3805,10 @@ async def handle_non_photo(message: Message):
                 "🔮 Карта дня"):
         from xmas import xmas_awaiting_custom
         from holidays import holiday_awaiting_custom
-        from wedding import wedding_awaiting_custom
-        xmas_awaiting_custom.pop(user_id, None)
+        from wedding import wedding_awaiting_custom, wedding_awaiting_names, wedding_awaiting_date
+        wedding_awaiting_custom.pop(user_id, None)
+        wedding_awaiting_names.discard(user_id)
+        wedding_awaiting_date.discard(user_id)
         holiday_awaiting_custom.pop(user_id, None)
         wedding_awaiting_custom.pop(user_id, None)
 
