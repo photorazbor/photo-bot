@@ -325,6 +325,8 @@ def register_daily_handlers(dp):
     @dp.callback_query(F.data == "daily_card")
     async def handle_daily_card(callback: CallbackQuery):
         await callback.answer()
+        from main import _reset_all_flows
+        _reset_all_flows(callback.from_user.id)
         from main import user_mode
 
         user_id = callback.from_user.id
@@ -359,6 +361,8 @@ def register_daily_handlers(dp):
     @dp.callback_query(F.data == "daily_open")
     async def handle_daily_open(callback: CallbackQuery):
         await callback.answer()
+        from main import _reset_all_flows
+        _reset_all_flows(callback.from_user.id)
         from main import get_balance, buy_generations_keyboard, test_mode, user_mode
 
         user_id = callback.from_user.id
