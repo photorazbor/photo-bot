@@ -227,6 +227,7 @@ def holidays_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🎄 Новый год", callback_data="xmas_start")],
         [InlineKeyboardButton(text="🎂 День рождения", callback_data="holiday_birthday")],
+        [InlineKeyboardButton(text="💍 Свадьба", callback_data="wedding_start")],
         [InlineKeyboardButton(text="🔙 Назад", callback_data="main_menu")],
     ])
 
@@ -291,7 +292,11 @@ def bd_result_keyboard():
 
 HOLIDAYS_INTRO = (
     "🎉 <b>Праздники</b>\n\n"
-    "Сделаю тебе праздничную фотосессию с твоим лицом.\n\n"
+    "Сделаю тебе праздничную фотосессию или красивую открытку.\n\n"
+    "<b>Доступно:</b>\n"
+    "🎄 <b>Новый год</b> — новогодняя фотосессия с локациями и образами.\n"
+    "🎂 <b>День рождения</b> — праздничный кадр с тортом, шарами, подарками.\n"
+    "💍 <b>Свадьба</b> — свадебные пригласительные открытки, в том числе с ретро-авто.\n\n"
     "Выбери праздник:"
 )
 
