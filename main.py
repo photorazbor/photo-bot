@@ -65,6 +65,7 @@ flask_app = Flask(__name__)
 from holidays import (
     register_holidays_handlers,
     handle_holiday_photo,
+    handle_holiday_custom_text,
     reset_holiday_state,
     is_user_in_holiday_flow,
     holiday_awaiting_photo,
@@ -3775,6 +3776,9 @@ async def handle_non_photo(message: Message):
     text = message.text
 
     if await handle_xmas_custom_text(message, user_id, text):
+        return
+
+    if await handle_holiday_custom_text(message, user_id, text):
         return
 
     if text in ("🛠 Инструменты", "📸 Разобрать фото", "✂️ Редактор",
