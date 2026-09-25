@@ -484,14 +484,18 @@ XMAS_UPLOAD = (
 # ===== ВСПОМОГАТЕЛЬНОЕ =====
 
 async def _send_previews(message, previews: list, caption: str, keyboard):
-    """Пробует отправить альбом превью, если не получилось — только текст."""
+    """Скачивает превью через _fetch_image и отправляет по одной."""
     photos = [p for p in previews if p]
-    if photos:
+    for url in photos[:10]:
+        data = _fetch_image(url)
+        if not data:
+            continue
         try:
-            media = [InputMediaPhoto(media=url) for url in photos[:10]]
-            await message.answer_media_group(media=media)
+            await message.answer_photo(
+                BufferedInputFile(data, filename="preview.jpg"),
+            )
         except Exception as e:
-            logger.warning(f"⚠️ Не удалось отправить превью: {e}")
+            logger.warning(f"⚠️ Не удалось отправить превью {url}: {e}")
     await message.answer(caption, parse_mode="HTML", reply_markup=keyboard)
 
 
@@ -516,19 +520,24 @@ def register_xmas_handlers(dp):
             )
             return
 
-        try:
-            await callback.message.answer_photo(
-                photo=f"{BASE}/xmas/intro_example.jpg",
-                caption=XMAS_INTRO + "\n\n" + XMAS_CHOOSE_STYLE,
-                parse_mode="HTML",
-                reply_markup=styles_keyboard(),
-            )
-        except Exception:
-            await callback.message.answer(
-                XMAS_INTRO + "\n\n" + XMAS_CHOOSE_STYLE,
-                parse_mode="HTML",
-                reply_markup=styles_keyboard(),
-            )
+        intro_bytes = _fetch_image(f"{BASE}/xmas/intro_example.jpg")
+        if intro_bytes:
+            try:
+                await callback.message.answer_photo(
+                    BufferedInputFile(intro_bytes, filename="intro.jpg"),
+                    caption=XMAS_INTRO + "\n\n" + XMAS_CHOOSE_STYLE,
+                    parse_mode="HTML",
+                    reply_markup=styles_keyboard(),
+                )
+                return
+            except Exception as e:
+                logger.warning(f"⚠️ Ошибка отправки intro: {e}")
+
+        await callback.message.answer(
+            XMAS_INTRO + "\n\n" + XMAS_CHOOSE_STYLE,
+            parse_mode="HTML",
+            reply_markup=styles_keyboard(),
+        )
 
     # ===== ШАГ 1: ЛОКАЦИЯ =====
     async def _show_locations(msg):
