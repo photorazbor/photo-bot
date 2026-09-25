@@ -16,6 +16,19 @@ from aiogram.types import (
 
 logger = logging.getLogger(__name__)
 
+import requests as _requests
+
+
+def _fetch_image(url: str) -> bytes | None:
+    """Скачивает картинку с URL. Возвращает bytes или None."""
+    try:
+        r = _requests.get(url, timeout=20)
+        if r.status_code == 200 and r.content:
+            return r.content
+    except Exception as e:
+        logger.warning(f"⚠️ Не удалось скачать {url}: {e}")
+    return None
+
 BASE = "https://raw.githubusercontent.com/photorazbor/photo-bot/main"
 
 # ===== ЛОКАЦИИ =====
@@ -701,22 +714,31 @@ def register_xmas_handlers(dp):
             "Вот пример — как преображается фото:",
             parse_mode="HTML"
         )
-        try:
-            await callback.message.answer_photo(
-                photo=f"{BASE}/examples/xmas/{style_key}/before.jpg",
-                caption="📷 <b>ДО</b> — обычное фото",
-                parse_mode="HTML"
-            )
-        except Exception as e:
-            logger.warning(f"⚠️ Нет before.jpg для {style_key}: {e}")
-        try:
-            await callback.message.answer_photo(
-                photo=f"{BASE}/examples/xmas/{style_key}/after.jpg",
-                caption=f"✨ <b>ПОСЛЕ</b> — {style_name}",
-                parse_mode="HTML"
-            )
-        except Exception as e:
-            logger.warning(f"⚠️ Нет after.jpg для {style_key}: {e}")
+        before_bytes = _fetch_image(f"{BASE}/examples/xmas/{style_key}/before.jpg")
+        if before_bytes:
+            try:
+                await callback.message.answer_photo(
+                    BufferedInputFile(before_bytes, filename="before.jpg"),
+                    caption="📷 <b>ДО</b> — обычное фото",
+                    parse_mode="HTML"
+                )
+            except Exception as e:
+                logger.warning(f"⚠️ Ошибка отправки before.jpg для {style_key}: {e}")
+        else:
+            logger.warning(f"⚠️ Не удалось скачать before.jpg для {style_key}")
+
+        after_bytes = _fetch_image(f"{BASE}/examples/xmas/{style_key}/after.jpg")
+        if after_bytes:
+            try:
+                await callback.message.answer_photo(
+                    BufferedInputFile(after_bytes, filename="after.jpg"),
+                    caption=f"✨ <b>ПОСЛЕ</b> — {style_name}",
+                    parse_mode="HTML"
+                )
+            except Exception as e:
+                logger.warning(f"⚠️ Ошибка отправки after.jpg для {style_key}: {e}")
+        else:
+            logger.warning(f"⚠️ Не удалось скачать after.jpg для {style_key}")
             
         # Особый случай — советская сказка (выбор композиции)
         if style_key == "soviet_fairy":
