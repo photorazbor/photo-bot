@@ -15,6 +15,20 @@ from aiogram.types import (
 
 logger = logging.getLogger(__name__)
 
+import requests as _requests
+
+
+def _fetch_image(url: str) -> bytes | None:
+    """Скачивает картинку с URL. Возвращает bytes или None."""
+    try:
+        r = _requests.get(url, timeout=20)
+        if r.status_code == 200 and r.content:
+            return r.content
+    except Exception as e:
+        logger.warning(f"⚠️ Не удалось скачать {url}: {e}")
+    return None
+
+
 BASE = "https://raw.githubusercontent.com/photorazbor/photo-bot/main/examples"
 
 # ===== РЕЖИМЫ =====
@@ -23,20 +37,46 @@ WEDDING_MODES = {
     "no_photo": {
         "name": "💌 Открытка без фото",
         "short": "💌 Открытка без фото",
-        "desc": "Готовая свадебная открытка. Без фото. Место под ручную подпись.",
+        "desc": (
+            "Готовая свадебная открытка. Без фото. "
+            "Заголовок «Наша свадьба», место под имена, дату и приглашение."
+        ),
+        "with_photo": False,
+        "with_car": False,
         "example_folder": "no_photo",
     },
     "no_photo_car": {
         "name": "🚗 Открытка с ретро-авто",
-        "short": "🚗 Открытка с ретро-авто",
-        "desc": "Открытка с винтажным автомобилем, цветами и лентами. Без фото. Место под подпись.",
+        "short": "🚗 С ретро-авто",
+        "desc": (
+            "Свадебная открытка с винтажным автомобилем. Без фото. "
+            "Машина с цветами и лентами, место под имена и приглашение."
+        ),
+        "with_photo": False,
+        "with_car": True,
         "example_folder": "no_photo_car",
     },
     "with_photo": {
         "name": "📸 Пригласительное с фото",
         "short": "📸 С фото",
-        "desc": "Пригласительное с вашим фото. Лица сохраняются, стиль — как у открытки.",
+        "desc": (
+            "Пригласительное с вашим фото. Лица сохраняются, "
+            "стиль — как у открытки. Заголовок, имена, дата."
+        ),
+        "with_photo": True,
+        "with_car": False,
         "example_folder": "with_photo",
+    },
+    "with_photo_car": {
+        "name": "🚗📸 С ретро-авто и фото",
+        "short": "🚗📸 С авто и фото",
+        "desc": (
+            "Пара вместе с винтажным автомобилем. Свободный ракурс: "
+            "рядом, на капоте, в кабриолете. Лица сохраняются."
+        ),
+        "with_photo": True,
+        "with_car": True,
+        "example_folder": "with_photo_car",
     },
 }
 
@@ -105,29 +145,38 @@ WEDDING_STYLES = {
 # ===== ФОРМАТЫ =====
 
 WEDDING_FORMATS = {
-    "1_1": {"name": "📱 1:1 (квадрат)", "short": "📱 1:1 (квадрат)", "desc": "квадратная композиция"},
-    "3_4": {"name": "📱 3:4 (вертикаль)", "short": "📱 3:4 (вертикаль)", "desc": "вертикальная композиция"},
-    "4_3": {"name": "🖼 4:3 (горизонт)", "short": "🖼 4:3 (горизонт)", "desc": "горизонтальная композиция"},
-    "4_5": {"name": "📱 4:5 (Instagram)", "short": "📱 4:5 (Instagram)", "desc": "вертикаль для Instagram"},
-    "9_16": {"name": "📱 9:16 (сторис)", "short": "📱 9:16 (сторис)", "desc": "полная вертикаль для сторис"},
-    "16_9": {"name": "🖼 16:9 (панорама)", "short": "🖼 16:9 (панорама)", "desc": "панорамная горизонталь"},
+    "1_1": {"name": "📱 1:1 (квадрат)", "short": "📱 1:1", "desc": "квадратная композиция"},
+    "3_4": {"name": "📱 3:4 (вертикаль)", "short": "📱 3:4", "desc": "вертикальная композиция"},
+    "4_3": {"name": "🖼 4:3 (горизонт)", "short": "🖼 4:3", "desc": "горизонтальная композиция"},
+    "4_5": {"name": "📱 4:5 (Instagram)", "short": "📱 4:5", "desc": "вертикаль для Instagram"},
+    "9_16": {"name": "📱 9:16 (сторис)", "short": "📱 9:16", "desc": "полная вертикаль для сторис"},
+    "16_9": {"name": "🖼 16:9 (панорама)", "short": "🖼 16:9", "desc": "панорамная горизонталь"},
 }
 
 # ===== СОСТОЯНИЕ =====
 
 wedding_state = {}
 wedding_awaiting_photo = set()
+wedding_awaiting_names = set()
+wedding_awaiting_date = set()
 wedding_awaiting_custom = {}
 
 
 def reset_wedding_state(user_id: int):
     wedding_state.pop(user_id, None)
     wedding_awaiting_photo.discard(user_id)
+    wedding_awaiting_names.discard(user_id)
+    wedding_awaiting_date.discard(user_id)
     wedding_awaiting_custom.pop(user_id, None)
 
 
 def is_user_in_wedding_flow(user_id: int) -> bool:
-    return user_id in wedding_state and user_id not in wedding_awaiting_photo
+    return (
+        user_id in wedding_state
+        and user_id not in wedding_awaiting_photo
+        and user_id not in wedding_awaiting_names
+        and user_id not in wedding_awaiting_date
+    )
 
 
 # ===== КЛАВИАТУРЫ =====
@@ -145,7 +194,59 @@ def wedding_styles_keyboard():
     for key, style in WEDDING_STYLES.items():
         rows.append([InlineKeyboardButton(text=style["short"], callback_data=f"wedding_style_{key}")])
     rows.append([InlineKeyboardButton(text="✏️ Свой стиль", callback_data="wedding_custom_style")])
-    rows.append([InlineKeyboardButton(text="🔙 Назад", callback_data="wedding_start")])
+    rows.append([InlineKeyboardButton(text="🔙 Назад", callback_data="wedding_back_mode")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def wedding_options_keyboard(state: dict):
+    """Клавиатура доп. опций: имена, дата, фото."""
+    rows = []
+
+    names = state.get("names", "")
+    if names:
+        rows.append([InlineKeyboardButton(
+            text=f"✏️ Имена: {names}",
+            callback_data="wedding_edit_names",
+        )])
+        rows.append([InlineKeyboardButton(
+            text="🗑 Убрать имена",
+            callback_data="wedding_remove_names",
+        )])
+    else:
+        rows.append([InlineKeyboardButton(
+            text="✏️ Добавить имена",
+            callback_data="wedding_add_names",
+        )])
+
+    date = state.get("date", "")
+    if date:
+        rows.append([InlineKeyboardButton(
+            text=f"📅 Дата: {date}",
+            callback_data="wedding_edit_date",
+        )])
+        rows.append([InlineKeyboardButton(
+            text="🗑 Убрать дату",
+            callback_data="wedding_remove_date",
+        )])
+    else:
+        rows.append([InlineKeyboardButton(
+            text="📅 Добавить дату",
+            callback_data="wedding_add_date",
+        )])
+
+    mode = state.get("mode", "")
+    mode_info = WEDDING_MODES.get(mode, {})
+    if mode_info.get("with_photo"):
+        rows.append([InlineKeyboardButton(
+            text="📸 Загрузить фото",
+            callback_data="wedding_upload",
+        )])
+
+    rows.append([InlineKeyboardButton(
+        text="➡️ Дальше — выбрать формат",
+        callback_data="wedding_to_format",
+    )])
+    rows.append([InlineKeyboardButton(text="🔙 Назад", callback_data="wedding_back_style")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -153,14 +254,14 @@ def wedding_formats_keyboard():
     rows = []
     for key, fmt in WEDDING_FORMATS.items():
         rows.append([InlineKeyboardButton(text=fmt["short"], callback_data=f"wedding_fmt_{key}")])
-    rows.append([InlineKeyboardButton(text="🔙 Назад", callback_data="wedding_back_style")])
+    rows.append([InlineKeyboardButton(text="🔙 Назад", callback_data="wedding_back_options")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def wedding_upload_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📸 Загрузить фото", callback_data="wedding_upload")],
-        [InlineKeyboardButton(text="🔙 Назад", callback_data="wedding_back_format")],
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="wedding_back_options")],
     ])
 
 
@@ -177,20 +278,56 @@ def wedding_result_keyboard():
 WEDDING_INTRO = (
     "💍 <b>Свадебные пригласительные</b>\n\n"
     "Создам красивую свадебную открытку или пригласительное.\n\n"
-    "<b>Что можно сделать:</b>\n"
+    "<b>Что можно сделать:</b>\n\n"
     "💌 <b>Открытка без фото</b> — готовая свадебная открытка "
-    "с местом под ручную подпись. Распечатай и впиши имена от руки.\n\n"
+    "с заголовком «Наша свадьба» и местом под имена, дату и приглашение. "
+    "Распечатай и впиши от руки (или укажи имена в боте — ИИ попробует их нарисовать).\n\n"
     "🚗 <b>Открытка с ретро-авто</b> — то же, но с винтажным автомобилем, "
-    "цветами и лентами. Красиво, стильно, по-свадебному.\n\n"
+    "цветами и лентами. Ретро 1950–1970-х, красиво и стильно.\n\n"
     "📸 <b>Пригласительное с фото</b> — пригласительное с вашим фото. "
-    "Лица сохраняются, стиль — как у открытки.\n\n"
+    "Лица сохраняются в едином художественном стиле.\n\n"
+    "🚗📸 <b>С ретро-авто и фото</b> — пара вместе с машиной. "
+    "Свободный ракурс: рядом, на капоте, в кабриолете.\n\n"
     "Выбери, что хочешь создать:"
 )
 
-WEDDING_CHOOSE_STYLE = "🎨 <b>Шаг 1 из 3. Выбери стиль:</b>"
-WEDDING_CHOOSE_FORMAT = "📐 <b>Шаг 2 из 3. Выбери формат кадра:</b>"
+WEDDING_CHOOSE_STYLE = (
+    "🎨 <b>Шаг 1 из 3. Выбери стиль оформления</b>\n\n"
+    "Стиль влияет на всё: фон, декор, людей, автомобиль. "
+    "Всё изображение будет в едином ключе.\n\n"
+    "• 🌿 Ботаника — эвкалипт, оливы, сухоцветы\n"
+    "• 🎨 Акварель — мягкая живопись, пастель\n"
+    "• ⬜ Минимализм — графика, много воздуха\n"
+    "• ✨ Арт-деко — геометрия, золото, гламур\n"
+    "• 📜 Винтаж — сепия, кружево, романтика\n\n"
+    "Или напиши свой стиль."
+)
+
+WEDDING_OPTIONS_TEXT = (
+    "📝 <b>Шаг 2 из 3. Дополнительные опции</b>\n\n"
+    "Тут можно добавить то, что нужно:\n\n"
+    "✏️ <b>Имена</b> — впиши имена жениха и невесты, например "
+    "«Степан и Елена». ИИ попробует их нарисовать на открытке. "
+    "Если не добавлять — останется пустое место под ручную подпись.\n\n"
+    "📅 <b>Дата</b> — впиши дату свадьбы, например «12 июля 2026». "
+    "Тоже можно оставить пустым — впишешь от руки.\n\n"
+    "📸 <b>Фото</b> — если режим с фото, загрузи фотографию, "
+    "откуда взять лица.\n\n"
+    "Выбери, что добавить, или жми «➡️ Дальше — выбрать формат»:"
+)
+
+WEDDING_CHOOSE_FORMAT = (
+    "📐 <b>Шаг 3 из 3. Выбери формат кадра</b>\n\n"
+    "• 📱 1:1 — квадрат, универсально\n"
+    "• 📱 3:4 — вертикаль, для печати\n"
+    "• 🖼 4:3 — горизонт, классика\n"
+    "• 📱 4:5 — вертикаль для Instagram\n"
+    "• 📱 9:16 — сторис, узкий конверт\n"
+    "• 🖼 16:9 — панорама, разворот открытки"
+)
+
 WEDDING_UPLOAD = (
-    "📸 <b>Шаг 3 из 3. Пришли фото</b>\n\n"
+    "📸 <b>Пришли фото</b>\n\n"
     "Требования:\n"
     "• Все видны по грудь, по пояс или по колено\n"
     "• Лица крупные, чёткие, без сильных теней\n"
@@ -211,19 +348,33 @@ def register_wedding_handlers(dp):
         user_id = callback.from_user.id
         reset_wedding_state(user_id)
 
-        try:
-            await callback.message.answer_photo(
-                photo=f"{BASE}/holidays/wedding/intro.jpg",
-                caption=WEDDING_INTRO,
-                parse_mode="HTML",
-                reply_markup=wedding_intro_keyboard(),
-            )
-        except Exception:
-            await callback.message.answer(
-                WEDDING_INTRO,
-                parse_mode="HTML",
-                reply_markup=wedding_intro_keyboard(),
-            )
+        intro_bytes = _fetch_image(f"{BASE}/holidays/wedding/intro.jpg")
+        if intro_bytes:
+            try:
+                await callback.message.answer_photo(
+                    BufferedInputFile(intro_bytes, filename="intro.jpg"),
+                    caption=WEDDING_INTRO,
+                    parse_mode="HTML",
+                    reply_markup=wedding_intro_keyboard(),
+                )
+                return
+            except Exception as e:
+                logger.warning(f"⚠️ Ошибка отправки intro: {e}")
+
+        await callback.message.answer(
+            WEDDING_INTRO,
+            parse_mode="HTML",
+            reply_markup=wedding_intro_keyboard(),
+        )
+
+    @dp.callback_query(F.data == "wedding_back_mode")
+    async def wedding_back_mode(callback: CallbackQuery):
+        await callback.answer()
+        await callback.message.answer(
+            WEDDING_INTRO,
+            parse_mode="HTML",
+            reply_markup=wedding_intro_keyboard(),
+        )
 
     @dp.callback_query(F.data.startswith("wedding_mode_"))
     async def wedding_mode(callback: CallbackQuery):
@@ -257,7 +408,6 @@ def register_wedding_handlers(dp):
         state["style"] = style_key
         wedding_state[user_id] = state
 
-        # Показать пример стиля
         mode = state.get("mode", "no_photo")
         mode_folder = WEDDING_MODES.get(mode, {}).get("example_folder", "no_photo")
         style_name = WEDDING_STYLES[style_key]["name"]
@@ -267,20 +417,33 @@ def register_wedding_handlers(dp):
             "Вот пример — как выглядит открытка в этом стиле:",
             parse_mode="HTML",
         )
-        try:
-            await callback.message.answer_photo(
-                photo=f"{BASE}/holidays/wedding/{mode_folder}/{style_key}/example.jpg",
-                caption=f"✨ {style_name}",
-                parse_mode="HTML",
-            )
-        except Exception as e:
-            logger.warning(f"⚠️ Нет example.jpg для {mode_folder}/{style_key}: {e}")
+        before_bytes = _fetch_image(f"{BASE}/holidays/wedding/{mode_folder}/{style_key}/before.jpg")
+        if before_bytes:
+            try:
+                await callback.message.answer_photo(
+                    BufferedInputFile(before_bytes, filename="before.jpg"),
+                    caption="📷 <b>ДО</b> — обычное фото",
+                    parse_mode="HTML",
+                )
+            except Exception as e:
+                logger.warning(f"⚠️ Ошибка отправки before.jpg: {e}")
 
-        # Дальше — формат
+        after_bytes = _fetch_image(f"{BASE}/holidays/wedding/{mode_folder}/{style_key}/after.jpg")
+        if after_bytes:
+            try:
+                await callback.message.answer_photo(
+                    BufferedInputFile(after_bytes, filename="after.jpg"),
+                    caption=f"✨ <b>ПОСЛЕ</b> — {style_name}",
+                    parse_mode="HTML",
+                )
+            except Exception as e:
+                logger.warning(f"⚠️ Ошибка отправки after.jpg: {e}")
+
+        # Дальше — доп. опции
         await callback.message.answer(
-            WEDDING_CHOOSE_FORMAT,
+            WEDDING_OPTIONS_TEXT,
             parse_mode="HTML",
-            reply_markup=wedding_formats_keyboard(),
+            reply_markup=wedding_options_keyboard(state),
         )
 
     @dp.callback_query(F.data == "wedding_custom_style")
@@ -312,6 +475,113 @@ def register_wedding_handlers(dp):
             reply_markup=wedding_styles_keyboard(),
         )
 
+    # ===== ДОП. ОПЦИИ =====
+
+    @dp.callback_query(F.data == "wedding_back_options")
+    async def wedding_back_options(callback: CallbackQuery):
+        await callback.answer()
+        user_id = callback.from_user.id
+        state = wedding_state.get(user_id, {})
+        await callback.message.answer(
+            WEDDING_OPTIONS_TEXT,
+            parse_mode="HTML",
+            reply_markup=wedding_options_keyboard(state),
+        )
+
+    @dp.callback_query(F.data.in_({"wedding_add_names", "wedding_edit_names"}))
+    async def wedding_add_names(callback: CallbackQuery):
+        await callback.answer()
+        user_id = callback.from_user.id
+        wedding_awaiting_names.add(user_id)
+        await callback.message.answer(
+            "✏️ <b>Имена</b>\n\n"
+            "Напиши имена <b>одним сообщением</b>.\n\n"
+            "<b>Примеры:</b>\n"
+            "• Степан и Елена\n"
+            "• Анна & Михаил\n\n"
+            "⚠️ ИИ попробует нарисовать их на открытке. "
+            "Может получиться неточно. Если хочешь идеально — "
+            "оставь имена пустыми и впиши их от руки после печати.",
+        )
+
+    @dp.callback_query(F.data == "wedding_remove_names")
+    async def wedding_remove_names(callback: CallbackQuery):
+        await callback.answer()
+        user_id = callback.from_user.id
+        state = wedding_state.get(user_id, {})
+        state.pop("names", None)
+        wedding_state[user_id] = state
+        await callback.message.answer(
+            "🗑 Имена убраны.",
+            reply_markup=wedding_options_keyboard(state),
+        )
+
+    @dp.callback_query(F.data.in_({"wedding_add_date", "wedding_edit_date"}))
+    async def wedding_add_date(callback: CallbackQuery):
+        await callback.answer()
+        user_id = callback.from_user.id
+        wedding_awaiting_date.add(user_id)
+        await callback.message.answer(
+            "📅 <b>Дата свадьбы</b>\n\n"
+            "Напиши дату <b>одним сообщением</b>.\n\n"
+            "<b>Примеры:</b>\n"
+            "• 12 июля 2026\n"
+            "• 12.07.2026\n"
+            "• Лето 2026\n\n"
+            "⚠️ ИИ попробует нарисовать её на открытке. "
+            "Может получиться неточно. Если хочешь идеально — "
+            "оставь дату пустой и впиши её от руки после печати.",
+        )
+
+    @dp.callback_query(F.data == "wedding_remove_date")
+    async def wedding_remove_date(callback: CallbackQuery):
+        await callback.answer()
+        user_id = callback.from_user.id
+        state = wedding_state.get(user_id, {})
+        state.pop("date", None)
+        wedding_state[user_id] = state
+        await callback.message.answer(
+            "🗑 Дата убрана.",
+            reply_markup=wedding_options_keyboard(state),
+        )
+
+    @dp.callback_query(F.data == "wedding_upload")
+    async def wedding_upload(callback: CallbackQuery):
+        await callback.answer()
+        user_id = callback.from_user.id
+        state = wedding_state.get(user_id, {})
+        state["regen_done"] = False
+        wedding_state[user_id] = state
+        wedding_awaiting_photo.add(user_id)
+        logger.info(f"✅ wedding_upload: user={user_id}")
+        await callback.message.answer("📸 Жду фото. Пришли одно фото.")
+
+    @dp.callback_query(F.data == "wedding_to_format")
+    async def wedding_to_format(callback: CallbackQuery):
+        await callback.answer()
+        user_id = callback.from_user.id
+        state = wedding_state.get(user_id, {})
+        mode = state.get("mode", "")
+        mode_info = WEDDING_MODES.get(mode, {})
+
+        if mode_info.get("with_photo") and not state.get("photo"):
+            await callback.message.answer(
+                "⚠️ <b>Сначала загрузи фото</b>\n\n"
+                "Ты выбрал режим с фотографией. "
+                "Нажми «📸 Загрузить фото» — и потом продолжишь.",
+                parse_mode="HTML",
+                reply_markup=wedding_options_keyboard(state),
+            )
+            return
+
+        await callback.message.answer(
+            WEDDING_CHOOSE_FORMAT,
+            parse_mode="HTML",
+            reply_markup=wedding_formats_keyboard(),
+        )
+
+    # ===== ФОРМАТ =====
+
     @dp.callback_query(F.data.startswith("wedding_fmt_"))
     async def wedding_format(callback: CallbackQuery):
         await callback.answer()
@@ -325,58 +595,27 @@ def register_wedding_handlers(dp):
         state["format"] = fmt_key
         wedding_state[user_id] = state
 
-        mode = state.get("mode", "no_photo")
-
-        # Если «с фото» — просим фото, иначе генерим сразу
-        if mode == "with_photo":
-            await _show_upload(callback.message, state)
-        else:
-            await _generate_and_send(callback.message, user_id, state)
+        await _generate_and_send(callback.message, user_id, state)
 
     @dp.callback_query(F.data == "wedding_back_format")
     async def wedding_back_format(callback: CallbackQuery):
         await callback.answer()
-        await callback.message.answer(
-            WEDDING_CHOOSE_FORMAT,
-            parse_mode="HTML",
-            reply_markup=wedding_formats_keyboard(),
-        )
-
-    # ===== СВОДКА + ФОТО =====
-
-    async def _show_upload(msg, state):
-        mode = WEDDING_MODES.get(state.get("mode", ""), {})
-        mode_name = mode.get("name", "—")
-        style = WEDDING_STYLES.get(state.get("style", ""))
-        style_name = style["name"] if style else state.get("custom_style", "—")
-        fmt = WEDDING_FORMATS.get(state.get("format", ""))
-        fmt_name = fmt["name"] if fmt else "—"
-
-        caption = (
-            "📋 <b>Твой выбор:</b>\n\n"
-            f"💍 Режим: {mode_name}\n"
-            f"🎨 Стиль: {style_name}\n"
-            f"📐 Формат: {fmt_name}\n\n"
-            f"{WEDDING_UPLOAD}"
-        )
-        await msg.answer(caption, parse_mode="HTML", reply_markup=wedding_upload_keyboard())
-
-    @dp.callback_query(F.data == "wedding_upload")
-    async def wedding_upload(callback: CallbackQuery):
-        await callback.answer()
         user_id = callback.from_user.id
         state = wedding_state.get(user_id, {})
-        state["regen_done"] = False
-        wedding_state[user_id] = state
-        wedding_awaiting_photo.add(user_id)
-        logger.info(f"✅ wedding_upload: user={user_id}")
-        await callback.message.answer("📸 Жду фото. Пришли одно фото.")
+        await callback.message.answer(
+            WEDDING_OPTIONS_TEXT,
+            parse_mode="HTML",
+            reply_markup=wedding_options_keyboard(state),
+        )
+
+    # ===== ПЕРЕГЕНЕРАЦИЯ =====
 
     @dp.callback_query(F.data == "wedding_regen")
     async def wedding_regen(callback: CallbackQuery):
         user_id = callback.from_user.id
         state = wedding_state.get(user_id, {})
-        if not state.get("photo") and state.get("mode") == "with_photo":
+        mode_info = WEDDING_MODES.get(state.get("mode", ""), {})
+        if mode_info.get("with_photo") and not state.get("photo"):
             await callback.answer("❌ Нет фото. Загрузи заново.", show_alert=True)
             return
         if state.get("regen_done"):
@@ -391,31 +630,54 @@ def register_wedding_handlers(dp):
         await _generate_and_send(callback.message, user_id, state)
 
 
-# ===== ОБРАБОТКА СВОЕГО СТИЛЯ =====
+# ===== ОБРАБОТКА СВОЕГО СТИЛЯ / ИМЁН / ДАТЫ =====
 
 async def handle_wedding_custom_text(message: Message, user_id: int, text: str) -> bool:
-    """Если пользователь в режиме ввода своего стиля — сохраняет и идёт дальше."""
-    step = wedding_awaiting_custom.get(user_id)
-    if not step:
+    """Обрабатывает ввод стиля, имён и даты."""
+    text = text.strip()[:200]
+    if not text:
         return False
 
-    text = text.strip()[:500]
-    if not text:
-        await message.answer("✏️ Пусто. Опиши стиль словами.")
-        return True
-
-    state = wedding_state.get(user_id, {})
-
+    # Свой стиль
+    step = wedding_awaiting_custom.get(user_id)
     if step == "custom_style":
+        state = wedding_state.get(user_id, {})
         state["style"] = "custom"
         state["custom_style"] = text
         wedding_state[user_id] = state
         wedding_awaiting_custom.pop(user_id, None)
         await message.answer(f"✅ Стиль: <b>{text}</b>", parse_mode="HTML")
         await message.answer(
-            WEDDING_CHOOSE_FORMAT,
+            WEDDING_OPTIONS_TEXT,
             parse_mode="HTML",
-            reply_markup=wedding_formats_keyboard(),
+            reply_markup=wedding_options_keyboard(state),
+        )
+        return True
+
+    # Имена
+    if user_id in wedding_awaiting_names:
+        wedding_awaiting_names.discard(user_id)
+        state = wedding_state.get(user_id, {})
+        state["names"] = text
+        wedding_state[user_id] = state
+        await message.answer(
+            f"✅ Имена: <b>{text}</b>\n\n"
+            "ИИ попробует их нарисовать.",
+            parse_mode="HTML",
+            reply_markup=wedding_options_keyboard(state),
+        )
+        return True
+
+    # Дата
+    if user_id in wedding_awaiting_date:
+        wedding_awaiting_date.discard(user_id)
+        state = wedding_state.get(user_id, {})
+        state["date"] = text
+        wedding_state[user_id] = state
+        await message.answer(
+            f"✅ Дата: <b>{text}</b>",
+            parse_mode="HTML",
+            reply_markup=wedding_options_keyboard(state),
         )
         return True
 
@@ -425,14 +687,17 @@ async def handle_wedding_custom_text(message: Message, user_id: int, text: str) 
 # ===== ОБРАБОТКА ФОТО =====
 
 async def handle_wedding_photo(message: Message, user_id: int, image_bytes: bytes):
-    """Вызывается из main.py, когда пользователь в режиме wedding_awaiting_photo."""
     state = wedding_state.get(user_id, {})
     state["photo"] = image_bytes
     state["regen_done"] = False
     wedding_state[user_id] = state
     wedding_awaiting_photo.discard(user_id)
     await message.answer("✅ Фото получено!")
-    await _generate_and_send(message, user_id, state)
+    await message.answer(
+        WEDDING_OPTIONS_TEXT,
+        parse_mode="HTML",
+        reply_markup=wedding_options_keyboard(state),
+    )
 
 
 # ===== ГЕНЕРАЦИЯ =====
@@ -445,11 +710,15 @@ def _build_prompt(state: dict) -> str | None:
     if not mode or not style_key:
         return None
 
+    mode_info = WEDDING_MODES.get(mode, {})
+    with_photo = mode_info.get("with_photo", False)
+    with_car = mode_info.get("with_car", False)
+
     # Стиль
     if style_key == "custom" and custom_style:
         style_lock = (
             f"СТИЛЬ: {custom_style}. "
-            "Всё изображение (фон, декор, люди) — в этом едином стиле. "
+            "Всё изображение (фон, декор, люди, авто) — в этом едином стиле. "
         )
     else:
         style = WEDDING_STYLES.get(style_key)
@@ -457,9 +726,9 @@ def _build_prompt(state: dict) -> str | None:
             return None
         style_lock = style["prompt"] + " "
 
-    # Общие правила по людям (если есть фото)
+    # Люди — если фото
     face_lock = ""
-    if mode == "with_photo":
+    if with_photo:
         face_lock = (
             "ЛЮДИ: посчитай ТОЧНО, сколько людей на исходном фото. "
             "На новой картинке — РОВНО СТОЛЬКО ЖЕ. "
@@ -470,6 +739,18 @@ def _build_prompt(state: dict) -> str | None:
             "Лица — часть общей композиции, а не аппликация. "
         )
 
+    # Запрет людей — если без фото
+    no_people_lock = ""
+    if not with_photo:
+        no_people_lock = (
+            "КАТЕГОРИЧЕСКИ БЕЗ ЛЮДЕЙ. "
+            "В кадре НЕТ ни одного человека: ни жениха, ни невесты, ни пары, ни ребёнка, "
+            "ни силуэта, ни фигуры, ни лица, ни рук, ни ног, ни тени человека. "
+            "Никаких людей на заднем плане, в отражениях, в окнах. "
+            "Только фон, декор, цветы, ленты, предметы "
+            "и (если есть авто) сам автомобиль БЕЗ пассажиров. "
+        )
+
     # Свадебная атмосфера
     wedding_lock = (
         "АТМОСФЕРА: свадебная, романтичная, тёплая. "
@@ -477,49 +758,74 @@ def _build_prompt(state: dict) -> str | None:
         "Мягкий свет, лёгкое свечение, элегантность. "
     )
 
-    # Запрет людей для режимов без фото
-    no_people_lock = ""
-    if mode in ("no_photo", "no_photo_car"):
-        no_people_lock = (
-            "КАТЕГОРИЧЕСКИ БЕЗ ЛЮДЕЙ. "
-            "В кадре НЕТ ни одного человека: ни жениха, ни невесты, ни пары, ни ребёнка, "
-            "ни силуэта, ни фигуры, ни лица, ни рук, ни ног, ни тени человека. "
-            "Никаких людей на заднем плане, в отражениях, в окнах, в дверях. "
-            "Никаких намёков на людей. "
-            "Только фон, декор, цветы, ленты, предметы и (если выбран режим с авто) "
-            "сам автомобиль БЕЗ пассажиров и водителя. "
-            "Открытка должна быть ПОЛНОСТЬЮ безлюдной. "
-        )
+    # Заголовок «Наша свадьба»
+    title_lock = (
+        "ЗАГОЛОВОК: в верхней или нижней части открытки — крупный "
+        "декоративный рукописный заголовок «Наша свадьба». "
+        "Золотой или в цвет стиля. Каллиграфия. "
+        "Это ЕДИНСТВЕННЫЙ обязательный текст на открытке. "
+    )
 
-    # Место под подпись — только для открыток без фото
-    if mode in ("no_photo", "no_photo_car"):
-        sign_lock = (
-            "МЕСТО ПОД ПОДПИСЬ: в нижней части открытки оставь "
-            "чистую светлую зону под ручную подпись. "
-            "Внутри зоны — НИКАКОГО текста, только ровный фон. "
-            "Зона может быть обрамлена декоративной линией или рамкой. "
+    # Имена
+    names = state.get("names", "").strip()
+    if names:
+        names_lock = (
+            f"ИМЕНА: под заголовком напиши рукописным шрифтом имена: «{names}». "
+            "Крупно, разборчиво, декоративно. "
         )
     else:
-        sign_lock = ""
+        names_lock = (
+            "ИМЕНА: НЕ пиши никаких имён. "
+            "Под заголовком оставь ЧИСТУЮ декоративную зону под ручную подпись — "
+            "например, декоративная линия или лента. "
+            "Внутри зоны — никакого текста. "
+        )
 
-    # Ретро-авто
+    # Дата
+    date = state.get("date", "").strip()
+    if date:
+        date_lock = (
+            f"ДАТА: под именами напиши рукописным шрифтом дату: «{date}». "
+        )
+    else:
+        date_lock = (
+            "ДАТА: НЕ пиши дату. "
+            "Оставь место под дату — короткая декоративная линия. "
+        )
+
+    # Место под приглашение — всегда
+    invite_lock = (
+        "ПРИГЛАШЕНИЕ: в нижней части открытки оставь ШИРОКУЮ ЧИСТУЮ зону "
+        "под ручную подпись приглашения — например, декоративная рамка "
+        "или линия. Внутри зоны — никакого текста. "
+        "Сюда пользователь впишет от руки, кого он приглашает. "
+    )
+
+    # Авто
     car_lock = ""
-    if mode == "no_photo_car":
+    if with_car:
         custom_car = state.get("custom_car", "")
         if custom_car:
             car_lock = (
-                f"В КАДРЕ — ВИНТАЖНЫЙ АВТОМОБИЛЬ: {custom_car}. "
-                "Автомобиль украшен свадебно: цветы, ленты, венки. "
-                "Автомобиль — часть композиции, элегантный, красивый. "
-                "НЕ современная машина. Только ретро/классика. "
+                f"РЕТРО-АВТОМОБИЛЬ: {custom_car}. "
+                "Автомобиль в кадре, украшен свадебно: цветы, ленты, венки. "
+                "Элегантный, красивый, часть композиции. "
+                "Только ретро/классика, НЕ современная машина. "
             )
         else:
             car_lock = (
-                "В КАДРЕ — ВИНТАЖНЫЙ АВТОМОБИЛЬ (ретро 1950–1970-х). "
+                "РЕТРО-АВТОМОБИЛЬ: винтажный автомобиль 1950–1970-х. "
                 "Украшен свадебно: цветы, ленты, венки. "
-                "Автомобиль — часть композиции, элегантный, красивый. "
-                "НЕ современная машина. Только ретро/классика. "
+                "Элегантный, красивый, часть композиции. "
+                "Только ретро/классика, НЕ современная машина. "
             )
+
+    if with_photo and with_car:
+        car_lock += (
+            "ПАРА И АВТО: люди с фото и автомобиль вместе. "
+            "Ракурс свободный: рядом с машиной, на капоте, "
+            "в кабриолете, облокотились. Как красиво смотрится. "
+        )
 
     # Формат
     from main import get_size_for_format
@@ -540,12 +846,16 @@ def _build_prompt(state: dict) -> str | None:
         f"{face_lock}"
         f"{no_people_lock}"
         f"{wedding_lock}"
-        f"{sign_lock}"
+        f"{title_lock}"
+        f"{names_lock}"
+        f"{date_lock}"
+        f"{invite_lock}"
         f"{car_lock}"
         f"{format_lock}"
         "Финальный стиль: единая художественная стилизация — "
         "фон, декор и люди в одном ключе. НЕ фотореализм. "
-        "Изображение цельное, гармоничное, элегантное."
+        "Изображение цельное, гармоничное, элегантное. "
+        "НИКАКОГО лишнего текста, кроме указанного выше."
     )
     return full
 
@@ -554,10 +864,10 @@ async def _generate_and_send(message: Message, user_id: int, state: dict):
     from ai_service import generate_image, generate_image_from_text
     from main import get_balance, spend_generation, test_mode, buy_generations_keyboard
 
-    mode = state.get("mode")
+    mode_info = WEDDING_MODES.get(state.get("mode", ""), {})
+    with_photo = mode_info.get("with_photo", False)
 
-    # Для режима с фото — обязательна фотография
-    if mode == "with_photo" and not state.get("photo"):
+    if with_photo and not state.get("photo"):
         await message.answer("❌ Нет фото. Загрузи заново.")
         return
 
@@ -578,17 +888,17 @@ async def _generate_and_send(message: Message, user_id: int, state: dict):
 
     await message.answer("🎨 Генерирую открытку... Обычно это занимает до минуты.")
 
-    logger.info(f"🎨 wedding генерация: user={user_id}, mode={mode}, regen={is_regen}")
+    logger.info(f"🎨 wedding генерация: user={user_id}, mode={state.get('mode')}, regen={is_regen}")
 
     try:
-        if mode == "with_photo":
+        if with_photo:
             img = generate_image(state.get("photo"), full_prompt)
         else:
             img = generate_image_from_text(full_prompt)
         if not img:
             logger.warning("⚠️ wedding: первая попытка не удалась, пробую ещё раз")
             await message.answer("🔄 Сервис задумался, пробую ещё раз...")
-            if mode == "with_photo":
+            if with_photo:
                 img = generate_image(state.get("photo"), full_prompt)
             else:
                 img = generate_image_from_text(full_prompt)
