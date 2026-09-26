@@ -1377,6 +1377,7 @@ async def handle_tools_menu(callback: CallbackQuery):
             [InlineKeyboardButton(text="📄 Фото на документы", callback_data="doc_photo")],
             [InlineKeyboardButton(text="🧑💼 Студийный портрет", callback_data="studio_portrait")],
         ])
+    )
 
 
 @dp.callback_query(F.data == "author_info")
