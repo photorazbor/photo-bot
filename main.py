@@ -156,6 +156,10 @@ TEST_MODE_FILE = "test_mode.json"
 analysis_today = {}
 ANALYSIS_FILE = "analysis_count.json"
 
+# ===== АНАЛИЗ: ПЛАТНЫЕ ПАКЕТЫ =====
+paid_analyses = {}   # {user_id: int}
+PAID_ANALYSES_FILE = "paid_analyses.json"
+
 
 def _load_analysis_count():
     global analysis_today
@@ -167,6 +171,21 @@ def _load_analysis_count():
         except Exception:
             analysis_today = {}
 
+def _load_paid_analyses():
+    global paid_analyses
+    if os.path.exists(PAID_ANALYSES_FILE):
+        try:
+            with open(PAID_ANALYSES_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                paid_analyses = {int(k): v for k, v in data.items()}
+        except Exception:
+            paid_analyses = {}
+
+
+def _save_paid_analyses():
+    with open(PAID_ANALYSES_FILE, "w", encoding="utf-8") as f:
+        json.dump({str(k): v for k, v in paid_analyses.items()}, f, ensure_ascii=False, indent=2)
+
 
 def _save_analysis_count():
     with open(ANALYSIS_FILE, "w", encoding="utf-8") as f:
@@ -174,6 +193,7 @@ def _save_analysis_count():
 
 
 def _analysis_check_and_get(user_id: int):
+    """Возвращает (можно_ли_анализировать, сколько_осталось_всего)."""
     if user_id == 456504792 and test_mode:
         return True, 999
     today = datetime.now().strftime("%Y-%m-%d")
@@ -181,22 +201,45 @@ def _analysis_check_and_get(user_id: int):
     if not rec or rec.get("date") != today:
         analysis_today[user_id] = {"date": today, "count": 0}
         _save_analysis_count()
-        return True, FREE_ANALYSIS_PER_DAY
-    count = rec.get("count", 0)
-    left = FREE_ANALYSIS_PER_DAY - count
-    return left > 0, left
+        free_left = FREE_ANALYSIS_PER_DAY
+    else:
+        count = rec.get("count", 0)
+        free_left = max(0, FREE_ANALYSIS_PER_DAY - count)
+    paid_left = paid_analyses.get(user_id, 0)
+    total_left = free_left + paid_left
+    return total_left > 0, total_left
+
+
+def _analysis_get_free_left(user_id: int) -> int:
+    """Сколько бесплатных анализов осталось сегодня."""
+    if user_id == 456504792 and test_mode:
+        return 999
+    today = datetime.now().strftime("%Y-%m-%d")
+    rec = analysis_today.get(user_id)
+    if not rec or rec.get("date") != today:
+        return FREE_ANALYSIS_PER_DAY
+    return max(0, FREE_ANALYSIS_PER_DAY - rec.get("count", 0))
 
 
 def _analysis_increment(user_id: int):
+    """Списывает 1 анализ: сначала бесплатные, потом платные."""
     if user_id == 456504792 and test_mode:
         return
     today = datetime.now().strftime("%Y-%m-%d")
     rec = analysis_today.get(user_id)
     if not rec or rec.get("date") != today:
         analysis_today[user_id] = {"date": today, "count": 1}
-    else:
-        analysis_today[user_id]["count"] = rec.get("count", 0) + 1
-    _save_analysis_count()
+        _save_analysis_count()
+        return
+    count = rec.get("count", 0)
+    if count < FREE_ANALYSIS_PER_DAY:
+        analysis_today[user_id]["count"] = count + 1
+        _save_analysis_count()
+        return
+    # Бесплатные кончились — списываем платные
+    if paid_analyses.get(user_id, 0) > 0:
+        paid_analyses[user_id] = paid_analyses[user_id] - 1
+        _save_paid_analyses()
 
 
 def _load_test_mode():
@@ -403,6 +446,7 @@ def _save_gen():
 
 _load_gen()
 _load_analysis_count()
+_load_paid_analyses()
 
 
 def get_balance(user_id: int) -> int:
@@ -680,6 +724,29 @@ def tochka_webhook():
                     notify_text = f"💰 <b>Новый платёж!</b>\nСумма: {amount} ₽\nНазначение: {purp}\nПлательщик: {payer}\nID пользователя: <code>{uid}</code>"
                     _send_telegram_message(-1004468971541, notify_text)
 
+                    if "Пакет 30 анализов" in purp:
+                        paid_analyses[uid] = paid_analyses.get(uid, 0) + 30
+                        _save_paid_analyses()
+                        asyncio.run_coroutine_threadsafe(
+                            bot.send_message(uid, "✅ Оплата получена! +30 анализов начислены.\n\nПакет не сгорает — тратится, когда кончится бесплатный лимит."),
+                            MAIN_LOOP
+                        )
+                    elif "Пакет 100 анализов" in purp:
+                        paid_analyses[uid] = paid_analyses.get(uid, 0) + 100
+                        _save_paid_analyses()
+                        asyncio.run_coroutine_threadsafe(
+                            bot.send_message(uid, "✅ Оплата получена! +100 анализов начислены."),
+                            MAIN_LOOP
+                        )
+                    elif "Пакет 300 анализов" in purp:
+                        paid_analyses[uid] = paid_analyses.get(uid, 0) + 300
+                        _save_paid_analyses()
+                        asyncio.run_coroutine_threadsafe(
+                            bot.send_message(uid, "✅ Оплата получена! +300 анализов начислены."),
+                            MAIN_LOOP
+                        )
+                    elif "Пакет 5 генераций" in purp:
+
                     if "Пакет 5 генераций" in purp:
                         paid_generations[uid] = paid_generations.get(uid, 0) + 5
                         _save_gen()
@@ -774,6 +841,25 @@ def donate_keyboard() -> InlineKeyboardMarkup:
 
 def buy_generations_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⚡ 5 генераций — 59 ₽", callback_data="buy_5_gen")],
+        [InlineKeyboardButton(text="⚡ 10 генераций — 99 ₽", callback_data="buy_10_gen")],
+        [InlineKeyboardButton(text="⚡ 30 генераций — 249 ₽", callback_data="buy_30_gen")],
+    ])
+
+
+def buy_analyses_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔍 +30 анализов — 49 ₽", callback_data="buy_30_analysis")],
+        [InlineKeyboardButton(text="🔍 +100 анализов — 129 ₽", callback_data="buy_100_analysis")],
+        [InlineKeyboardButton(text="🔍 +300 анализов — 299 ₽", callback_data="buy_300_analysis")],
+    ])
+
+
+def balance_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔍 +30 анализов — 49 ₽", callback_data="buy_30_analysis")],
+        [InlineKeyboardButton(text="🔍 +100 анализов — 129 ₽", callback_data="buy_100_analysis")],
+        [InlineKeyboardButton(text="🔍 +300 анализов — 299 ₽", callback_data="buy_300_analysis")],
         [InlineKeyboardButton(text="⚡ 5 генераций — 59 ₽", callback_data="buy_5_gen")],
         [InlineKeyboardButton(text="⚡ 10 генераций — 99 ₽", callback_data="buy_10_gen")],
         [InlineKeyboardButton(text="⚡ 30 генераций — 249 ₽", callback_data="buy_30_gen")],
@@ -1417,14 +1503,23 @@ async def handle_my_balance(callback: CallbackQuery):
     user_id = callback.from_user.id
     balance = get_balance(user_id)
     balance_text = "∞" if (user_id == 456504792 and test_mode) else str(balance)
+
+    free_analyses = _analysis_get_free_left(user_id)
+    paid_analyses_left = paid_analyses.get(user_id, 0)
+    free_text = "∞" if (user_id == 456504792 and test_mode) else str(free_analyses)
+
     text = (
         f"💎 <b>Твой баланс</b>\n\n"
-        f"Осталось генераций: <b>{balance_text}</b>\n\n"
+        f"⚡ <b>Генерации:</b> {balance_text}\n"
         f"1 генерация = 1 результат в любом инструменте.\n"
         f"В каждой — 1 бесплатная перегенерация.\n\n"
+        f"🔍 <b>Анализы:</b>\n"
+        f"Бесплатных сегодня: <b>{free_text}</b>\n"
+        f"В запасе (платные): <b>{paid_analyses_left}</b>\n"
+        f"Платные не сгорают — тратятся, когда кончится бесплатный лимит.\n\n"
         f"Пополни:"
     )
-    await callback.message.answer(text, parse_mode="HTML", reply_markup=buy_generations_keyboard())
+    await callback.message.answer(text, parse_mode="HTML", reply_markup=balance_keyboard())
     await callback.answer()
 
 
@@ -1893,6 +1988,59 @@ async def handle_show_buy_menu(callback: CallbackQuery):
         "Выбери пакет:",
         parse_mode="HTML",
         reply_markup=buy_generations_keyboard()
+    )
+
+@dp.callback_query(F.data == "buy_30_analysis")
+async def handle_buy_30_analysis(callback: CallbackQuery):
+    await callback.answer()
+    link = create_payment_link(49, "Пакет 30 анализов", callback.from_user.id)
+    if not link:
+        await callback.message.answer("⚠️ Ошибка.")
+        return
+    await callback.message.answer(
+        "🔍 <b>+30 анализов — 49 ₽</b>\n\n"
+        "Пакет не сгорает — тратится, когда кончится бесплатный лимит.\n\n"
+        "Если Chrome не открывает страницу — используйте Яндекс Браузер.",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="💳 Оплатить 49 ₽", url=link)]
+        ])
+    )
+
+
+@dp.callback_query(F.data == "buy_100_analysis")
+async def handle_buy_100_analysis(callback: CallbackQuery):
+    await callback.answer()
+    link = create_payment_link(129, "Пакет 100 анализов", callback.from_user.id)
+    if not link:
+        await callback.message.answer("⚠️ Ошибка.")
+        return
+    await callback.message.answer(
+        "🔍 <b>+100 анализов — 129 ₽</b>\n\n"
+        "Пакет не сгорает — тратится, когда кончится бесплатный лимит.\n\n"
+        "Если Chrome не открывает страницу — используйте Яндекс Браузер.",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="💳 Оплатить 129 ₽", url=link)]
+        ])
+    )
+
+
+@dp.callback_query(F.data == "buy_300_analysis")
+async def handle_buy_300_analysis(callback: CallbackQuery):
+    await callback.answer()
+    link = create_payment_link(299, "Пакет 300 анализов", callback.from_user.id)
+    if not link:
+        await callback.message.answer("⚠️ Ошибка.")
+        return
+    await callback.message.answer(
+        "🔍 <b>+300 анализов — 299 ₽</b>\n\n"
+        "Пакет не сгорает — тратится, когда кончится бесплатный лимит.\n\n"
+        "Если Chrome не открывает страницу — используйте Яндекс Браузер.",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="💳 Оплатить 299 ₽", url=link)]
+        ])
     )
 
 
@@ -3104,11 +3252,13 @@ async def handle_photo(message: Message):
         can, left = _analysis_check_and_get(user_id)
         if not can:
             await message.answer(
-                "🔍 <b>Лимит анализов на сегодня исчерпан.</b>\n\n"
-                "Приходи завтра — снова будет 5 бесплатных анализов.\n\n"
-                "А пока можно купить генерации:",
+                "🔍 <b>Лимит анализов исчерпан.</b>\n\n"
+                "Бесплатные обновляются каждый день — 5 штук.\n\n"
+                "Хочешь больше сейчас? Купи пакет:\n"
+                "Платные анализы <b>не сгорают</b> — тратятся только тогда, "
+                "когда заканчивается бесплатный лимит.",
                 parse_mode="HTML",
-                reply_markup=buy_generations_keyboard()
+                reply_markup=buy_analyses_keyboard()
             )
             return
 
@@ -3150,9 +3300,16 @@ async def handle_photo(message: Message):
         await message.answer(caption, reply_markup=get_keyboard(user_id))
 
         if not (user_id == 456504792 and test_mode):
-            _, left = _analysis_check_and_get(user_id)
-            if left > 0:
-                await message.answer(f"🔍 Осталось анализов на сегодня: {left} из {FREE_ANALYSIS_PER_DAY}")
+            free_left = _analysis_get_free_left(user_id)
+            paid_left = paid_analyses.get(user_id, 0)
+            if free_left > 0:
+                await message.answer(
+                    f"🔍 Осталось бесплатных анализов сегодня: {free_left} из {FREE_ANALYSIS_PER_DAY}"
+                )
+            elif paid_left > 0:
+                await message.answer(
+                    f"🔍 Бесплатные закончились. Платных в запасе: {paid_left}"
+                )
 
         # Проверка задания курса
         if has_access(user_id) and user_mode.get(user_id) == "course":
@@ -4180,12 +4337,21 @@ async def handle_non_photo(message: Message):
     if text == "💎 Баланс":
         balance = get_balance(user_id)
         balance_text = "∞" if (user_id == 456504792 and test_mode) else str(balance)
+        free_analyses = _analysis_get_free_left(user_id)
+        paid_analyses_left = paid_analyses.get(user_id, 0)
+        free_text = "∞" if (user_id == 456504792 and test_mode) else str(free_analyses)
         await message.answer(
-            f"💎 <b>Твой баланс</b>\n\nОсталось генераций: <b>{balance_text}</b>\n\n"
+            f"💎 <b>Твой баланс</b>\n\n"
+            f"⚡ <b>Генерации:</b> {balance_text}\n"
             f"1 генерация = 1 результат в любом инструменте.\n"
-            f"В каждой — 1 бесплатная перегенерация.",
+            f"В каждой — 1 бесплатная перегенерация.\n\n"
+            f"🔍 <b>Анализы:</b>\n"
+            f"Бесплатных сегодня: <b>{free_text}</b>\n"
+            f"В запасе (платные): <b>{paid_analyses_left}</b>\n"
+            f"Платные не сгорают — тратятся, когда кончится бесплатный лимит.\n\n"
+            f"Пополни:",
             parse_mode="HTML",
-            reply_markup=buy_generations_keyboard()
+            reply_markup=balance_keyboard()
         )
         return
     if text == "🎉 Праздники":
@@ -4232,10 +4398,11 @@ async def handle_non_photo(message: Message):
         left_text = "∞" if (user_id == 456504792 and test_mode) else str(left)
         if not can:
             await message.answer(
-                "🔍 <b>Лимит анализов на сегодня исчерпан.</b>\n\n"
-                "Приходи завтра — снова будет 5 бесплатных анализов.",
+                "🔍 <b>Лимит анализов исчерпан.</b>\n\n"
+                "Бесплатные обновляются каждый день — 5 штук.\n\n"
+                "Хочешь больше сейчас? Купи пакет:",
                 parse_mode="HTML",
-                reply_markup=buy_generations_keyboard()
+                reply_markup=buy_analyses_keyboard()
             )
             return
         await message.answer(
