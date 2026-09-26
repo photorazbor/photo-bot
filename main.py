@@ -746,8 +746,6 @@ def tochka_webhook():
                             MAIN_LOOP
                         )
                     elif "Пакет 5 генераций" in purp:
-
-                    if "Пакет 5 генераций" in purp:
                         paid_generations[uid] = paid_generations.get(uid, 0) + 5
                         _save_gen()
                         asyncio.run_coroutine_threadsafe(
