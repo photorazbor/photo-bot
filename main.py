@@ -82,6 +82,16 @@ from wedding import (
     wedding_awaiting_date,
 )
 
+from prompt_image import (
+    register_prompt_handlers,
+    handle_prompt_text,
+    handle_prompt_photo,
+    reset_prompt_state,
+    is_user_in_prompt_flow,
+    prompt_awaiting_photo,
+    prompt_awaiting_text,
+)
+
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 
 # ===== КОНСТАНТЫ =====
@@ -294,6 +304,11 @@ def _reset_all_flows(user_id: int):
     try:
         from daily import reset_daily_state
         reset_daily_state(user_id)
+    except Exception:
+        pass
+    try:
+        from prompt_image import reset_prompt_state
+        reset_prompt_state(user_id)
     except Exception:
         pass
 
@@ -1358,10 +1373,10 @@ async def handle_tools_menu(callback: CallbackQuery):
             [InlineKeyboardButton(text="📷 Flat Lay (предметная съёмка)", callback_data="flat_lay")],
             [InlineKeyboardButton(text="🎨 Стилизация", callback_data="style_photo")],
             [InlineKeyboardButton(text="🖼️ По референсу (Pinterest)", callback_data="ref_style")],
+            [InlineKeyboardButton(text="🎨 Создать изображение", callback_data="prompt_start")],
             [InlineKeyboardButton(text="📄 Фото на документы", callback_data="doc_photo")],
             [InlineKeyboardButton(text="🧑💼 Студийный портрет", callback_data="studio_portrait")],
         ])
-    )
 
 
 @dp.callback_query(F.data == "author_info")
@@ -2910,6 +2925,11 @@ async def handle_photo(message: Message):
         await handle_wedding_photo(message, user_id, image_bytes)
         return
 
+    if user_id in prompt_awaiting_photo:
+        handled = await handle_prompt_photo(message, user_id, image_bytes)
+        if handled:
+            return
+
     last_photo[user_id] = image_bytes
     original_photo[user_id] = image_bytes
     gen_retry_count[user_id] = 0
@@ -3913,6 +3933,9 @@ async def handle_non_photo(message: Message):
 
     if await handle_wedding_custom_text(message, user_id, text):
         return
+    
+    if await handle_prompt_text(message, user_id, text):
+        return
 
     if text in ("🛠 Инструменты", "📸 Разобрать фото", "🏠 Главное меню",
                 "🎓 Мини-курс", "🎯 Авторский разбор", "💎 Баланс",
@@ -3983,6 +4006,7 @@ async def handle_non_photo(message: Message):
                 [InlineKeyboardButton(text="📷 Flat Lay", callback_data="flat_lay")],
                 [InlineKeyboardButton(text="🎨 Стилизация", callback_data="style_photo")],
                 [InlineKeyboardButton(text="🖼️ По референсу (Pinterest)", callback_data="ref_style")],
+                [InlineKeyboardButton(text="🎨 Создать изображение", callback_data="prompt_start")],
                 [InlineKeyboardButton(text="📄 Фото на документы", callback_data="doc_photo")],
                 [InlineKeyboardButton(text="🧑💼 Студийный портрет", callback_data="studio_portrait")],
             ])
@@ -4171,6 +4195,7 @@ async def main():
     register_daily_handlers(dp)
     register_holidays_handlers(dp)
     register_wedding_handlers(dp)
+    register_prompt_handlers(dp)
     await dp.start_polling(bot)
 
 
