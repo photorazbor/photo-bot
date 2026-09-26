@@ -4072,7 +4072,8 @@ async def handle_non_photo(message: Message):
 
     if text == "🎫 Промо":
         await message.answer(
-            "🎫 <b>Промокоды</b>\n\nУправление промокодами:",
+            "🎫 <b>Промокоды</b>\n\n"
+            "Управление промокодами:",
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="➕ Создать", callback_data="promo_menu_create")],
@@ -4080,6 +4081,37 @@ async def handle_non_photo(message: Message):
                 [InlineKeyboardButton(text="🗑 Удалить", callback_data="promo_menu_delete")],
                 [InlineKeyboardButton(text="🔄 Сбросить", callback_data="promo_menu_reset")],
             ])
+        )
+        await message.answer(
+            "📖 <b>Примеры промокодов</b>\n\n"
+            "<b>1. Обычный пакет генераций</b>\n"
+            "Название: <code>WELCOME10</code>\n"
+            "Количество: <code>10</code>\n"
+            "Введите: <code>WELCOME10</code>\n"
+            "→ даёт 10 генераций пользователю\n\n"
+            "<b>2. Пробный пакет</b>\n"
+            "Название: <code>TRIAL5</code>\n"
+            "Количество: <code>5</code>\n"
+            "Введите: <code>TRIAL5</code>\n"
+            "→ даёт 5 генераций пользователю\n\n"
+            "<b>3. Большой пакет на праздники</b>\n"
+            "Название: <code>NY30</code>\n"
+            "Количество: <code>30</code>\n"
+            "Введите: <code>NY30</code>\n"
+            "→ даёт 30 генераций пользователю\n\n"
+            "<b>4. Доступ к мини-курсу</b>\n"
+            "Название: <code>COURSEFREE</code>\n"
+            "Количество: <code>course</code>\n"
+            "Введите: <code>COURSEFREE course</code>\n"
+            "→ открывает мини-курс полностью\n\n"
+            "<b>Как создать:</b>\n"
+            "1. Нажми «➕ Создать» → введи название\n"
+            "2. Введи количество (число) или слово <code>course</code>\n"
+            "3. Промокод готов — отправь его пользователям\n\n"
+            "<b>Как активировать (со стороны пользователя):</b>\n"
+            "Пользователь пишет: <code>/promo КОД</code>\n"
+            "Например: <code>/promo WELCOME10</code>",
+            parse_mode="HTML"
         )
         return
 
