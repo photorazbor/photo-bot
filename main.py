@@ -3879,6 +3879,49 @@ async def handle_promo(message: Message):
 
 
 # ===== ПРОМОКОДЫ - МЕНЮ =====
+@dp.callback_query(F.data == "admin_menu_stats")
+async def admin_menu_stats(callback: CallbackQuery):
+    if callback.from_user.id != 456504792:
+        await callback.answer("⛔ Нет доступа.", show_alert=True)
+        return
+    await callback.answer()
+    stats_data = load_stats_data()
+    total_users = len(stats_data)
+    total_analyses = sum(d.get("total", 0) for d in stats_data.values())
+    await callback.message.answer(
+        f"📊 <b>Статистика</b>\n\n"
+        f"👤 Пользователей: {total_users}\n"
+        f"📸 Анализов: {total_analyses}",
+        parse_mode="HTML"
+    )
+
+
+@dp.callback_query(F.data == "admin_menu_users")
+async def admin_menu_users(callback: CallbackQuery):
+    if callback.from_user.id != 456504792:
+        await callback.answer("⛔ Нет доступа.", show_alert=True)
+        return
+    await callback.answer()
+    stats_data = load_stats_data()
+    text = "👤 <b>Пользователи:</b>\n\n"
+    for uid, data in sorted(stats_data.items(), key=lambda x: x[1].get("total", 0), reverse=True):
+        text += f"• <code>{uid}</code> — {data.get('total', 0)} анализов\n"
+    await callback.message.answer(text or "Нет пользователей", parse_mode="HTML")
+
+
+@dp.callback_query(F.data == "admin_menu_gen")
+async def admin_menu_gen(callback: CallbackQuery):
+    if callback.from_user.id != 456504792:
+        await callback.answer("⛔ Нет доступа.", show_alert=True)
+        return
+    await callback.answer()
+    text = "💎 <b>Генерации:</b>\n\n"
+    for uid, c in paid_generations.items():
+        if c > 0:
+            text += f"• <code>{uid}</code>: {c} шт\n"
+    await callback.message.answer(text or "Нет оплаченных генераций", parse_mode="HTML")
+
+
 @dp.callback_query(F.data == "promo_menu_create")
 async def promo_menu_create(callback: CallbackQuery):
     user_mode[callback.from_user.id] = "promo_create_name"
@@ -4025,6 +4068,31 @@ async def handle_non_photo(message: Message):
         flat_lay_active[user_id] = True
         await do_generation(user_id, message.chat.id, "paid", check_diff=False)
         user_mode[user_id] = "free"
+        return
+
+    if text == "🎫 Промо":
+        await message.answer(
+            "🎫 <b>Промокоды</b>\n\nУправление промокодами:",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="➕ Создать", callback_data="promo_menu_create")],
+                [InlineKeyboardButton(text="📋 Список", callback_data="promo_menu_list")],
+                [InlineKeyboardButton(text="🗑 Удалить", callback_data="promo_menu_delete")],
+                [InlineKeyboardButton(text="🔄 Сбросить", callback_data="promo_menu_reset")],
+            ])
+        )
+        return
+
+    if text == "📸 Заказы":
+        orders = _load_author_orders()
+        if not orders:
+            await message.answer("📭 Нет заказов")
+            return
+        text_out = "📸 <b>Заказы:</b>\n\n"
+        for i, o in enumerate(orders):
+            s = "✅" if o["status"] == "ready" else ("⏳" if o["status"] == "paid" else "✔️")
+            text_out += f"#{i} | <code>{o['user_id']}</code> | Фото: {len(o.get('photos',[]))} | {s}\n"
+        await message.answer(text_out, parse_mode="HTML")
         return
 
     if text == "📊 Админка":
