@@ -839,28 +839,28 @@ def donate_keyboard() -> InlineKeyboardMarkup:
 
 def buy_generations_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="⚡ 5 генераций — 59 ₽", callback_data="buy_5_gen")],
-        [InlineKeyboardButton(text="⚡ 10 генераций — 99 ₽", callback_data="buy_10_gen")],
-        [InlineKeyboardButton(text="⚡ 30 генераций — 249 ₽", callback_data="buy_30_gen")],
+        [InlineKeyboardButton(text="⚡ 5 генераций — 99 ₽", callback_data="buy_5_gen")],
+        [InlineKeyboardButton(text="⚡ 10 генераций — 179 ₽", callback_data="buy_10_gen")],
+        [InlineKeyboardButton(text="⚡ 30 генераций — 449 ₽", callback_data="buy_30_gen")],
     ])
 
 
 def buy_analyses_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔍 +30 анализов — 49 ₽", callback_data="buy_30_analysis")],
-        [InlineKeyboardButton(text="🔍 +100 анализов — 129 ₽", callback_data="buy_100_analysis")],
-        [InlineKeyboardButton(text="🔍 +300 анализов — 299 ₽", callback_data="buy_300_analysis")],
+        [InlineKeyboardButton(text="🔍 +30 анализов — 99 ₽", callback_data="buy_30_analysis")],
+        [InlineKeyboardButton(text="🔍 +100 анализов — 249 ₽", callback_data="buy_100_analysis")],
+        [InlineKeyboardButton(text="🔍 +300 анализов — 549 ₽", callback_data="buy_300_analysis")],
     ])
 
 
 def balance_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔍 +30 анализов — 49 ₽", callback_data="buy_30_analysis")],
-        [InlineKeyboardButton(text="🔍 +100 анализов — 129 ₽", callback_data="buy_100_analysis")],
-        [InlineKeyboardButton(text="🔍 +300 анализов — 299 ₽", callback_data="buy_300_analysis")],
-        [InlineKeyboardButton(text="⚡ 5 генераций — 59 ₽", callback_data="buy_5_gen")],
-        [InlineKeyboardButton(text="⚡ 10 генераций — 99 ₽", callback_data="buy_10_gen")],
-        [InlineKeyboardButton(text="⚡ 30 генераций — 249 ₽", callback_data="buy_30_gen")],
+        [InlineKeyboardButton(text="🔍 +30 анализов — 99 ₽", callback_data="buy_30_analysis")],
+        [InlineKeyboardButton(text="🔍 +100 анализов — 249 ₽", callback_data="buy_100_analysis")],
+        [InlineKeyboardButton(text="🔍 +300 анализов — 549 ₽", callback_data="buy_300_analysis")],
+        [InlineKeyboardButton(text="⚡ 5 генераций — 99 ₽", callback_data="buy_5_gen")],
+        [InlineKeyboardButton(text="⚡ 10 генераций — 179 ₽", callback_data="buy_10_gen")],
+        [InlineKeyboardButton(text="⚡ 30 генераций — 449 ₽", callback_data="buy_30_gen")],
     ])
 
 
@@ -1991,83 +1991,13 @@ async def handle_show_buy_menu(callback: CallbackQuery):
 @dp.callback_query(F.data == "buy_30_analysis")
 async def handle_buy_30_analysis(callback: CallbackQuery):
     await callback.answer()
-    link = create_payment_link(49, "Пакет 30 анализов", callback.from_user.id)
+    link = create_payment_link(99, "Пакет 30 анализов", callback.from_user.id)
     if not link:
         await callback.message.answer("⚠️ Ошибка.")
         return
     await callback.message.answer(
-        "🔍 <b>+30 анализов — 49 ₽</b>\n\n"
+        "🔍 <b>+30 анализов — 99 ₽</b>\n\n"
         "Пакет не сгорает — тратится, когда кончится бесплатный лимит.\n\n"
-        "Если Chrome не открывает страницу — используйте Яндекс Браузер.",
-        parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="💳 Оплатить 49 ₽", url=link)]
-        ])
-    )
-
-
-@dp.callback_query(F.data == "buy_100_analysis")
-async def handle_buy_100_analysis(callback: CallbackQuery):
-    await callback.answer()
-    link = create_payment_link(129, "Пакет 100 анализов", callback.from_user.id)
-    if not link:
-        await callback.message.answer("⚠️ Ошибка.")
-        return
-    await callback.message.answer(
-        "🔍 <b>+100 анализов — 129 ₽</b>\n\n"
-        "Пакет не сгорает — тратится, когда кончится бесплатный лимит.\n\n"
-        "Если Chrome не открывает страницу — используйте Яндекс Браузер.",
-        parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="💳 Оплатить 129 ₽", url=link)]
-        ])
-    )
-
-
-@dp.callback_query(F.data == "buy_300_analysis")
-async def handle_buy_300_analysis(callback: CallbackQuery):
-    await callback.answer()
-    link = create_payment_link(299, "Пакет 300 анализов", callback.from_user.id)
-    if not link:
-        await callback.message.answer("⚠️ Ошибка.")
-        return
-    await callback.message.answer(
-        "🔍 <b>+300 анализов — 299 ₽</b>\n\n"
-        "Пакет не сгорает — тратится, когда кончится бесплатный лимит.\n\n"
-        "Если Chrome не открывает страницу — используйте Яндекс Браузер.",
-        parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="💳 Оплатить 299 ₽", url=link)]
-        ])
-    )
-
-
-@dp.callback_query(F.data == "buy_5_gen")
-async def handle_buy_5_gen(callback: CallbackQuery):
-    await callback.answer()
-    link = create_payment_link(59, "Пакет 5 генераций", callback.from_user.id)
-    if not link:
-        await callback.message.answer("⚠️ Ошибка.")
-        return
-    await callback.message.answer(
-        "⚡ <b>5 генераций — 59 ₽</b>\n\n"
-        "Если Chrome не открывает страницу — используйте Яндекс Браузер.",
-        parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="💳 Оплатить 59 ₽", url=link)]
-        ])
-    )
-
-
-@dp.callback_query(F.data == "buy_10_gen")
-async def handle_buy_10_gen(callback: CallbackQuery):
-    await callback.answer()
-    link = create_payment_link(99, "Пакет 10 генераций", callback.from_user.id)
-    if not link:
-        await callback.message.answer("⚠️ Ошибка.")
-        return
-    await callback.message.answer(
-        "⚡ <b>10 генераций — 99 ₽</b>\n\n"
         "Если Chrome не открывает страницу — используйте Яндекс Браузер.",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
@@ -2076,19 +2006,88 @@ async def handle_buy_10_gen(callback: CallbackQuery):
     )
 
 
-@dp.callback_query(F.data == "buy_30_gen")
-async def handle_buy_30_gen(callback: CallbackQuery):
+@dp.callback_query(F.data == "buy_100_analysis")
+async def handle_buy_100_analysis(callback: CallbackQuery):
     await callback.answer()
-    link = create_payment_link(249, "Пакет 30 генераций", callback.from_user.id)
+    link = create_payment_link(249, "Пакет 100 анализов", callback.from_user.id)
     if not link:
         await callback.message.answer("⚠️ Ошибка.")
         return
     await callback.message.answer(
-        "⚡ <b>30 генераций — 249 ₽</b>\n\n"
+        "🔍 <b>+100 анализов — 249 ₽</b>\n\n"
+        "Пакет не сгорает — тратится, когда кончится бесплатный лимит.\n\n"
         "Если Chrome не открывает страницу — используйте Яндекс Браузер.",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="💳 Оплатить 249 ₽", url=link)]
+        ])
+    )
+
+
+@dp.callback_query(F.data == "buy_300_analysis")
+async def handle_buy_300_analysis(callback: CallbackQuery):
+    await callback.answer()
+    link = create_payment_link(549, "Пакет 300 анализов", callback.from_user.id)
+    if not link:
+        await callback.message.answer("⚠️ Ошибка.")
+        return
+    await callback.message.answer(
+        "🔍 <b>+300 анализов — 549 ₽</b>\n\n"
+        "Пакет не сгорает — тратится, когда кончится бесплатный лимит.\n\n"
+        "Если Chrome не открывает страницу — используйте Яндекс Браузер.",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="💳 Оплатить 549 ₽", url=link)]
+        ])
+    )
+
+
+@dp.callback_query(F.data == "buy_5_gen")
+async def handle_buy_5_gen(callback: CallbackQuery):
+    await callback.answer()
+    link = create_payment_link(99, "Пакет 5 генераций", callback.from_user.id)
+    if not link:
+        await callback.message.answer("⚠️ Ошибка.")
+        return
+    await callback.message.answer(
+        "⚡ <b>5 генераций — 99 ₽</b>\n\n"
+        "Если Chrome не открывает страницу — используйте Яндекс Браузер.",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="💳 Оплатить 99 ₽", url=link)]
+        ])
+    )
+
+
+@dp.callback_query(F.data == "buy_10_gen")
+async def handle_buy_10_gen(callback: CallbackQuery):
+    await callback.answer()
+    link = create_payment_link(179, "Пакет 10 генераций", callback.from_user.id)
+    if not link:
+        await callback.message.answer("⚠️ Ошибка.")
+        return
+    await callback.message.answer(
+        "⚡ <b>10 генераций — 179 ₽</b>\n\n"
+        "Если Chrome не открывает страницу — используйте Яндекс Браузер.",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="💳 Оплатить 179 ₽", url=link)]
+        ])
+    )
+
+@dp.callback_query(F.data == "buy_30_gen")
+async def handle_buy_30_gen(callback: CallbackQuery):
+    await callback.answer()
+    link = create_payment_link(449, "Пакет 30 генераций", callback.from_user.id)
+    if not link:
+        await callback.message.answer("⚠️ Ошибка.")
+        return
+    await callback.message.answer(
+        "⚡ <b>30 генераций — 449 ₽</b>\n\n"
+        "Если Chrome не открывает страницу — используйте Яндекс Браузер.",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="💳 Оплатить 449 ₽", url=link)]
         ])
     )
 
@@ -4482,7 +4481,7 @@ async def daily_report():
     await asyncio.sleep(5)
     while True:
         now = datetime.now()
-        target = now.replace(hour=23, minute=59, second=0, microsecond=0)
+        target = now.replace(hour=23, minute=99, second=0, microsecond=0)
         if now > target:
             target = target.replace(day=now.day + 1)
         await asyncio.sleep((target - now).total_seconds())
