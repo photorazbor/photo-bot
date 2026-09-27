@@ -342,12 +342,25 @@ def register_daily_handlers(dp):
 
         user_mode[user_id] = "daily"
 
+        # Прогресс бесплатных карт
+        streak = _get_user_state(user_id).get("streak", 0)
+        if user_id == 456504792 and test_mode:
+            progress_line = ""
+        elif _was_shown_today(user_id):
+            progress_line = "🌙 <i>Сегодня ты уже получил карту. Возвращайся завтра.</i>\n\n"
+        elif streak >= FREE_DAYS_LIMIT:
+            progress_line = "🔮 <i>Бесплатные карты закончились. Дальше — 1 генерация за карту.</i>\n\n"
+        elif streak == 0:
+            progress_line = "🆓 <i>Это будет твоя первая бесплатная карта. Всего доступно 3.</i>\n\n"
+        else:
+            left = FREE_DAYS_LIMIT - streak
+            progress_line = f"🆓 <i>Осталось бесплатных карт: {left} из {FREE_DAYS_LIMIT}.</i>\n\n"
+
         await callback.message.answer(
             "🔮 <b>Карта дня</b>\n\n"
             "Каждый день Вселенная готовит для тебя послание.\n"
             "Одна карта — один день. Один ритуал.\n\n"
-            "🆓 Первые 3 дня — бесплатно.\n"
-            "💎 Дальше — 1 генерация с баланса.\n\n"
+            f"{progress_line}"
             "📸 Ритуал дня связан с фотографией —\n"
             "сделай кадр и разбери его через бота.\n\n"
             "Нажми, чтобы открыть карту 👇",
@@ -486,8 +499,28 @@ async def _show_card(message: Message, user_id: int, is_free: bool, already_paid
     balance = get_balance(user_id)
     balance_text = "∞" if (user_id == 456504792 and test_mode) else str(balance)
 
+    # Прогресс бесплатных карт
+    if user_id == 456504792 and test_mode:
+        progress_line = ""
+    else:
+        streak = _get_user_state(user_id).get("streak", 0)
+        if is_free and not already_paid:
+            # Только что использовали бесплатную — считаем текущую
+            current_free = streak if streak > 0 else 1
+            if current_free >= FREE_DAYS_LIMIT:
+                progress_line = "🆓 <i>Это твоя последняя бесплатная карта.</i>\n\n"
+            else:
+                left = FREE_DAYS_LIMIT - current_free
+                progress_line = (
+                    f"🆓 <i>Бесплатных карт: {current_free} из {FREE_DAYS_LIMIT}. "
+                    f"Осталось ещё {left}.</i>\n\n"
+                )
+        else:
+            progress_line = ""
+
     caption = (
         f"🔮 <b>Карта дня: {theme['name']}</b>\n\n"
+        f"{progress_line}"
         f"✨ <b>Послание:</b>\n{prediction}\n\n"
         f"📸 <b>Ритуал дня:</b>\n{ritual}\n\n"
         f"💎 Баланс: {balance_text}"
