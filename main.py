@@ -799,7 +799,7 @@ def _setup_webhook():
             "webhooksList": ["acquiringInternetPayment"],
             "url": "https://photo-bot-6koz.onrender.com/webhook/tochka"
         }
-        response = req.put(url, json=payload, headers=headers, timeout=15)
+        response = req.put(url, json=payload, headers=headers, timeout=15, verify="russian_certs.pem")
         logger.info(f"🔧 Создание вебхука: статус {response.status_code}")
     except Exception as e:
         logger.error(f"❌ Ошибка создания вебхука: {e}")
