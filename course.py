@@ -4,6 +4,8 @@
 import json
 import os
 
+from firebase_db import fb_get, fb_set
+
 COURSE_FILE = "course_users.json"
 
 PHOTO_BASE = "https://raw.githubusercontent.com/photorazbor/photo-bot/main"
@@ -221,15 +223,11 @@ DAYS = {
 
 
 def _load_users() -> dict:
-    if not os.path.exists(COURSE_FILE):
-        return {}
-    with open(COURSE_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+    return fb_get("course_users", default={}) or {}
 
 
 def _save_users(users: dict):
-    with open(COURSE_FILE, "w", encoding="utf-8") as f:
-        json.dump(users, f, ensure_ascii=False, indent=2)
+    fb_set("course_users", users)
 
 
 def has_access(user_id: int) -> bool:
