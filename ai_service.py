@@ -12,6 +12,7 @@ import os as _os
 from datetime import datetime
 
 from config import OPENAI_API_KEY, TOCHKA_API_TOKEN, SPESHU_API_KEY, KODIK_API_KEY, KODIK_BASE_URL
+from firebase_db import fb_get, fb_set
 
 BASE_URL = "https://cheapai.io/v1"  # Старый CheapAI — не удаляем
 
@@ -100,10 +101,7 @@ def _extract_json(raw_text: str) -> dict:
 
 
 def _load_pending_payments() -> dict:
-    if not _os.path.exists(PENDING_PAYMENTS_FILE):
-        return {}
-    with open(PENDING_PAYMENTS_FILE, "r") as f:
-        return json.load(f)
+    return fb_get("pending_payments", default={}) or {}
 
 
 def _save_payment_link(payment_link_id: str, user_id: int, purpose: str):
@@ -114,8 +112,7 @@ def _save_payment_link(payment_link_id: str, user_id: int, purpose: str):
         "purpose": purpose,
         "created": datetime.now().isoformat()
     }
-    with open(PENDING_PAYMENTS_FILE, "w") as f:
-        json.dump(pending, f, ensure_ascii=False, indent=2)
+    fb_set("pending_payments", pending)
 
 
 def analyze_photo(image_bytes: bytes, course_topic: str = None) -> dict:
