@@ -1352,10 +1352,17 @@ async def handle_test(message: Message):
         return
     test_mode = not test_mode
     _save_test_mode()
+    logger.info(f"🧪 TEST MODE TOGGLED: {test_mode}")
     if test_mode:
-        await message.answer("🧪 Тестовый режим ВКЛ", reply_markup=USER_KEYBOARD)
+        await message.answer(
+            f"🧪 Тестовый режим ВКЛ\nБаланс: {get_balance(message.from_user.id)}",
+            reply_markup=USER_KEYBOARD
+        )
     else:
-        await message.answer("👑 Режим автора ВКЛ", reply_markup=ADMIN_KEYBOARD)
+        await message.answer(
+            f"👑 Режим автора ВКЛ\nБаланс: {get_balance(message.from_user.id)}",
+            reply_markup=ADMIN_KEYBOARD
+        )
 
 
 @dp.message(Command("done"))
@@ -4518,12 +4525,13 @@ async def handle_non_photo(message: Message):
 
 # ===== ЕЖЕДНЕВНЫЙ ОТЧЁТ =====
 async def daily_report():
+    from datetime import timedelta
     await asyncio.sleep(5)
     while True:
         now = datetime.now()
-        target = now.replace(hour=23, minute=99, second=0, microsecond=0)
-        if now > target:
-            target = target.replace(day=now.day + 1)
+        target = now.replace(hour=23, minute=59, second=0, microsecond=0)
+        if now >= target:
+            target = (now + timedelta(days=1)).replace(hour=23, minute=59, second=0, microsecond=0)
         await asyncio.sleep((target - now).total_seconds())
         history = _load_history()
         today = datetime.now().strftime("%d.%m.%Y")
