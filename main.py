@@ -26,6 +26,10 @@ from aiogram.types import (
 )
 
 from config import TELEGRAM_BOT_TOKEN
+
+from firebase_db import init_firebase, fb_get, fb_set, fb_update, fb_delete
+
+init_firebase()
 from ai_service import analyze_photo, generate_image, create_payment_link, _load_pending_payments
 from image_utils import download_and_resize, image_to_bytes, draw_hints, align_interior, check_and_crop_doc_photo
 from stats import add_analysis, get_stats, add_history as stats_add_history, _load_stats as load_stats_data
@@ -163,34 +167,22 @@ PAID_ANALYSES_FILE = "paid_analyses.json"
 
 def _load_analysis_count():
     global analysis_today
-    if os.path.exists(ANALYSIS_FILE):
-        try:
-            with open(ANALYSIS_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                analysis_today = {int(k): v for k, v in data.items()}
-        except Exception:
-            analysis_today = {}
-
-def _load_paid_analyses():
-    global paid_analyses
-    if os.path.exists(PAID_ANALYSES_FILE):
-        try:
-            with open(PAID_ANALYSES_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                paid_analyses = {int(k): v for k, v in data.items()}
-        except Exception:
-            paid_analyses = {}
-
-
-def _save_paid_analyses():
-    with open(PAID_ANALYSES_FILE, "w", encoding="utf-8") as f:
-        json.dump({str(k): v for k, v in paid_analyses.items()}, f, ensure_ascii=False, indent=2)
+    data = fb_get("analysis_count", default={}) or {}
+    analysis_today = {int(k): v for k, v in data.items()}
 
 
 def _save_analysis_count():
-    with open(ANALYSIS_FILE, "w", encoding="utf-8") as f:
-        json.dump({str(k): v for k, v in analysis_today.items()}, f, ensure_ascii=False, indent=2)
+    fb_set("analysis_count", {str(k): v for k, v in analysis_today.items()})
 
+
+def _load_paid_analyses():
+    global paid_analyses
+    data = fb_get("paid_analyses", default={}) or {}
+    paid_analyses = {int(k): v for k, v in data.items()}
+
+
+def _save_paid_analyses():
+    fb_set("paid_analyses", {str(k): v for k, v in paid_analyses.items()})
 
 def _analysis_check_and_get(user_id: int):
     """Возвращает (можно_ли_анализировать, сколько_осталось_всего)."""
@@ -244,18 +236,12 @@ def _analysis_increment(user_id: int):
 
 def _load_test_mode():
     global test_mode
-    if os.path.exists(TEST_MODE_FILE):
-        try:
-            with open(TEST_MODE_FILE, "r") as f:
-                data = json.load(f)
-                test_mode = data.get("enabled", False)
-        except Exception:
-            test_mode = False
+    data = fb_get("test_mode", default={}) or {}
+    test_mode = data.get("enabled", False)
 
 
 def _save_test_mode():
-    with open(TEST_MODE_FILE, "w") as f:
-        json.dump({"enabled": test_mode}, f)
+    fb_set("test_mode", {"enabled": test_mode})
 
 
 _load_test_mode()
@@ -268,27 +254,19 @@ AUTHOR_PHOTOS_DIR = "author_photos"
 
 
 def _load_history() -> dict:
-    if not os.path.exists(HISTORY_FILE):
-        return {}
-    with open(HISTORY_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+    return fb_get("history", default={}) or {}
 
 
 def _save_history(history: dict):
-    with open(HISTORY_FILE, "w", encoding="utf-8") as f:
-        json.dump(history, f, ensure_ascii=False, indent=2)
+    fb_set("history", history)
 
 
 def _load_promo() -> dict:
-    if not os.path.exists(PROMO_FILE):
-        return {}
-    with open(PROMO_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+    return fb_get("promocodes", default={}) or {}
 
 
 def _save_promo(promo: dict):
-    with open(PROMO_FILE, "w", encoding="utf-8") as f:
-        json.dump(promo, f, ensure_ascii=False, indent=2)
+    fb_set("promocodes", promo)
 
 
 def _save_feedback(entry: dict):
@@ -302,15 +280,11 @@ def _save_feedback(entry: dict):
 
 
 def _load_author_orders() -> list:
-    if not os.path.exists(AUTHOR_ORDERS_FILE):
-        return []
-    with open(AUTHOR_ORDERS_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+    return fb_get("author_orders", default=[]) or []
 
 
 def _save_author_orders(orders: list):
-    with open(AUTHOR_ORDERS_FILE, "w", encoding="utf-8") as f:
-        json.dump(orders, f, ensure_ascii=False, indent=2)
+    fb_set("author_orders", orders)
 
 
 def _save_author_photo(order_time: str, index: int, image_bytes: bytes) -> str:
@@ -429,19 +403,16 @@ def portrait_format_keyboard() -> InlineKeyboardMarkup:
 
 def _load_gen():
     global free_generations, paid_generations
-    if os.path.exists(GEN_FILE):
-        with open(GEN_FILE, "r") as f:
-            data = json.load(f)
-            free_generations = {int(k): v for k, v in data.get("free", {}).items()}
-            paid_generations = {int(k): v for k, v in data.get("paid", {}).items()}
+    data = fb_get("generations", default={}) or {}
+    free_generations = {int(k): v for k, v in data.get("free", {}).items()}
+    paid_generations = {int(k): v for k, v in data.get("paid", {}).items()}
 
 
 def _save_gen():
-    with open(GEN_FILE, "w") as f:
-        json.dump({
-            "free": {str(k): v for k, v in free_generations.items()},
-            "paid": {str(k): v for k, v in paid_generations.items()},
-        }, f)
+    fb_set("generations", {
+        "free": {str(k): v for k, v in free_generations.items()},
+        "paid": {str(k): v for k, v in paid_generations.items()},
+    })
 
 
 _load_gen()
@@ -474,15 +445,12 @@ def spend_generation(user_id: int) -> bool:
 
 def _load_doc_attempts():
     global doc_attempts
-    if os.path.exists(DOC_ATTEMPTS_FILE):
-        with open(DOC_ATTEMPTS_FILE, "r") as f:
-            data = json.load(f)
-            doc_attempts = {int(k): v for k, v in data.items()}
+    data = fb_get("doc_attempts", default={}) or {}
+    doc_attempts = {int(k): v for k, v in data.items()}
 
 
 def _save_doc_attempts():
-    with open(DOC_ATTEMPTS_FILE, "w") as f:
-        json.dump({str(k): v for k, v in doc_attempts.items()}, f, ensure_ascii=False, indent=2)
+    fb_set("doc_attempts", {str(k): v for k, v in doc_attempts.items()})
 
 
 _load_doc_attempts()
