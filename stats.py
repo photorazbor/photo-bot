@@ -5,28 +5,22 @@ import json
 import os
 from datetime import datetime
 
+from firebase_db import fb_get, fb_set
+
 STATS_FILE = "stats.json"
 HISTORY_FILE = "history.json"
 
 def _load_stats() -> dict:
-    if not os.path.exists(STATS_FILE):
-        return {}
-    with open(STATS_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+    return fb_get("stats", default={}) or {}
 
 def _save_stats(stats: dict):
-    with open(STATS_FILE, "w", encoding="utf-8") as f:
-        json.dump(stats, f, ensure_ascii=False, indent=2)
+    fb_set("stats", stats)
 
 def _load_history() -> dict:
-    if not os.path.exists(HISTORY_FILE):
-        return {}
-    with open(HISTORY_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+    return fb_get("history", default={}) or {}
 
 def _save_history(history: dict):
-    with open(HISTORY_FILE, "w", encoding="utf-8") as f:
-        json.dump(history, f, ensure_ascii=False, indent=2)
+    fb_set("history", history)
 
 def add_analysis(user_id: int, error_type: str):
     stats = _load_stats()
