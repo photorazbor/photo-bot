@@ -835,9 +835,15 @@ def get_keyboard(user_id: int) -> InlineKeyboardMarkup:
     buttons = []
     balance = get_balance(user_id)
     if balance > 0:
-        buttons.append([InlineKeyboardButton(text=f"✨ Улучшить фото ({balance} ген.)", callback_data="gen_start")])
+        buttons.append([InlineKeyboardButton(
+            text=f"✨ Улучшить фото ({balance} ген.)",
+            callback_data="gen_start"
+        )])
     else:
-        buttons.append([InlineKeyboardButton(text="⚡ Купить генерации", callback_data="show_buy_menu")])
+        buttons.append([InlineKeyboardButton(
+            text="✨ Улучшить фото (нужны генерации)",
+            callback_data="show_buy_menu"
+        )])
     buttons.append([InlineKeyboardButton(text="📷 Разобрать другое фото", callback_data="new_photo")])
     buttons.append([InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
