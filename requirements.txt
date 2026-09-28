@@ -10,3 +10,4 @@ opencv-python-headless
 numpy
 deskew
 scipy
+firebase-admin>=6.5.0
