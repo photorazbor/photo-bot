@@ -337,6 +337,17 @@ def _reset_all_flows(user_id: int):
 def _add_history(user_id: int, action: str, details: str = ""):
     stats_add_history(user_id, action, details)
 
+
+async def show_agreement(message: Message):
+    """Показывает экран согласия."""
+    await message.answer(
+        AGREEMENT_TEXT,
+        parse_mode="HTML",
+        disable_web_page_preview=True,
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="✅ Согласен", callback_data="agree_terms")],
+            [InlineKeyboardButton(text="❌ Не согласен", callback_data="decline_terms")],
+        ])
     )
 
 
