@@ -36,6 +36,7 @@ BASE_REF = "https://raw.githubusercontent.com/photorazbor/photo-bot/main/example
 ref_photo = {}       # {user_id: bytes} — референс
 user_photo_ref = {}  # {user_id: bytes} — фото пользователя
 ref_awaiting = {}    # {user_id: "reference" / "user_photo"}
+ref_examples_shown = {}   # {user_id: "YYYY-MM-DD"} — когда показывали примеры
 
 
 def reset_ref_state(user_id: int):
@@ -73,19 +74,23 @@ def register_reference_handlers(dp):
         reset_ref_state(user_id)
         ref_awaiting[user_id] = "reference"
 
-        # Показываем примеры коллажей (Pinterest + фото → результат)
-        for idx in (1, 2, 3):
-            example_bytes = _fetch_image(f"{BASE_REF}/ref_style/example_{idx}.jpg")
-            if not example_bytes:
-                continue
-            try:
-                await callback.message.answer_photo(
-                    BufferedInputFile(example_bytes, filename=f"example_{idx}.jpg"),
-                    caption="✨ <b>Pinterest + фото → результат</b>",
-                    parse_mode="HTML",
-                )
-            except Exception as e:
-                logger.warning(f"⚠️ Ошибка отправки example_{idx}.jpg: {e}")
+        # Показываем примеры коллажей — только раз в день
+        from datetime import datetime as _dt
+        today = _dt.now().strftime("%Y-%m-%d")
+        if ref_examples_shown.get(user_id) != today:
+            for idx in (1, 2, 3):
+                example_bytes = _fetch_image(f"{BASE_REF}/ref_style/example_{idx}.jpg")
+                if not example_bytes:
+                    continue
+                try:
+                    await callback.message.answer_photo(
+                        BufferedInputFile(example_bytes, filename=f"example_{idx}.jpg"),
+                        caption="✨ <b>Pinterest + фото → результат</b>",
+                        parse_mode="HTML",
+                    )
+                except Exception as e:
+                    logger.warning(f"⚠️ Ошибка отправки example_{idx}.jpg: {e}")
+            ref_examples_shown[user_id] = today
 
         await callback.message.answer(
             "🖼️ <b>Фото по референсу</b>\n\n"
