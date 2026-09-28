@@ -108,3 +108,22 @@ def fb_delete(path: str):
     except Exception as e:
         logger.exception(f"❌ fb_delete({path}): {e}")
         return False
+
+
+def has_agreed(user_id: int) -> bool:
+    """Проверяет, дал ли пользователь согласие."""
+    data = fb_get("agreements", default={}) or {}
+    rec = data.get(str(user_id), {})
+    return rec.get("agreed", False)
+
+
+def save_agreement(user_id: int, version: str = "1.0"):
+    """Сохраняет факт согласия."""
+    from datetime import datetime
+    data = fb_get("agreements", default={}) or {}
+    data[str(user_id)] = {
+        "agreed": True,
+        "date": datetime.now().isoformat(),
+        "version": version,
+    }
+    fb_set("agreements", data)
