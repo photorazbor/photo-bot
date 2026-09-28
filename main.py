@@ -26,8 +26,12 @@ from aiogram.types import (
 )
 
 from config import TELEGRAM_BOT_TOKEN
+from legal import AGREEMENT_TEXT, AGREEMENT_VERSION
 
-from firebase_db import init_firebase, fb_get, fb_set, fb_update, fb_delete
+from firebase_db import (
+    init_firebase, fb_get, fb_set, fb_update, fb_delete,
+    has_agreed, save_agreement,
+)
 
 init_firebase()
 from ai_service import analyze_photo, generate_image, create_payment_link, _load_pending_payments
@@ -332,6 +336,8 @@ def _reset_all_flows(user_id: int):
 
 def _add_history(user_id: int, action: str, details: str = ""):
     stats_add_history(user_id, action, details)
+
+    )
 
 
 # ===== ГЕНЕРАЦИИ =====
@@ -1216,9 +1222,15 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
 # ===== СТАРТ =====
 @dp.message(CommandStart())
 async def handle_start(message: Message):
-    _add_history(message.from_user.id, "start", "Запустил бота")
-    user_mode[message.from_user.id] = "free"
-    flat_lay_active[message.from_user.id] = False
+    user_id = message.from_user.id
+
+    if user_id != 456504792 and not has_agreed(user_id):
+        await show_agreement(message)
+        return
+
+    _add_history(user_id, "start", "Запустил бота")
+    user_mode[user_id] = "free"
+    flat_lay_active[user_id] = False
 
     if message.from_user.id == 456504792 and not test_mode:
         await message.answer("👑 Админ-панель", reply_markup=ADMIN_KEYBOARD)
@@ -3114,6 +3126,13 @@ async def handle_gen_retry(callback: CallbackQuery):
 @dp.message(F.photo)
 async def handle_photo(message: Message):
     user_id = message.from_user.id
+
+    if user_id != 456504792 and not has_agreed(user_id):
+        await message.answer(
+            "⚠️ Сначала нажмите /start и дайте согласие на обработку данных."
+        )
+        return
+
     mode = user_mode.get(user_id, "")
     logger.info(f"📸 handle_photo: user={user_id}, mode={mode}, xmas_awaiting={user_id in xmas_awaiting_photo}")
 
@@ -3988,6 +4007,70 @@ async def handle_start_course_btn(callback: CallbackQuery):
         if get_next_day(user_id) == 1:
             await send_photos(callback.message.chat.id, 1)
 
+@dp.callback_query(F.data == "agree_terms")
+async def handle_agree(callback: CallbackQuery):
+    await callback.answer()
+    user_id = callback.from_user.id
+    save_agreement(user_id, AGREEMENT_VERSION)
+    _add_history(user_id, "agreement", "Согласие получено")
+
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
+
+    await callback.message.answer(
+        "✅ <b>Спасибо! Согласие получено.</b>\n\n"
+        "Теперь можно пользоваться ботом.",
+        parse_mode="HTML"
+    )
+
+    await callback.message.answer("👇 Выбери действие:", reply_markup=USER_KEYBOARD)
+
+    PHOTO_BASE = "https://raw.githubusercontent.com/photorazbor/photo-bot/main"
+    balance = get_balance(user_id)
+    balance_text = "∞" if (user_id == 456504792 and test_mode) else str(balance)
+
+    await callback.message.answer_photo(
+        URLInputFile(f"{PHOTO_BASE}/start_banner.jpg"),
+        caption=(
+            "👋 <b>Привет! Я — бот-наставник по мобильной фотографии.</b>\n\n"
+            "📸 <b>Разбор фото</b> — бесплатно, 5 раз в день.\n"
+            "✨ <b>Улучшение фото</b> — ИИ исправит по анализу.\n"
+            "🎉 <b>Праздники</b> — новогодние, свадьба, день рождения.\n"
+            "🛠 <b>Инструменты</b> — редактор, Flat Lay, стилизация.\n"
+            "🎓 <b>Мини-курс</b> — первый день бесплатно.\n"
+            "🔮 <b>Карта дня</b> — послание и задание.\n\n"
+            f"💎 <b>Твой баланс:</b> {balance_text} генераций"
+        ),
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🎉 Праздники", callback_data="holidays_start")],
+            [InlineKeyboardButton(text="🔮 Карта дня", callback_data="daily_card")],
+            [InlineKeyboardButton(text="📸 Разобрать фото", callback_data="new_photo")],
+            [InlineKeyboardButton(text="🛠 Инструменты", callback_data="tools_menu")],
+            [InlineKeyboardButton(text="🎯 Авторский разбор", callback_data="author_review")],
+            [InlineKeyboardButton(text="🎓 Мини-курс", callback_data="course_status")],
+            [InlineKeyboardButton(text="💎 Баланс", callback_data="my_balance")],
+            [InlineKeyboardButton(text="💛 Поддержать проект", callback_data="donate_menu")],
+            [InlineKeyboardButton(text="👤 Об авторе", callback_data="author_info")],
+        ])
+    )
+
+
+@dp.callback_query(F.data == "decline_terms")
+async def handle_decline(callback: CallbackQuery):
+    await callback.answer()
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
+    await callback.message.answer(
+        "❌ <b>Без согласия бот не работает.</b>\n\n"
+        "Если передумаете — нажмите /start.",
+        parse_mode="HTML"
+    )
+
 
 # ===== ПРОМОКОДЫ =====
 @dp.message(Command("promo"))
@@ -4196,6 +4279,11 @@ async def handle_admin(message: Message):
 @dp.message(~F.photo)
 async def handle_non_photo(message: Message):
     user_id = message.from_user.id
+
+    if user_id != 456504792 and not has_agreed(user_id):
+        await message.answer("⚠️ Нажмите /start и дайте согласие.")
+        return
+
     mode = user_mode.get(user_id, "")
     text = message.text
 
