@@ -761,8 +761,7 @@ def tochka_webhook():
                         asyncio.run_coroutine_threadsafe(bot.send_message(uid, "💛 Спасибо за поддержку проекта!"), MAIN_LOOP)
 
                     del pending[payment_link_id]
-                    with open("pending_payments.json", "w") as f:
-                        json.dump(pending, f, ensure_ascii=False, indent=2)
+                    fb_set("pending_payments", pending)
         return "OK", 200
     except Exception as e:
         logger.error(f"Ошибка обработки вебхука: {e}")
