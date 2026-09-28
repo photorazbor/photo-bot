@@ -5,8 +5,8 @@
 AGREEMENT_VERSION = "1.0"
 
 # ⚠️ ЗАМЕНИ ССЫЛКИ НА СВОИ (из Шага 0)
-PRIVACY_URL = "https://telegra.ph/Politika-konfidencialnosti-XX-XX"
-OFFER_URL = "https://telegra.ph/Publichnaya-oferta-XX-XX"
+PRIVACY_URL = "https://telegra.ph/POLITIKA-KONFIDENCIALNOSTI-09-28-101"
+OFFER_URL = "https://telegra.ph/PUBLICHNAYA-OFERTA-09-28-7"
 
 AGREEMENT_TEXT = (
     "👋 <b>Добро пожаловать!</b>\n\n"
