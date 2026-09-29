@@ -339,11 +339,12 @@ def _add_history(user_id: int, action: str, details: str = ""):
 
 
 async def show_agreement(message: Message):
-    """Показывает экран согласия."""
-    await message.answer(
-        AGREEMENT_TEXT,
+    """Показывает экран согласия с картинкой-инфографикой."""
+    PHOTO_BASE = "https://raw.githubusercontent.com/photorazbor/photo-bot/main"
+    await message.answer_photo(
+        URLInputFile(f"{PHOTO_BASE}/start_agreement.jpg"),
+        caption=AGREEMENT_TEXT,
         parse_mode="HTML",
-        disable_web_page_preview=True,
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="✅ Согласен", callback_data="agree_terms")],
             [InlineKeyboardButton(text="❌ Не согласен", callback_data="decline_terms")],
