@@ -108,7 +108,7 @@ FREE_ANALYSIS_PER_DAY = 5
 
 USER_KEYBOARD = ReplyKeyboardMarkup(
     keyboard=[
-        [KeyboardButton(text="🎉 Праздники"), KeyboardButton(text="🔮 Карта дня")],
+        [KeyboardButton(text="🎉 Праздники")],
         [KeyboardButton(text="📸 Разобрать фото"), KeyboardButton(text="🛠 Инструменты")],
         [KeyboardButton(text="🎓 Мини-курс"), KeyboardButton(text="🎯 Авторский разбор")],
         [KeyboardButton(text="💎 Баланс"), KeyboardButton(text="💛 Поддержать проект")],
@@ -1284,7 +1284,7 @@ async def handle_start(message: Message):
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🎉 Праздники", callback_data="holidays_start")],
-            [InlineKeyboardButton(text="🔮 Карта дня", callback_data="daily_card")],
+          # [InlineKeyboardButton(text="🔮 Карта дня", callback_data="daily_card")],
             [InlineKeyboardButton(text="📸 Разобрать фото", callback_data="new_photo")],
             [InlineKeyboardButton(text="🛠 Инструменты", callback_data="tools_menu")],
             [InlineKeyboardButton(text="🎯 Авторский разбор", callback_data="author_review")],
@@ -1440,7 +1440,7 @@ async def handle_main_menu(callback: CallbackQuery):
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🎉 Праздники", callback_data="holidays_start")],
-            [InlineKeyboardButton(text="🔮 Карта дня", callback_data="daily_card")],
+          # [InlineKeyboardButton(text="🔮 Карта дня", callback_data="daily_card")],
             [InlineKeyboardButton(text="📸 Разобрать фото", callback_data="new_photo")],
             [InlineKeyboardButton(text="🛠 Инструменты", callback_data="tools_menu")],
             [InlineKeyboardButton(text="🎯 Авторский разбор", callback_data="author_review")],
@@ -4058,7 +4058,7 @@ async def handle_agree(callback: CallbackQuery):
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🎉 Праздники", callback_data="holidays_start")],
-            [InlineKeyboardButton(text="🔮 Карта дня", callback_data="daily_card")],
+          # [InlineKeyboardButton(text="🔮 Карта дня", callback_data="daily_card")],
             [InlineKeyboardButton(text="📸 Разобрать фото", callback_data="new_photo")],
             [InlineKeyboardButton(text="🛠 Инструменты", callback_data="tools_menu")],
             [InlineKeyboardButton(text="🎯 Авторский разбор", callback_data="author_review")],
@@ -4495,25 +4495,25 @@ async def handle_non_photo(message: Message):
                 reply_markup=holidays_keyboard()
             )
         return
-    if text == "🔮 Карта дня":
-        user_mode[user_id] = "daily"
-        await message.answer(
-            "🔮 <b>Карта дня</b>\n\n"
-            "Каждый день Вселенная готовит для тебя послание.\n"
-            "Одна карта — один день. Один ритуал.\n\n"
-            "🆓 Первые 3 дня — бесплатно.\n"
-            "💎 Дальше — 1 генерация с баланса.\n\n"
-            "📸 Ритуал дня связан с фотографией —\n"
-            "сделай кадр и разбери его через бота.\n\n"
-            "Нажми, чтобы открыть карту 👇",
-            parse_mode="HTML",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="✨ Открыть карту дня", callback_data="daily_open")],
-                [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
-            ])
-        )
-        user_mode[user_id] = "free"
-        return
+    # if text == "🔮 Карта дня":
+    #     user_mode[user_id] = "daily"
+    #     await message.answer(
+    #         "🔮 <b>Карта дня</b>\n\n"
+    #         "Каждый день Вселенная готовит для тебя послание.\n"
+    #         "Одна карта — один день. Один ритуал.\n\n"
+    #         "🆓 Первые 3 дня — бесплатно.\n"
+    #         "💎 Дальше — 1 генерация с баланса.\n\n"
+    #         "📸 Ритуал дня связан с фотографией —\n"
+    #         "сделай кадр и разбери его через бота.\n\n"
+    #         "Нажми, чтобы открыть карту 👇",
+    #         parse_mode="HTML",
+    #         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+    #             [InlineKeyboardButton(text="✨ Открыть карту дня", callback_data="daily_open")],
+    #             [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
+    #         ])
+    #     )
+    #     user_mode[user_id] = "free"
+    #     return
     if text == "📸 Разобрать фото":
         user_mode[user_id] = "free"
         flat_lay_active[user_id] = False
@@ -4566,7 +4566,7 @@ async def handle_non_photo(message: Message):
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="🎉 Праздники", callback_data="holidays_start")],
-                [InlineKeyboardButton(text="🔮 Карта дня", callback_data="daily_card")],
+              # [InlineKeyboardButton(text="🔮 Карта дня", callback_data="daily_card")],
                 [InlineKeyboardButton(text="📸 Разобрать фото", callback_data="new_photo")],
                 [InlineKeyboardButton(text="🛠 Инструменты", callback_data="tools_menu")],
                 [InlineKeyboardButton(text="🎯 Авторский разбор", callback_data="author_review")],
