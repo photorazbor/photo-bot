@@ -273,13 +273,15 @@ def _save_promo(promo: dict):
 
 
 def _save_feedback(entry: dict):
-    feedback = []
-    if os.path.exists(FEEDBACK_FILE):
-        with open(FEEDBACK_FILE, "r", encoding="utf-8") as f:
-            feedback = json.load(f)
-    feedback.append(entry)
-    with open(FEEDBACK_FILE, "w", encoding="utf-8") as f:
-        json.dump(feedback, f, ensure_ascii=False, indent=2)
+    """Сохраняет отзыв в Firebase."""
+    try:
+        feedback = fb_get("feedback", default=[]) or []
+        feedback.append(entry)
+        if len(feedback) > 1000:
+            feedback = feedback[-1000:]
+        fb_set("feedback", feedback)
+    except Exception as e:
+        logger.exception(f"❌ Ошибка сохранения отзыва в Firebase: {e}")
 
 
 def _load_author_orders() -> list:
@@ -3174,6 +3176,47 @@ async def handle_gen_retry(callback: CallbackQuery):
     new_photo = last_photo.get(user_id)
     if new_photo != old_photo:
         gen_retry_count[user_id] = 1
+
+@dp.callback_query(F.data.startswith("fb_good_"))
+async def handle_fb_good(callback: CallbackQuery):
+    await callback.answer("👍 Спасибо!")
+    user_id = callback.from_user.id
+    try:
+        _save_feedback({
+            "user_id": user_id,
+            "rating": "good",
+            "time": datetime.now().isoformat()
+        })
+    except Exception as e:
+        logger.exception(f"Ошибка сохранения отзыва: {e}")
+    try:
+        await callback.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+    await callback.message.answer("🙏 Спасибо за отзыв!")
+
+
+@dp.callback_query(F.data.startswith("fb_bad_"))
+async def handle_fb_bad(callback: CallbackQuery):
+    await callback.answer("👎 Спасибо!")
+    user_id = callback.from_user.id
+    try:
+        _save_feedback({
+            "user_id": user_id,
+            "rating": "bad",
+            "time": datetime.now().isoformat()
+        })
+    except Exception as e:
+        logger.exception(f"Ошибка сохранения отзыва: {e}")
+    try:
+        await callback.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+    await callback.message.answer(
+        "😔 Жаль, что не понравилось.\n\n"
+        "Попробуй перегенерировать или доработать результат — "
+        "кнопки есть выше."
+    )
 
 
 # ===== ОБРАБОТКА ФОТО =====
