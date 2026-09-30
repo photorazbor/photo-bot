@@ -71,12 +71,12 @@ def get_history(user_id: int, limit: int = 20) -> list:
 def get_stats(user_id: int) -> str:
     stats = _load_stats()
     uid = str(user_id)
-    if uid not in stats or stats[uid]["total"] == 0:
+    if uid not in stats or stats[uid].get("total", 0) == 0:
         return "У тебя пока нет статистики. Пришли фото на анализ!"
 
     data = stats[uid]
     total = data["total"]
-    errors = data["errors"]
+    errors = data.get("errors", {})
 
     error_names = {
         "horizon": "Горизонт",
