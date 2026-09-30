@@ -27,7 +27,12 @@ def add_analysis(user_id: int, error_type: str):
     uid = str(user_id)
     if uid not in stats:
         stats[uid] = {"total": 0, "errors": {}}
-    stats[uid]["total"] += 1
+    
+    # Защита от старых записей без "errors"
+    if "errors" not in stats[uid] or not isinstance(stats[uid]["errors"], dict):
+        stats[uid]["errors"] = {}
+    
+    stats[uid]["total"] = stats[uid].get("total", 0) + 1
 
     errors = [e.strip() for e in error_type.split(",")]
     for err in errors:
