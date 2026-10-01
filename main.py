@@ -1170,20 +1170,14 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
         if is_flat_lay:
             if mode == "retry" or gen_retry_count.get(user_id, 0) >= 1:
                 flat_kb = InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text="✏️ Доработать", callback_data=f"flat_refine_{gen_type}_{user_id}")],
-                    [InlineKeyboardButton(text="👍 Хорошо", callback_data=f"fb_good_{user_id}"),
-                     InlineKeyboardButton(text="👎 Плохо", callback_data=f"fb_bad_{user_id}")],
-                    [InlineKeyboardButton(text=f"💎 Баланс: {balance_text}", callback_data="my_balance")],
+                    [InlineKeyboardButton(text="✏️ Доработать ➡️", callback_data=f"flat_refine_{gen_type}_{user_id}")],
                     [InlineKeyboardButton(text="📷 Новый Flat Lay", callback_data=f"flat_new_{user_id}")],
                     [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
                 ])
             else:
                 flat_kb = InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text="✏️ Доработать", callback_data=f"flat_refine_{gen_type}_{user_id}")],
+                    [InlineKeyboardButton(text="✏️ Доработать ➡️", callback_data=f"flat_refine_{gen_type}_{user_id}")],
                     [InlineKeyboardButton(text="🔄 Перегенерировать", callback_data=f"gen_retry_{gen_type}_{user_id}")],
-                    [InlineKeyboardButton(text="👍 Хорошо", callback_data=f"fb_good_{user_id}"),
-                     InlineKeyboardButton(text="👎 Плохо", callback_data=f"fb_bad_{user_id}")],
-                    [InlineKeyboardButton(text=f"💎 Баланс: {balance_text}", callback_data="my_balance")],
                     [InlineKeyboardButton(text="📷 Новый Flat Lay", callback_data=f"flat_new_{user_id}")],
                     [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
                 ])
@@ -2935,7 +2929,52 @@ async def handle_flat_refine_custom(callback: CallbackQuery):
     gen_used_count[user_id] = 0
     flat_lay_active[user_id] = True
     await callback.answer()
-    await callback.message.answer("✏️ Напиши пожелание для доработки:")
+    await callback.message.answer(
+        "✏️ <b>Доработка</b>\n\n"
+        "Опиши, что хочешь поменять на картинке.\n\n"
+        "<b>Примеры:</b>\n"
+        "• «Сделай свет теплее»\n"
+        "• «Добавь капучино в чашку»\n"
+        "• «Переставь предметы красивее»\n\n"
+        "📝 Напиши свой текст одним сообщением.",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🔙 Назад", callback_data=f"flat_back_to_menu_{gen_type}_{user_id}")]
+        ])
+    )
+
+
+@dp.callback_query(F.data.startswith("flat_back_to_menu_"))
+async def handle_flat_back_to_menu(callback: CallbackQuery):
+    """Возвращает меню Flat Lay после нажатия «🔙 Назад»."""
+    parts = callback.data.split("_")
+    gen_type = parts[4]
+    user_id = int(parts[5])
+    await callback.answer()
+    # Убираем режим ожидания текста
+    user_mode[user_id] = "free"
+    flat_lay_active[user_id] = False
+    gen_used_count[user_id] = 0
+    # Удаляем сообщение с инструкцией
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
+    # Показываем меню
+    if gen_retry_count.get(user_id, 0) >= 1:
+        flat_kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="✏️ Доработать ➡️", callback_data=f"flat_refine_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="📷 Новый Flat Lay", callback_data=f"flat_new_{user_id}")],
+            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
+        ])
+    else:
+        flat_kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="✏️ Доработать ➡️", callback_data=f"flat_refine_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="🔄 Перегенерировать", callback_data=f"gen_retry_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="📷 Новый Flat Lay", callback_data=f"flat_new_{user_id}")],
+            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
+        ])
+    await callback.message.answer("Что дальше?", reply_markup=flat_kb)
 
 
 @dp.callback_query(F.data.startswith("flat_back_"))
@@ -2952,20 +2991,23 @@ async def handle_flat_refine(callback: CallbackQuery):
         return
     gen_type = parts[2]
     user_id = int(parts[3])
+    user_mode[user_id] = "flat_custom"
+    gen_used_count[user_id] = 0
+    flat_lay_active[user_id] = True
     await callback.answer()
     await callback.message.answer(
-        "✏️ <b>Что доработать?</b>\n\n"
-        "Выбери инструмент.\n"
-        "Каждая доработка тратит 1 генерацию.",
+        "✏️ <b>Доработка</b>\n\n"
+        "Опиши, что хочешь поменять на картинке.\n\n"
+        "<b>Примеры:</b>\n"
+        "• «Сделай свет теплее»\n"
+        "• «Добавь капучино в чашку»\n"
+        "• «Переставь предметы красивее»\n\n"
+        "📝 Напиши свой текст одним сообщением.",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🎨 Другой стиль", callback_data=f"flat_refine_style_{gen_type}_{user_id}")],
-            [InlineKeyboardButton(text="📐 Сменить формат", callback_data=f"flat_refine_format_{gen_type}_{user_id}")],
-            [InlineKeyboardButton(text="✨ Улучшить композицию", callback_data=f"flat_refine_comp_{gen_type}_{user_id}")],
-            [InlineKeyboardButton(text="💡 Исправить свет", callback_data=f"flat_refine_light_{gen_type}_{user_id}")],
-            [InlineKeyboardButton(text="✏️ Свой промпт", callback_data=f"flat_refine_custom_{gen_type}_{user_id}")],
-            [InlineKeyboardButton(text="🔙 Назад", callback_data=f"flat_back_{gen_type}_{user_id}")],
-        ]))
+            [InlineKeyboardButton(text="🔙 Назад", callback_data=f"flat_back_to_menu_{gen_type}_{user_id}")]
+        ])
+    )
 
 
 @dp.callback_query(F.data.startswith("flat_new_"))
