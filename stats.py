@@ -158,7 +158,7 @@ def get_admin_history(user_id: int = None) -> str:
         text = f"📝 <b>История пользователя {user_id}</b>\n\n"
         for entry in reversed(entries):
             text += f"• {entry['time']}: {entry['action']} {entry['details']}\n"
-        return text
+    return text
 
     text = "📝 <b>Последние действия всех пользователей</b>\n\n"
     count = 0
