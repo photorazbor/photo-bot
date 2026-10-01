@@ -128,7 +128,7 @@ def get_admin_stats() -> str:
     history = _load_history()
 
     total_users = len(stats)
-    total_photos = sum(data["total"] for data in stats.values())
+    total_photos = sum(data.get("total", 0) for data in stats.values())
     total_history = sum(len(entries) for entries in history.values())
 
     return (
@@ -142,9 +142,9 @@ def get_admin_users() -> str:
     """Возвращает список пользователей для админа"""
     stats = _load_stats()
     text = "👤 <b>Пользователи</b>\n\n"
-    for uid, data in sorted(stats.items(), key=lambda x: x[1]["total"], reverse=True):
+for uid, data in sorted(stats.items(), key=lambda x: x[1].get("total", 0), reverse=True):
         text += f"• ID: {uid}\n"
-        text += f"  Анализов: {data['total']}\n"
+        text += f"  Анализов: {data.get('total', 0)}\n"
     return text
 
 def get_admin_history(user_id: int = None) -> str:
