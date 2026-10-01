@@ -2967,23 +2967,20 @@ async def handle_flat_back_to_menu(callback: CallbackQuery):
     except Exception:
         pass
     # Показываем меню
-        if is_flat_lay:
-            last_prompt[user_id] = wish if wish else ""
-            last_format[user_id] = fmt if fmt else ""
-            if mode == "retry" or gen_retry_count.get(user_id, 0) >= 1:
-                flat_kb = InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text="✏️ Доработать ➡️", callback_data=f"flat_refine_{gen_type}_{user_id}")],
-                    [InlineKeyboardButton(text="📷 Новый Flat Lay", callback_data=f"flat_new_{user_id}")],
-                    [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
-                ])
-            else:
-                flat_kb = InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text="✏️ Доработать ➡️", callback_data=f"flat_refine_{gen_type}_{user_id}")],
-                    [InlineKeyboardButton(text="🔄 Перегенерировать", callback_data=f"gen_retry_{gen_type}_{user_id}")],
-                    [InlineKeyboardButton(text="📷 Новый Flat Lay", callback_data=f"flat_new_{user_id}")],
-                    [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
-                ])
-            await bot.send_message(chat_id, "Что дальше?", reply_markup=flat_kb)
+    if gen_retry_count.get(user_id, 0) >= 1:
+        flat_kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="✏️ Доработать ➡️", callback_data=f"flat_refine_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="📷 Новый Flat Lay", callback_data=f"flat_new_{user_id}")],
+            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
+        ])
+    else:
+        flat_kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="✏️ Доработать ➡️", callback_data=f"flat_refine_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="🔄 Перегенерировать", callback_data=f"gen_retry_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="📷 Новый Flat Lay", callback_data=f"flat_new_{user_id}")],
+            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
+        ])
+    await callback.message.answer("Что дальше?", reply_markup=flat_kb)
 
 
 @dp.callback_query(F.data.startswith("flat_back_"))
@@ -3051,18 +3048,56 @@ async def handle_gen_refine(callback: CallbackQuery):
         return
     gen_type = parts[2]
     user_id = int(parts[3])
+    user_mode[user_id] = "gen_custom"
     await callback.answer()
     await callback.message.answer(
-        "✏️ <b>Доработать результат</b>\n\n"
-        "Каждая доработка тратит 1 генерацию.",
+        "✏️ <b>Доработка</b>\n\n"
+        "Опиши, что хочешь поменять на картинке.\n\n"
+        "<b>Примеры:</b>\n"
+        "• «Сделай свет теплее»\n"
+        "• «Убери провода с фона»\n"
+        "• «Сделай позу естественнее»\n\n"
+        "📝 Напиши свой текст одним сообщением.",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="✨ Улучшить", callback_data=f"gen_go_ok_{gen_type}_{user_id}")],
-            [InlineKeyboardButton(text="🧍 Исправить позу", callback_data=f"gen_go_pose_{gen_type}_{user_id}")],
-            [InlineKeyboardButton(text="💫 Ретушь", callback_data=f"gen_go_retouch_{gen_type}_{user_id}")],
-            [InlineKeyboardButton(text="📐 Только формат", callback_data=f"gen_go_format_only_{gen_type}_{user_id}")],
-            [InlineKeyboardButton(text="✏️ Свой промпт", callback_data=f"gen_go_custom_{gen_type}_{user_id}")],
-        ]))
+            [InlineKeyboardButton(text="🔙 Назад", callback_data=f"gen_back_to_menu_{gen_type}_{user_id}")]
+        ])
+    )
+
+
+@dp.callback_query(F.data.startswith("gen_back_to_menu_"))
+async def handle_gen_back_to_menu(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    gen_type = parts[4]
+    user_id = int(parts[5])
+    await callback.answer()
+    user_mode[user_id] = "free"
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
+    balance = get_balance(user_id)
+    balance_text = "∞" if (user_id == 456504792 and test_mode) else str(balance)
+    if gen_retry_count.get(user_id, 0) >= 1:
+        post_kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="✏️ Доработать результат", callback_data=f"gen_refine_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="👍 Хорошо", callback_data=f"fb_good_{user_id}"),
+             InlineKeyboardButton(text="👎 Плохо", callback_data=f"fb_bad_{user_id}")],
+            [InlineKeyboardButton(text=f"💎 Баланс: {balance_text}", callback_data="my_balance")],
+            [InlineKeyboardButton(text="📷 Новое фото", callback_data=f"new_photo_same_{user_id}")],
+            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
+        ])
+    else:
+        post_kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="✏️ Доработать результат", callback_data=f"gen_refine_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="🔄 Перегенерировать (бесплатно)", callback_data=f"gen_retry_{gen_type}_{user_id}")],
+            [InlineKeyboardButton(text="👍 Хорошо", callback_data=f"fb_good_{user_id}"),
+             InlineKeyboardButton(text="👎 Плохо", callback_data=f"fb_bad_{user_id}")],
+            [InlineKeyboardButton(text=f"💎 Баланс: {balance_text}", callback_data="my_balance")],
+            [InlineKeyboardButton(text="📷 Новое фото", callback_data=f"new_photo_same_{user_id}")],
+            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
+        ])
+    await callback.message.answer("Что дальше?", reply_markup=post_kb)
 
 
 # ===== УСИЛЕНИЕ =====
@@ -3334,8 +3369,6 @@ async def handle_photo(message: Message):
     gen_fail_time[user_id] = None
 
     if mode in ("gen_wish_free", "gen_wish_paid"):
-        gen_wish[user_id] = text
-        gen_retry_count[user_id] = 1
         await do_generation(user_id, message.chat.id, "paid")
         user_mode[user_id] = "free"
         return
@@ -4510,10 +4543,17 @@ async def handle_non_photo(message: Message):
                 "🔮 Карта дня"):
         _reset_all_flows(user_id)
 
+    if mode == "gen_custom":
+        gen_wish[user_id] = text
+        gen_retry_count[user_id] = 1
+        await do_generation(user_id, message.chat.id, "paid", check_diff=False)
+        user_mode[user_id] = "free"
+        return
+
     if mode in ("gen_wish_free", "gen_wish_paid"):
         gen_wish[user_id] = text
         gen_retry_count[user_id] = 1
-        await do_generation(user_id, message.chat.id, "paid")
+        await do_generation(user_id, message.chat.id, "paid", check_diff=False)
         user_mode[user_id] = "free"
         return
 
