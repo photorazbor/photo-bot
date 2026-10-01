@@ -2956,7 +2956,8 @@ async def handle_flat_back_to_menu(callback: CallbackQuery):
     await callback.answer()
     # Убираем режим ожидания текста
     user_mode[user_id] = "free"
-    flat_lay_active[user_id] = False
+    # ВАЖНО: flat_lay_active НЕ сбрасываем — мы всё ещё в контексте Flat Lay
+    flat_lay_active[user_id] = True
     gen_used_count[user_id] = 0
     # Удаляем сообщение с инструкцией
     try:
@@ -2964,20 +2965,23 @@ async def handle_flat_back_to_menu(callback: CallbackQuery):
     except Exception:
         pass
     # Показываем меню
-    if gen_retry_count.get(user_id, 0) >= 1:
-        flat_kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="✏️ Доработать ➡️", callback_data=f"flat_refine_{gen_type}_{user_id}")],
-            [InlineKeyboardButton(text="📷 Новый Flat Lay", callback_data=f"flat_new_{user_id}")],
-            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
-        ])
-    else:
-        flat_kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="✏️ Доработать ➡️", callback_data=f"flat_refine_{gen_type}_{user_id}")],
-            [InlineKeyboardButton(text="🔄 Перегенерировать", callback_data=f"gen_retry_{gen_type}_{user_id}")],
-            [InlineKeyboardButton(text="📷 Новый Flat Lay", callback_data=f"flat_new_{user_id}")],
-            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
-        ])
-    await callback.message.answer("Что дальше?", reply_markup=flat_kb)
+        if is_flat_lay:
+            last_prompt[user_id] = wish if wish else ""
+            last_format[user_id] = fmt if fmt else ""
+            if mode == "retry" or gen_retry_count.get(user_id, 0) >= 1:
+                flat_kb = InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="✏️ Доработать ➡️", callback_data=f"flat_refine_{gen_type}_{user_id}")],
+                    [InlineKeyboardButton(text="📷 Новый Flat Lay", callback_data=f"flat_new_{user_id}")],
+                    [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
+                ])
+            else:
+                flat_kb = InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="✏️ Доработать ➡️", callback_data=f"flat_refine_{gen_type}_{user_id}")],
+                    [InlineKeyboardButton(text="🔄 Перегенерировать", callback_data=f"gen_retry_{gen_type}_{user_id}")],
+                    [InlineKeyboardButton(text="📷 Новый Flat Lay", callback_data=f"flat_new_{user_id}")],
+                    [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
+                ])
+            await bot.send_message(chat_id, "Что дальше?", reply_markup=flat_kb)
 
 
 @dp.callback_query(F.data.startswith("flat_back_"))
@@ -3211,21 +3215,21 @@ async def handle_gen_retry(callback: CallbackQuery):
         return
     saved_wish = last_prompt.get(user_id, "")
     saved_fmt = last_format.get(user_id, "")
-    # Сохраняем флаг Flat Lay
-    was_flat_lay = flat_lay_active.get(user_id, False)
-    if saved_wish:
+    # Сохраняем флаг Flat Lay (по active ИЛИ по style — надёжнее)
+    was_flat_lay = flat_lay_active.get(user_id, False) or bool(flat_lay_style.get(user_id))
+    if saved_wish and not was_flat_lay:
         gen_wish[user_id] = saved_wish
     if saved_fmt:
         gen_format[user_id] = saved_fmt
+    # ВАЖНО: восстанавливаем флаг ДО do_generation
+    if was_flat_lay:
+        flat_lay_active[user_id] = True
     old_photo = last_photo.get(user_id)
     await callback.answer("🔄 Генерирую другой вариант...")
     await do_generation(user_id, callback.message.chat.id, gen_type, check_diff=False, mode="retry")
     new_photo = last_photo.get(user_id)
     if new_photo != old_photo:
         gen_retry_count[user_id] = 1
-    # Восстанавливаем флаг Flat Lay
-    if was_flat_lay:
-        flat_lay_active[user_id] = True
 
 @dp.callback_query(F.data.startswith("fb_good_"))
 async def handle_fb_good(callback: CallbackQuery):
