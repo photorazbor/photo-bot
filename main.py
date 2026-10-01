@@ -939,10 +939,12 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
 
         if is_flat_lay:
             saved_style = flat_lay_style.get(user_id, "")
-            if saved_style and saved_style in FLAT_LAY_PROMPTS:
+            if mode == "retry" and saved_style and saved_style in FLAT_LAY_PROMPTS:
                 prompt = f"{FLAT_LAY_PROMPTS[saved_style]} Размер: {img_size}. "
             elif wish and wish.lower() != "ок":
                 prompt = f"{wish} Размер: {img_size}. "
+            elif saved_style and saved_style in FLAT_LAY_PROMPTS:
+                prompt = f"{FLAT_LAY_PROMPTS[saved_style]} Размер: {img_size}. "
             else:
                 prompt = f"Создай стильный Flat Lay. Размер: {img_size}. "
             if mode == "retry":
@@ -3332,6 +3334,8 @@ async def handle_photo(message: Message):
     gen_fail_time[user_id] = None
 
     if mode in ("gen_wish_free", "gen_wish_paid"):
+        gen_wish[user_id] = text
+        gen_retry_count[user_id] = 1
         await do_generation(user_id, message.chat.id, "paid")
         user_mode[user_id] = "free"
         return
@@ -4508,6 +4512,7 @@ async def handle_non_photo(message: Message):
 
     if mode in ("gen_wish_free", "gen_wish_paid"):
         gen_wish[user_id] = text
+        gen_retry_count[user_id] = 1
         await do_generation(user_id, message.chat.id, "paid")
         user_mode[user_id] = "free"
         return
@@ -4535,6 +4540,8 @@ async def handle_non_photo(message: Message):
     if mode in ("flat_custom", "flat_custom_prompt"):
         gen_wish[user_id] = text
         flat_lay_active[user_id] = True
+        flat_lay_style.pop(user_id, None)
+        gen_retry_count[user_id] = 1
         await do_generation(user_id, message.chat.id, "paid", check_diff=False)
         user_mode[user_id] = "free"
         return
