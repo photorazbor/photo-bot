@@ -911,6 +911,9 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
     fmt = gen_format.get(user_id, "1_1")
     wish = gen_wish.get(user_id, "")
     is_flat_lay = flat_lay_active.get(user_id, False)
+    # Запоминаем для перегенерации
+    if is_flat_lay:
+        flat_lay_active[user_id] = True
 
     if mode == "retry" and user_id in original_photo:
         image_bytes = original_photo[user_id]
@@ -3208,6 +3211,8 @@ async def handle_gen_retry(callback: CallbackQuery):
         return
     saved_wish = last_prompt.get(user_id, "")
     saved_fmt = last_format.get(user_id, "")
+    # Сохраняем флаг Flat Lay
+    was_flat_lay = flat_lay_active.get(user_id, False)
     if saved_wish:
         gen_wish[user_id] = saved_wish
     if saved_fmt:
@@ -3218,6 +3223,9 @@ async def handle_gen_retry(callback: CallbackQuery):
     new_photo = last_photo.get(user_id)
     if new_photo != old_photo:
         gen_retry_count[user_id] = 1
+    # Восстанавливаем флаг Flat Lay
+    if was_flat_lay:
+        flat_lay_active[user_id] = True
 
 @dp.callback_query(F.data.startswith("fb_good_"))
 async def handle_fb_good(callback: CallbackQuery):
