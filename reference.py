@@ -33,10 +33,10 @@ def _fetch_image(url: str) -> bytes | None:
 BASE_REF = "https://raw.githubusercontent.com/photorazbor/photo-bot/main/examples"
 
 # ===== СОСТОЯНИЕ =====
-ref_photo = {}       # {user_id: bytes} — референс
-user_photo_ref = {}  # {user_id: bytes} — фото пользователя
-ref_awaiting = {}    # {user_id: "reference" / "user_photo"}
-ref_examples_shown = {}   # {user_id: "YYYY-MM-DD"} — когда показывали примеры
+ref_photo = {}
+user_photo_ref = {}
+ref_awaiting = {}
+ref_examples_shown = {}
 
 
 def reset_ref_state(user_id: int):
@@ -58,19 +58,19 @@ def register_reference_handlers(dp):
     @dp.callback_query(F.data == "ref_style")
     async def handle_ref_style(callback: CallbackQuery):
         await callback.answer()
-        from main import get_balance, buy_generations_keyboard, test_mode, user_mode
+        import main as _main
 
         user_id = callback.from_user.id
-        balance = get_balance(user_id)
+        balance = _main.get_balance(user_id)
 
-        if balance <= 0 and not (user_id == 456504792 and test_mode):
+        if balance <= 0 and not (user_id == 456504792 and _main.test_mode):
             await callback.message.answer(
                 "💎 Генерации закончились.\n\nПополни баланс:",
-                reply_markup=buy_generations_keyboard()
+                reply_markup=_main.buy_generations_keyboard()
             )
             return
 
-        user_mode[user_id] = "ref_style"
+        _main.user_mode[user_id] = "ref_style"
         reset_ref_state(user_id)
         ref_awaiting[user_id] = "reference"
 
@@ -109,10 +109,10 @@ def register_reference_handlers(dp):
     @dp.callback_query(F.data == "ref_cancel")
     async def handle_ref_cancel(callback: CallbackQuery):
         await callback.answer()
-        from main import user_mode
+        import main as _main
         user_id = callback.from_user.id
         reset_ref_state(user_id)
-        user_mode[user_id] = "free"
+        _main.user_mode[user_id] = "free"
         await callback.message.answer("❌ Отменено. Возврат в главное меню.")
 
 
@@ -142,7 +142,7 @@ async def handle_reference_photo(message: Message, user_id: int, image_bytes: by
     if not step:
         return False
 
-    from main import user_mode
+    import main as _main
 
     if step == "reference":
         ref_photo[user_id] = _compress_image(image_bytes)
@@ -165,27 +165,26 @@ async def handle_reference_photo(message: Message, user_id: int, image_bytes: by
         if not reference_bytes or not user_photo_bytes:
             await message.answer("❌ Что-то потерялось. Начни заново: /start")
             reset_ref_state(user_id)
-            user_mode[user_id] = "free"
+            _main.user_mode[user_id] = "free"
             return True
 
         # Проверка баланса и списание
-        from main import get_balance, spend_generation, buy_generations_keyboard, test_mode
-        if not (user_id == 456504792 and test_mode):
-            if get_balance(user_id) <= 0:
+        if not (user_id == 456504792 and _main.test_mode):
+            if _main.get_balance(user_id) <= 0:
                 await message.answer(
                     "💎 Генерации закончились.\n\nПополни баланс:",
-                    reply_markup=buy_generations_keyboard()
+                    reply_markup=_main.buy_generations_keyboard()
                 )
                 reset_ref_state(user_id)
-                user_mode[user_id] = "free"
+                _main.user_mode[user_id] = "free"
                 return True
-        if not spend_generation(user_id):
+        if not _main.spend_generation(user_id):
             await message.answer(
                 "💎 Генерации закончились.\n\nПополни баланс:",
-                reply_markup=buy_generations_keyboard()
+                reply_markup=_main.buy_generations_keyboard()
             )
             reset_ref_state(user_id)
-            user_mode[user_id] = "free"
+            _main.user_mode[user_id] = "free"
             return True
 
         await message.answer("🎨 Генерирую по референсу... Это может занять до 2 минут.")
@@ -243,20 +242,19 @@ async def handle_reference_photo(message: Message, user_id: int, image_bytes: by
                 "✅ Генерация НЕ списана.\n"
                 "🔄 Попробуй ещё раз: /start → Инструменты → По референсу"
             )
-            if not (user_id == 456504792 and test_mode):
-                from main import free_generations, paid_generations, _save_gen
-                free_used = free_generations.get(user_id, 0)
+            if not (user_id == 456504792 and _main.test_mode):
+                free_used = _main.free_generations.get(user_id, 0)
                 if free_used > 0:
-                    free_generations[user_id] = free_used - 1
+                    _main.free_generations[user_id] = free_used - 1
                 else:
-                    paid_generations[user_id] = paid_generations.get(user_id, 0) + 1
-                _save_gen()
+                    _main.paid_generations[user_id] = _main.paid_generations.get(user_id, 0) + 1
+                _main._save_gen()
             reset_ref_state(user_id)
-            user_mode[user_id] = "free"
+            _main.user_mode[user_id] = "free"
             return True
 
-        balance = get_balance(user_id)
-        balance_text = "∞" if (user_id == 456504792 and test_mode) else str(balance)
+        balance = _main.get_balance(user_id)
+        balance_text = "∞" if (user_id == 456504792 and _main.test_mode) else str(balance)
 
         await message.answer_photo(
             BufferedInputFile(result, filename="ref_style.jpg"),
@@ -267,5 +265,5 @@ async def handle_reference_photo(message: Message, user_id: int, image_bytes: by
             ])
         )
         reset_ref_state(user_id)
-        user_mode[user_id] = "free"
+        _main.user_mode[user_id] = "free"
         return True
