@@ -334,6 +334,8 @@ def _reset_all_flows(user_id: int):
         reset_prompt_state(user_id)
     except Exception:
         pass
+    
+    studio_ref_outfit_store.pop(user_id, None)
 
 
 def _add_history(user_id: int, action: str, details: str = ""):
@@ -3477,9 +3479,6 @@ async def handle_photo(message: Message):
 
     if mode == "studio_ref_outfit":
         # Сохраняем фото-референс
-        from main import last_photo
-        # Сохраняем референс в отдельное место
-        studio_ref_outfit_photo = image_bytes
         studio_ref_outfit_store[user_id] = image_bytes
         user_mode[user_id] = "studio_hair"
         await message.answer(
