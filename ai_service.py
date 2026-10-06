@@ -296,8 +296,10 @@ def generate_image_with_reference(reference_bytes: bytes, user_photo_bytes: byte
                 "role": "user",
                 "content": [
                     {"type": "text", "text": prompt},
-                    {"type": "image_url", "image_url": {"url": ref_url}},
+                    # ФОТО 1 — пользователь (основа): лицо, поза, тело
                     {"type": "image_url", "image_url": {"url": user_url}},
+                    # ФОТО 2 — референс: только одежда
+                    {"type": "image_url", "image_url": {"url": ref_url}},
                 ],
             }
         ],
