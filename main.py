@@ -2065,6 +2065,11 @@ async def handle_studio_next(callback: CallbackQuery):
     studio_ref_outfit_store.pop(user_id, None)
     user_mode[user_id] = "studio_angle"
     balance = get_balance(user_id)
+    await callback.message.answer(
+        f"✅ Осталось генераций: {balance}\n\n"
+        "Пришлите фото.",
+        parse_mode="HTML"
+    )
 
 
 # ===== АВТОРСКИЙ РАЗБОР =====
