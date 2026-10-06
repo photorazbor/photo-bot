@@ -1421,6 +1421,7 @@ async def handle_new_photo_same(callback: CallbackQuery):
     parts = callback.data.split("_")
     user_id = int(parts[-1])
     flat_lay_active[user_id] = False
+    studio_ref_outfit_store.pop(user_id, None)
 
     # Если пришли из Редактора — остаёмся в Редакторе
     if editor_mode.get(user_id):
@@ -1789,6 +1790,7 @@ async def handle_studio_back_to_outfit(callback: CallbackQuery):
     user_id = callback.from_user.id
     user_mode[user_id] = "studio_outfit"
     studio_outfit_choice.pop(user_id, None)
+    studio_ref_outfit_store.pop(user_id, None)
     try:
         await callback.message.delete()
     except Exception:
@@ -1851,6 +1853,8 @@ async def handle_studio_outfit(callback: CallbackQuery):
     outfit = callback.data.split("_")[2]
     user_id = callback.from_user.id
     studio_outfit_choice[user_id] = outfit
+    if outfit != "reference":
+        studio_ref_outfit_store.pop(user_id, None)
     await callback.answer()
 
     # Свой образ — ждём текст
@@ -2058,13 +2062,9 @@ async def handle_studio_retry(callback: CallbackQuery):
 async def handle_studio_next(callback: CallbackQuery):
     user_id = int(callback.data.split("_")[-1])
     await callback.answer()
+    studio_ref_outfit_store.pop(user_id, None)
     user_mode[user_id] = "studio_angle"
     balance = get_balance(user_id)
-    await callback.message.answer(
-        f"✅ Осталось генераций: {balance}\n\n"
-        "Пришлите новое фото.",
-        parse_mode="HTML"
-    )
 
 
 # ===== АВТОРСКИЙ РАЗБОР =====
