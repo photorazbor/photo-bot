@@ -34,7 +34,7 @@ from firebase_db import (
 )
 
 init_firebase()
-from ai_service import analyze_photo, generate_image, create_payment_link, _load_pending_payments
+from ai_service import analyze_photo, generate_image, generate_image_with_reference, create_payment_link, _load_pending_payments
 from image_utils import download_and_resize, image_to_bytes, draw_hints, align_interior, check_and_crop_doc_photo
 from stats import add_analysis, get_stats, add_history as stats_add_history, _load_stats as load_stats_data
 from course import get_status, add_photo, check_day, has_access, get_day_photos, _load_users, activate_free_trial
@@ -1019,10 +1019,18 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
                     f"Сделай изменения заметными."
                 )
 
-        result = generate_image(image_bytes, prompt)
+        ref_outfit_bytes = studio_ref_outfit_store.get(user_id)
+        if ref_outfit_bytes:
+            result = generate_image_with_reference(ref_outfit_bytes, image_bytes, prompt)
+        else:
+            result = generate_image(image_bytes, prompt)
+
         if result is None:
             await bot.send_message(chat_id, "😕 Не получилось с первого раза. Пробую ещё раз...")
-            result = generate_image(image_bytes, prompt)
+            if ref_outfit_bytes:
+                result = generate_image_with_reference(ref_outfit_bytes, image_bytes, prompt)
+            else:
+                result = generate_image(image_bytes, prompt)
             if result is None:
                 last_fail_time = gen_fail_time.get(user_id)
                 if last_fail_time and (datetime.now() - last_fail_time).total_seconds() > 900:
@@ -3398,6 +3406,22 @@ async def handle_photo(message: Message):
     image = download_and_resize(photo_url, target_width=1024)
     image_bytes = image_to_bytes(image)
 
+    # Если это референс одежды — сохраняем отдельно, НЕ трогая last_photo
+    if mode == "studio_ref_outfit":
+        studio_ref_outfit_store[user_id] = image_bytes
+        user_mode[user_id] = "studio_hair"
+        await message.answer(
+            "✅ Референс одежды получен.\n\n"
+            "💇 <b>Выберите причёску:</b>",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="Оставить как есть", callback_data="studio_hair_keep")],
+                [InlineKeyboardButton(text="Аккуратная укладка", callback_data="studio_hair_neat")],
+                [InlineKeyboardButton(text="Лёгкая коррекция", callback_data="studio_hair_fix")],
+            ])
+        )
+        return
+
     if user_id in xmas_awaiting_photo:
         await handle_xmas_photo(message, user_id, image_bytes)
         return
@@ -3474,22 +3498,6 @@ async def handle_photo(message: Message):
             "🎨 <b>Выбери стиль:</b>",
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard)
-        )
-        return
-
-    if mode == "studio_ref_outfit":
-        # Сохраняем фото-референс
-        studio_ref_outfit_store[user_id] = image_bytes
-        user_mode[user_id] = "studio_hair"
-        await message.answer(
-            "✅ Референс одежды получен.\n\n"
-            "💇 <b>Выберите причёску:</b>",
-            parse_mode="HTML",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="Оставить как есть", callback_data="studio_hair_keep")],
-                [InlineKeyboardButton(text="Аккуратная укладка", callback_data="studio_hair_neat")],
-                [InlineKeyboardButton(text="Лёгкая коррекция", callback_data="studio_hair_fix")],
-            ])
         )
         return
 
@@ -3801,6 +3809,12 @@ async def handle_hair(callback: CallbackQuery):
             "оставить свою одежду с исходного фото без изменений — "
             "тот же цвет, фасон, детали. "
             "Подать аккуратно, опрятно, в современном свете."
+        ),
+        "reference": (
+            "взять одежду с приложенного референс-фото. "
+            "Скопируй одежду с референса в точности: тот же цвет, фасон, ткань, детали. "
+            "Лицо и тело — с основного фото пользователя. "
+            "НЕ меняй лицо человека на лице с референса."
         ),
         "military": (
             "военная форма, аккуратная, современная"
