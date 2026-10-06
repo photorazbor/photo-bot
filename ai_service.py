@@ -299,6 +299,8 @@ def generate_image_with_reference(reference_bytes: bytes, user_photo_bytes: byte
                     {"type": "image_url", "image_url": {"url": ref_url}},
                     {"type": "image_url", "image_url": {"url": user_url}},
                 ],
+            }
+        ],
         "max_tokens": 2000,
     }
 
