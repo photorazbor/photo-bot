@@ -304,7 +304,8 @@ def generate_image_with_reference(reference_bytes: bytes, user_photo_bytes: byte
         "max_tokens": 2000,
     }
 
-    logger.info(f"🔍 generate_image_with_reference: отправляю 2 изображения")
+    logger.info(f"🔍 generate_image_with_reference PROMPT:\n{prompt}")
+    logger.info(f"🔍 generate_image_with_reference: отправляю 2 изображения (ref={len(reference_bytes)}b, user={len(user_photo_bytes)}b)")
 
     try:
         response = requests.post(f"{BASE_URL}/chat/completions", headers=headers, json=payload, timeout=300)
