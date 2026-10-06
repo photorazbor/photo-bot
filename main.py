@@ -134,6 +134,7 @@ studio_angle_choice = {}
 studio_bg_choice = {}
 studio_outfit_choice = {}
 studio_hair_choice = {}
+studio_ref_outfit_store = {}
 doc_attempts = {}
 DOC_ATTEMPTS_FILE = "doc_attempts.json"
 GEN_FILE = "generations.json"
@@ -1743,6 +1744,29 @@ async def handle_studio_ready(callback: CallbackQuery):
         parse_mode="HTML"
     )
 
+@dp.callback_query(F.data == "studio_back_to_outfit")
+async def handle_studio_back_to_outfit(callback: CallbackQuery):
+    """Возвращает к выбору образа."""
+    await callback.answer()
+    user_id = callback.from_user.id
+    user_mode[user_id] = "studio_outfit"
+    studio_outfit_choice.pop(user_id, None)
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
+    await callback.message.answer(
+        "👔 <b>Выберите стиль одежды:</b>",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="👕 Своя одежда", callback_data="studio_outfit_own")],
+            [InlineKeyboardButton(text="👔 Деловой стиль", callback_data="studio_outfit_business")],
+            [InlineKeyboardButton(text="🧥 Свободный стиль", callback_data="studio_outfit_casual")],
+            [InlineKeyboardButton(text="✏️ Свой образ", callback_data="studio_outfit_custom")],
+            [InlineKeyboardButton(text="🖼️ Одежда с фото", callback_data="studio_outfit_reference")],
+        ])
+    )
+
 
 @dp.callback_query(F.data.startswith("angle_"))
 async def handle_studio_angle(callback: CallbackQuery):
@@ -1778,6 +1802,8 @@ async def handle_studio_bg(callback: CallbackQuery):
             [InlineKeyboardButton(text="👕 Своя одежда", callback_data="studio_outfit_own")],
             [InlineKeyboardButton(text="👔 Деловой стиль", callback_data="studio_outfit_business")],
             [InlineKeyboardButton(text="🧥 Свободный стиль", callback_data="studio_outfit_casual")],
+            [InlineKeyboardButton(text="✏️ Свой образ", callback_data="studio_outfit_custom")],
+            [InlineKeyboardButton(text="🖼️ Одежда с фото", callback_data="studio_outfit_reference")],
         ])
     )
 
@@ -1788,6 +1814,43 @@ async def handle_studio_outfit(callback: CallbackQuery):
     user_id = callback.from_user.id
     studio_outfit_choice[user_id] = outfit
     await callback.answer()
+
+    # Свой образ — ждём текст
+    if outfit == "custom":
+        user_mode[user_id] = "studio_custom_outfit"
+        await callback.message.answer(
+            "✏️ <b>Свой образ</b>\n\n"
+            "Опиши одежду, в которой хочешь портрет.\n\n"
+            "<b>Примеры:</b>\n"
+            "• «Деловой костюм, тёмно-синий, галстук»\n"
+            "• «Белая рубашка, свободный крой»\n"
+            "• «Свитер бежевый, оверсайз»\n"
+            "• «Платье миди, пастельное»\n\n"
+            "📝 Напиши свой текст одним сообщением.\n\n"
+            "[🔙 Назад]",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🔙 Назад", callback_data="studio_back_to_outfit")]
+            ])
+        )
+        return
+
+    # Одежда с фото — ждём фото-референс
+    if outfit == "reference":
+        user_mode[user_id] = "studio_ref_outfit"
+        await callback.message.answer(
+            "🖼️ <b>Одежда с фото</b>\n\n"
+            "Пришли фото-референс — откуда взять одежду.\n\n"
+            "⚠️ Лицо будет твоё. Одежда — с референса.\n\n"
+            "[🔙 Назад]",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🔙 Назад", callback_data="studio_back_to_outfit")]
+            ])
+        )
+        return
+
+    # Остальные — причёска (как раньше)
     await callback.message.answer(
         "💇 <b>Выберите причёску:</b>",
         parse_mode="HTML",
@@ -1832,17 +1895,20 @@ async def handle_studio_hair(callback: CallbackQuery):
         ),
         "casual": (
             "свободный стиль в современной эстетике 2026 года. "
-            "Оверсайз-свитер, свободная футболка прямого кроя, "
-            "свободные брюки или широкие джинсы, "
-            "худи минималистичное, рубашка оверсайз. "
+            "ВАЖНО: определи пол человека на фото. "
+            "Если на фото женщина — сделай женственный свободный образ: "
+            "мягкие линии, свободный свитер оверсайз, платье прямого силуэта, "
+            "блуза свободного кроя, мягкие ткани (лён, тонкий трикотаж). "
+            "Цвета: белый, молочный, серый, бежевый, пастельный, оливковый. "
+            "НЕ использовать: мужские рубашки, широкие брюки, грубые ткани. "
+            "Если на фото мужчина — свободный мужской образ: "
+            "оверсайз-свитер, свободная футболка прямого кроя, свободные брюки, "
+            "широкие джинсы, худи минималистичное. "
             "Ткани: хлопок, лён, тонкий трикотаж. "
-            "Цвета: белый, молочный, серый, бежевый, оливковый, "
-            "приглушённый синий. "
             "СТИЛЬ — как в современных модных журналах (Vogue, Elle, "
             "Pinterest-борды 2025–2026). "
             "НЕ использовать: обтягивающие футболки, короткие топы, "
-            "спортивные штаны, устаревшие фасоны 2000-х, "
-            "«бабушкины» свитера. "
+            "спортивные штаны, устаревшие фасоны 2000-х. "
             "Всё современно, свободно, но элегантно."
         ),
     }
@@ -3409,6 +3475,25 @@ async def handle_photo(message: Message):
         )
         return
 
+    if mode == "studio_ref_outfit":
+        # Сохраняем фото-референс
+        from main import last_photo
+        # Сохраняем референс в отдельное место
+        studio_ref_outfit_photo = image_bytes
+        studio_ref_outfit_store[user_id] = image_bytes
+        user_mode[user_id] = "studio_hair"
+        await message.answer(
+            "✅ Референс одежды получен.\n\n"
+            "💇 <b>Выберите причёску:</b>",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="Оставить как есть", callback_data="studio_hair_keep")],
+                [InlineKeyboardButton(text="Аккуратная укладка", callback_data="studio_hair_neat")],
+                [InlineKeyboardButton(text="Лёгкая коррекция", callback_data="studio_hair_fix")],
+            ])
+        )
+        return
+
     if mode == "studio_angle":
         user_mode[user_id] = "studio_bg"
         await message.answer(
@@ -4548,6 +4633,30 @@ async def handle_non_photo(message: Message):
         gen_retry_count[user_id] = 1
         await do_generation(user_id, message.chat.id, "paid", check_diff=False)
         user_mode[user_id] = "free"
+        return
+
+    if mode == "studio_custom_outfit":
+        text_clean = text.strip()[:300]
+        if not text_clean:
+            await message.answer("✏️ Пусто. Опиши одежду словами.")
+            return
+        # Сохраняем промпт и переходим к причёске
+        gen_wish[user_id] = (
+            f"Студийный портрет по грудь. "
+            f"ОДЕЖДА: {text_clean}. "
+            f"Только эта одежда — не добавляй другие предметы одежды. "
+        )
+        user_mode[user_id] = "studio_hair"
+        await message.answer(
+            f"✅ Образ: <b>{text_clean}</b>\n\n"
+            "💇 <b>Выберите причёску:</b>",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="Оставить как есть", callback_data="studio_hair_keep")],
+                [InlineKeyboardButton(text="Аккуратная укладка", callback_data="studio_hair_neat")],
+                [InlineKeyboardButton(text="Лёгкая коррекция", callback_data="studio_hair_fix")],
+            ])
+        )
         return
 
     if mode in ("gen_wish_free", "gen_wish_paid"):
