@@ -1051,7 +1051,7 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
         if result is None:
             await bot.send_message(chat_id, "😕 Не получилось с первого раза. Пробую ещё раз...")
             if ref_outfit_bytes:
-                result = generate_image_with_reference(ref_outfit_bytes, image_bytes, prompt)
+                result = generate_image_with_reference(image_bytes, ref_outfit_bytes, ref_prompt)
             else:
                 result = generate_image(image_bytes, prompt)
             if result is None:
