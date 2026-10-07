@@ -36,7 +36,7 @@ from firebase_db import (
 init_firebase()
 from ai_service import analyze_photo, generate_image, generate_image_with_reference, create_payment_link, _load_pending_payments
 from image_utils import download_and_resize, image_to_bytes, draw_hints, align_interior, check_and_crop_doc_photo
-from stats import add_analysis, get_stats, add_history as stats_add_history, _load_stats as load_stats_data
+from stats import add_analysis, get_stats, add_history as stats_add_history, _load_stats as load_stats_data, add_tool_use
 from course import get_status, add_photo, check_day, has_access, get_day_photos, _load_users, activate_free_trial
 from xmas import (
     register_xmas_handlers,
@@ -340,6 +340,13 @@ def _reset_all_flows(user_id: int):
 
 def _add_history(user_id: int, action: str, details: str = ""):
     stats_add_history(user_id, action, details)
+
+
+def _add_tool(user_id: int, tool: str):
+    try:
+        add_tool_use(user_id, tool)
+    except Exception:
+        logger.exception(f"Ошибка записи tool {tool}")
 
 
 async def show_agreement(message: Message):
@@ -710,6 +717,8 @@ def tochka_webhook():
                     info = pending[payment_link_id]
                     uid = info["user_id"]
                     purp = info["purpose"]
+                    _add_tool(uid, f"pay_{amount}")
+                    _add_history(uid, "payment", f"Оплата {amount} ₽ — {purp}")
                     payer = webhook_data.get("payerName", "Неизвестный")
                     notify_text = f"💰 <b>Новый платёж!</b>\nСумма: {amount} ₽\nНазначение: {purp}\nПлательщик: {payer}\nID пользователя: <code>{uid}</code>"
                     _send_telegram_message(-1004468971541, notify_text)
@@ -939,6 +948,22 @@ async def do_generation(user_id: int, chat_id: int, gen_type: str, check_diff: b
         analysis = last_analysis.get(user_id, {})
         error_type = analysis.get("error_type", "")
         what_is_wrong = analysis.get("what_is_wrong", "")
+
+        # Записываем в статистику использование инструмента
+        mode_now = user_mode.get(user_id, "")
+        if mode == "normal":
+            if is_flat_lay:
+                _add_tool(user_id, "flat_lay")
+            elif style_active.get(user_id, False):
+                _add_tool(user_id, "style")
+            elif mode_now.startswith("doc_"):
+                _add_tool(user_id, "doc")
+            elif mode_now.startswith("studio_"):
+                _add_tool(user_id, "studio")
+            elif mode_now == "change_format":
+                _add_tool(user_id, "change")
+            else:
+                _add_tool(user_id, "improve")
 
         if is_flat_lay:
             saved_style = flat_lay_style.get(user_id, "")
@@ -3501,7 +3526,8 @@ async def handle_photo(message: Message):
         handled = await handle_prompt_photo(message, user_id, image_bytes)
         if handled:
             return
-
+            
+    _add_history(user_id, "photo", f"mode={mode}")
     last_photo[user_id] = image_bytes
     original_photo[user_id] = image_bytes
     gen_retry_count[user_id] = 0
@@ -4545,15 +4571,9 @@ async def admin_menu_stats(callback: CallbackQuery):
         await callback.answer("⛔ Нет доступа.", show_alert=True)
         return
     await callback.answer()
-    stats_data = load_stats_data()
-    total_users = len(stats_data)
-    total_analyses = sum(d.get("total", 0) for d in stats_data.values())
-    await callback.message.answer(
-        f"📊 <b>Статистика</b>\n\n"
-        f"👤 Пользователей: {total_users}\n"
-        f"📸 Анализов: {total_analyses}",
-        parse_mode="HTML"
-    )
+    from stats import get_admin_stats
+    text = get_admin_stats()
+    await callback.message.answer(text, parse_mode="HTML")
 
 
 @dp.callback_query(F.data == "admin_menu_users")
