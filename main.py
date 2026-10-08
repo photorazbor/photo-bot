@@ -252,6 +252,9 @@ def _load_test_mode():
 
 
 def _save_test_mode():
+    import traceback
+    stack = "".join(traceback.format_stack()[-3:-1])
+    logger.info(f"🧪 _save_test_mode: test_mode={test_mode}\nСТЕК:\n{stack}")
     fb_set("test_mode", {"enabled": test_mode})
 
 
