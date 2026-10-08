@@ -1608,12 +1608,13 @@ async def handle_style_photo_inline(callback: CallbackQuery):
     flat_lay_active[user_id] = False
     style_active.pop(user_id, None)
     balance = get_balance(user_id)
+    balance_text = "∞" if (user_id == 456504792 and test_mode) else str(balance)
     await callback.message.answer(
         f"🎨 <b>Стилизация</b>\n\n"
         f"Пришли фото — сделаю стильным.\n"
         f"Доступно 14 художественных стилей + свой.\n\n"
         f"💰 Стоимость: 1 генерация\n"
-        f"💎 Твой баланс: {balance}",
+        f"💎 Твой баланс: {balance_text}",
         parse_mode="HTML"
     )
 
@@ -4331,6 +4332,8 @@ async def handle_gen_style(callback: CallbackQuery):
 
     await callback.answer()
     description = STYLE_DESCRIPTIONS.get(style, f"🎨 <b>{ALL_STYLES[style]}</b>\n\nСтилизация будет применена к фото.")
+
+    # Сначала описание стиля
     await callback.message.answer(
         f"{description}\n\n"
         f"⚠️ <b>Важно:</b> ИИ не всегда точно передаёт замысел. "
@@ -4338,6 +4341,20 @@ async def handle_gen_style(callback: CallbackQuery):
         f"Если что-то не понравится — 1 бесплатная перегенерация.\n\n"
         f"💰 Стоимость: 1 генерация",
         parse_mode="HTML",
+    )
+
+    # Потом проверка баланса
+    balance = get_balance(user_id)
+    if balance <= 0 and not (user_id == 456504792 and test_mode):
+        await callback.message.answer(
+            "💎 Генерации закончились.\n\nПополни баланс:",
+            reply_markup=buy_generations_keyboard()
+        )
+        return
+
+    # Если баланс есть — кнопка «Стилизовать»
+    await callback.message.answer(
+        "Готов применить стиль?",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="✅ Стилизовать", callback_data=f"confirm_style_{style}_{gen_type}_{user_id}")],
             [InlineKeyboardButton(text="🔙 Назад", callback_data="main_menu")],
