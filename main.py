@@ -831,7 +831,7 @@ def _setup_webhook():
 def run_flask():
     port = int(os.environ.get("PORT", 10000))
     _setup_webhook()
-    flask_app.run(host='0.0.0.0', port=port)
+    flask_app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
 
 
 # ===== КЛАВИАТУРЫ =====
