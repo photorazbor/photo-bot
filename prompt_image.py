@@ -297,7 +297,7 @@ async def handle_prompt_photo(message: Message, user_id: int, image_bytes: bytes
 
 async def _generate_and_send(message: Message, user_id: int, state: dict, is_regen: bool = False):
     from ai_service import generate_image, generate_image_from_text
-    from main import get_balance, spend_generation, test_mode, buy_generations_keyboard, get_size_for_format
+    import main as _main
 
     prompt_text = state.get("prompt", "").strip()
     if not prompt_text:
@@ -310,7 +310,7 @@ async def _generate_and_send(message: Message, user_id: int, state: dict, is_reg
     fmt = PROMPT_FORMATS.get(fmt_key, PROMPT_FORMATS["1_1"])
 
     # Размер под формат
-    img_size = get_size_for_format(fmt_key, photo if photo else None)
+    img_size = _main.get_size_for_format(fmt_key, photo if photo else None)
 
     # Финальный промпт
     if mode == "photo" and photo:
@@ -333,17 +333,17 @@ async def _generate_and_send(message: Message, user_id: int, state: dict, is_reg
 
     # Списываем генерацию (не при перегенерации)
     if not is_regen:
-        if not (user_id == 456504792 and test_mode):
-            if get_balance(user_id) <= 0:
+        if not (user_id == 456504792 and _main.test_mode):
+            if _main.get_balance(user_id) <= 0:
                 await message.answer(
                     "💎 Генерации закончились.\n\nПополни баланс:",
-                    reply_markup=buy_generations_keyboard(),
+                    reply_markup=_main.buy_generations_keyboard(),
                 )
                 return
-        if not spend_generation(user_id):
+        if not _main.spend_generation(user_id):
             await message.answer(
                 "💎 Генерации закончились.\n\nПополни баланс:",
-                reply_markup=buy_generations_keyboard(),
+                reply_markup=_main.buy_generations_keyboard(),
             )
             return
 
@@ -371,14 +371,13 @@ async def _generate_and_send(message: Message, user_id: int, state: dict, is_reg
         logger.warning("❌ prompt_image: генерация вернула None")
         # Возвращаем генерацию
         if not is_regen:
-            if not (user_id == 456504792 and test_mode):
-                from main import free_generations, paid_generations, _save_gen
-                free_used = free_generations.get(user_id, 0)
+            if not (user_id == 456504792 and _main.test_mode):
+                free_used = _main.free_generations.get(user_id, 0)
                 if free_used > 0:
-                    free_generations[user_id] = free_used - 1
+                    _main.free_generations[user_id] = free_used - 1
                 else:
-                    paid_generations[user_id] = paid_generations.get(user_id, 0) + 1
-                _save_gen()
+                    _main.paid_generations[user_id] = _main.paid_generations.get(user_id, 0) + 1
+                _main._save_gen()
         state["regen_done"] = False
         prompt_state[user_id] = state
         await message.answer(
@@ -388,8 +387,8 @@ async def _generate_and_send(message: Message, user_id: int, state: dict, is_reg
         )
         return
 
-    balance = get_balance(user_id)
-    balance_text = "∞" if (user_id == 456504792 and test_mode) else str(balance)
+    balance = _main.get_balance(user_id)
+    balance_text = "∞" if (user_id == 456504792 and _main.test_mode) else str(balance)
 
     try:
         await message.answer_photo(
