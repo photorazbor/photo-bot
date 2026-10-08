@@ -382,6 +382,7 @@ def register_holidays_handlers(dp):
     @dp.callback_query(F.data == "holiday_birthday")
     async def holiday_birthday(callback: CallbackQuery):
         await callback.answer()
+        import main as _main
         user_id = callback.from_user.id
         balance = _main.get_balance(user_id)
         if balance <= 0 and not (user_id == 456504792 and _main.test_mode):
@@ -602,6 +603,7 @@ def register_holidays_handlers(dp):
     @dp.callback_query(F.data == "holiday_bd_upload_again")
     async def bd_upload_again(callback: CallbackQuery):
         await callback.answer()
+        import main as _main
         user_id = callback.from_user.id
         reset_holiday_state(user_id)
         balance = _main.get_balance(user_id)
@@ -684,6 +686,7 @@ async def handle_holiday_photo(message: Message, user_id: int, image_bytes: byte
 # ===== ГЕНЕРАЦИЯ =====
 
 def _build_prompt(state: dict) -> str | None:
+    import main as _main
     loc_key = state.get("location")
     loc = BIRTHDAY_LOCATIONS.get(loc_key)
     scene_key = state.get("scene")
@@ -911,6 +914,7 @@ def _build_prompt(state: dict) -> str | None:
 
 async def _generate_and_send(message: Message, user_id: int, state: dict):
     from ai_service import generate_image
+    import main as _main
 
     photo = state.get("photo")
     if not photo:
@@ -920,7 +924,6 @@ async def _generate_and_send(message: Message, user_id: int, state: dict):
     is_regen = state.get("regen_done", False)
 
     if not is_regen:
-        logger.info(f"🔍 holidays._generate_and_send: вызываю _main.spend_generation, id(module main)={id(_main)}")
         if not _main.spend_generation(user_id):
             await message.answer(
                 "💎 Генерации закончились.\n\nПополни баланс:",
