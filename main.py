@@ -238,10 +238,16 @@ def _analysis_increment(user_id: int):
         _save_paid_analyses()
 
 
+_TEST_MODE_LOADED = False
+
 def _load_test_mode():
-    global test_mode
+    global test_mode, _TEST_MODE_LOADED
+    if _TEST_MODE_LOADED:
+        logger.info(f"🧪 _load_test_mode: ПРОПУЩЕНО (уже загружено), test_mode={test_mode}")
+        return
     data = fb_get("test_mode", default={}) or {}
     test_mode = data.get("enabled", False)
+    _TEST_MODE_LOADED = True
     logger.info(f"🧪 _load_test_mode: test_mode={test_mode}, data={data}")
 
 
