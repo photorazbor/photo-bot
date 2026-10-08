@@ -382,15 +382,7 @@ def register_holidays_handlers(dp):
     @dp.callback_query(F.data == "holiday_birthday")
     async def holiday_birthday(callback: CallbackQuery):
         await callback.answer()
-        import main as _main
         user_id = callback.from_user.id
-        balance = _main.get_balance(user_id)
-        if balance <= 0 and not (user_id == 456504792 and _main.test_mode):
-            await callback.message.answer(
-                "💎 Генерации закончились.\n\nПополни баланс:",
-                reply_markup=_main.buy_generations_keyboard()
-            )
-            return
         holiday_state[user_id] = {"holiday": "birthday"}
         await callback.message.answer(
             BIRTHDAY_INTRO + "\n\n" + BD_CHOOSE_STYLE,
@@ -488,6 +480,7 @@ def register_holidays_handlers(dp):
     @dp.callback_query(F.data.startswith("holiday_bd_style_"))
     async def bd_style(callback: CallbackQuery):
         await callback.answer()
+        import main as _main
         style_key = callback.data.replace("holiday_bd_style_", "")
         if style_key not in BIRTHDAY_STYLES:
             await callback.message.answer("❌ Стиль не найден.")
@@ -515,8 +508,6 @@ def register_holidays_handlers(dp):
                 )
             except Exception as e:
                 logger.warning(f"⚠️ Ошибка отправки before.jpg для {style_key}: {e}")
-        else:
-            logger.warning(f"⚠️ Не удалось скачать before.jpg для {style_key}")
 
         after_bytes = _fetch_image(f"{BASE}/holidays/birthday/{style_key}/after.jpg")
         if after_bytes:
@@ -528,10 +519,17 @@ def register_holidays_handlers(dp):
                 )
             except Exception as e:
                 logger.warning(f"⚠️ Ошибка отправки after.jpg для {style_key}: {e}")
-        else:
-            logger.warning(f"⚠️ Не удалось скачать after.jpg для {style_key}")
 
-        # Дальше — локации
+        # === ТУТ ПРОВЕРКА БАЛАНСА ===
+        balance = _main.get_balance(user_id)
+        if balance <= 0 and not (user_id == 456504792 and _main.test_mode):
+            await callback.message.answer(
+                "💎 Генерации закончились.\n\nПополни баланс:",
+                reply_markup=_main.buy_generations_keyboard()
+            )
+            return
+
+        # Если баланс есть — идём дальше к локациям
         await callback.message.answer(
             BD_CHOOSE_LOCATION,
             parse_mode="HTML",
