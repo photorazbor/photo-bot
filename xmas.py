@@ -509,17 +509,6 @@ def register_xmas_handlers(dp):
     async def xmas_start(callback: CallbackQuery):
         await callback.answer()
 
-        import main as _main
-        user_id = callback.from_user.id
-        balance = _main.get_balance(user_id)
-
-        if balance <= 0 and not (user_id == 456504792 and _main.test_mode):
-            await callback.message.answer(
-                "💎 Генерации закончились.\n\nПополни баланс — и начнём:",
-                reply_markup=_main.buy_generations_keyboard()
-            )
-            return
-
         intro_bytes = _fetch_image(f"{BASE}/xmas/intro_example.jpg")
         if intro_bytes:
             try:
@@ -705,6 +694,7 @@ def register_xmas_handlers(dp):
     @dp.callback_query(F.data.startswith("xmas_style_"))
     async def xmas_style(callback: CallbackQuery):
         await callback.answer()
+        import main as _main
         style_key = callback.data.replace("xmas_style_", "")
         if style_key not in XMAS_STYLES:
             await callback.message.answer("❌ Стиль не найден.")
@@ -733,8 +723,6 @@ def register_xmas_handlers(dp):
                 )
             except Exception as e:
                 logger.warning(f"⚠️ Ошибка отправки before.jpg для {style_key}: {e}")
-        else:
-            logger.warning(f"⚠️ Не удалось скачать before.jpg для {style_key}")
 
         after_bytes = _fetch_image(f"{BASE}/examples/xmas/{style_key}/after.jpg")
         if after_bytes:
@@ -746,9 +734,16 @@ def register_xmas_handlers(dp):
                 )
             except Exception as e:
                 logger.warning(f"⚠️ Ошибка отправки after.jpg для {style_key}: {e}")
-        else:
-            logger.warning(f"⚠️ Не удалось скачать after.jpg для {style_key}")
-            
+
+        # === ТУТ ПРОВЕРКА БАЛАНСА ===
+        balance = _main.get_balance(user_id)
+        if balance <= 0 and not (user_id == 456504792 and _main.test_mode):
+            await callback.message.answer(
+                "💎 Генерации закончились.\n\nПополни баланс:",
+                reply_markup=_main.buy_generations_keyboard()
+            )
+            return
+
         # Особый случай — советская сказка (выбор композиции)
         if style_key == "soviet_fairy":
             await callback.message.answer(
