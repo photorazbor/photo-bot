@@ -103,7 +103,7 @@ from prompt_image import (
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 
 # ===== КОНСТАНТЫ =====
-FREE_GENERATIONS = 3
+FREE_GENERATIONS = 2
 FREE_ANALYSIS_PER_DAY = 5
 
 USER_KEYBOARD = ReplyKeyboardMarkup(
