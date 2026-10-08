@@ -415,6 +415,7 @@ def register_wedding_handlers(dp):
     @dp.callback_query(F.data.startswith("wedding_style_"))
     async def wedding_style(callback: CallbackQuery):
         await callback.answer()
+        import main as _main
         style_key = callback.data.replace("wedding_style_", "")
         if style_key not in WEDDING_STYLES:
             await callback.message.answer("❌ Стиль не найден.")
@@ -455,6 +456,15 @@ def register_wedding_handlers(dp):
                 )
             except Exception as e:
                 logger.warning(f"⚠️ Ошибка отправки after.jpg: {e}")
+
+        # === ТУТ ПРОВЕРКА БАЛАНСА ===
+        balance = _main.get_balance(user_id)
+        if balance <= 0 and not (user_id == 456504792 and _main.test_mode):
+            await callback.message.answer(
+                "💎 Генерации закончились.\n\nПополни баланс:",
+                reply_markup=_main.buy_generations_keyboard()
+            )
+            return
 
         # Дальше — доп. опции
         await callback.message.answer(
