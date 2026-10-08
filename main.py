@@ -2882,42 +2882,50 @@ async def handle_flat_lay(callback: CallbackQuery):
         [InlineKeyboardButton(text="📱 4:5 (Instagram пост)", callback_data=f"flatfmt_4_5_{user_id}")],
         [InlineKeyboardButton(text="📱 9:16 (сториз)", callback_data=f"flatfmt_9_16_{user_id}")],
     ])
-    if balance > 0 or (user_id == 456504792 and test_mode):
-        await callback.message.answer(
-            f"📷 <b>Flat Lay (предметная съёмка)</b>\n\n"
-            f"Сфоткай предметы сверху или под небольшим углом.\n"
-            f"Я распознаю их и сделаю стильную композицию.\n\n"
-            f"💰 Стоимость: 1 генерация\n"
-            f"💎 Твой баланс: {balance}\n\n"
-            "Вот пример — как преображается кадр:",
+
+    # 1. Описание
+    await callback.message.answer(
+        f"📷 <b>Flat Lay (предметная съёмка)</b>\n\n"
+        f"Сфоткай предметы сверху или под небольшим углом.\n"
+        f"Я распознаю их и сделаю стильную композицию.\n\n"
+        f"💰 Стоимость: 1 генерация\n\n"
+        "Вот пример — как преображается кадр:",
+        parse_mode="HTML"
+    )
+
+    # 2. Примеры ДО/ПОСЛЕ
+    PHOTO_BASE = "https://raw.githubusercontent.com/photorazbor/photo-bot/main"
+    try:
+        await callback.message.answer_photo(
+            URLInputFile(f"{PHOTO_BASE}/examples/flat_lay/before.jpg"),
+            caption="📷 <b>ДО</b> — обычное фото",
             parse_mode="HTML"
         )
-        PHOTO_BASE = "https://raw.githubusercontent.com/photorazbor/photo-bot/main"
-        try:
-            await callback.message.answer_photo(
-                URLInputFile(f"{PHOTO_BASE}/examples/flat_lay/before.jpg"),
-                caption="📷 <b>ДО</b> — обычное фото",
-                parse_mode="HTML"
-            )
-        except Exception as e:
-            logger.warning(f"⚠️ Не удалось отправить before.jpg: {e}")
-        try:
-            await callback.message.answer_photo(
-                URLInputFile(f"{PHOTO_BASE}/examples/flat_lay/after.jpg"),
-                caption="✨ <b>ПОСЛЕ</b> — стильный Flat Lay",
-                parse_mode="HTML"
-            )
-        except Exception as e:
-            logger.warning(f"⚠️ Не удалось отправить after.jpg: {e}")
-        await callback.message.answer(
-            "Выбери формат:",
-            reply_markup=keyboard
+    except Exception as e:
+        logger.warning(f"⚠️ Не удалось отправить before.jpg: {e}")
+    try:
+        await callback.message.answer_photo(
+            URLInputFile(f"{PHOTO_BASE}/examples/flat_lay/after.jpg"),
+            caption="✨ <b>ПОСЛЕ</b> — стильный Flat Lay",
+            parse_mode="HTML"
         )
-    else:
+    except Exception as e:
+        logger.warning(f"⚠️ Не удалось отправить after.jpg: {e}")
+
+    # 3. Проверка баланса — ПОСЛЕ примеров
+    if balance <= 0 and not (user_id == 456504792 and test_mode):
         await callback.message.answer(
             "💎 Генерации закончились.\n\nПополни баланс:",
             reply_markup=buy_generations_keyboard()
         )
+        return
+
+    # 4. Выбор формата — только если баланс есть
+    await callback.message.answer(
+        "📐 <b>Выбери формат:</b>",
+        parse_mode="HTML",
+        reply_markup=keyboard
+    )
 
 
 @dp.callback_query(F.data.startswith("flatfmt_"))
