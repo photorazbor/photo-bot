@@ -5078,7 +5078,6 @@ async def main():
     global MAIN_LOOP
     MAIN_LOOP = asyncio.get_running_loop()
 
-    # === Удаляем Telegram-вебхук, чтобы polling работал без конфликта ===
     try:
         await bot.delete_webhook(drop_pending_updates=True)
         logger.info("✅ Telegram-вебхук удалён, работаем через polling")
@@ -5095,7 +5094,15 @@ async def main():
     register_holidays_handlers(dp)
     register_wedding_handlers(dp)
     register_prompt_handlers(dp)
-    await dp.start_polling(bot)
+
+    # === Защита от второго инстанса ===
+    while True:
+        try:
+            await dp.start_polling(bot)
+            break
+        except Exception as e:
+            logger.error(f"⚠️ Polling упал: {e}")
+            await asyncio.sleep(5)
 
 
 if __name__ == "__main__":
