@@ -1628,13 +1628,11 @@ async def handle_doc_photo(callback: CallbackQuery):
     await callback.message.answer(
         f"📄 <b>Фото на документы</b>\n\n"
         f"Сделаю аккуратный документ: белый фон, деловой образ, лёгкая ретушь.\n\n"
-        f"💰 Стоимость: 1 генерация\n"
-        f"💎 Твой баланс: {balance}\n\n"
+        f"💰 Стоимость: 1 генерация\n\n"
         "Вот пример — как преображается фото:",
         parse_mode="HTML"
     )
     PHOTO_BASE = "https://raw.githubusercontent.com/photorazbor/photo-bot/main"
-    # Фото ДО
     try:
         await callback.message.answer_photo(
             URLInputFile(f"{PHOTO_BASE}/examples/doc_photo/before.jpg"),
@@ -1643,7 +1641,6 @@ async def handle_doc_photo(callback: CallbackQuery):
         )
     except Exception as e:
         logger.warning(f"⚠️ Не удалось отправить before.jpg: {e}")
-    # Фото ПОСЛЕ
     try:
         await callback.message.answer_photo(
             URLInputFile(f"{PHOTO_BASE}/examples/doc_photo/after.jpg"),
@@ -1652,6 +1649,15 @@ async def handle_doc_photo(callback: CallbackQuery):
         )
     except Exception as e:
         logger.warning(f"⚠️ Не удалось отправить after.jpg: {e}")
+
+    # === ПРОВЕРКА БАЛАНСА ПОСЛЕ ПРИМЕРОВ ===
+    if balance <= 0 and not (user_id == 456504792 and test_mode):
+        await callback.message.answer(
+            "💎 Генерации закончились.\n\nПополни баланс:",
+            reply_markup=buy_generations_keyboard()
+        )
+        return
+
     # Кнопки
     await callback.message.answer(
         "Перед съёмкой ознакомься с инструкцией или сразу загружай фото.",
