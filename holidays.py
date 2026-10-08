@@ -382,7 +382,7 @@ def register_holidays_handlers(dp):
     @dp.callback_query(F.data == "holiday_birthday")
     async def holiday_birthday(callback: CallbackQuery):
         await callback.answer()
-        from main import get_balance, test_mode, buy_generations_keyboard
+        import main as _main
         user_id = callback.from_user.id
         balance = get_balance(user_id)
         if balance <= 0 and not (user_id == 456504792 and test_mode):
@@ -605,7 +605,7 @@ def register_holidays_handlers(dp):
         await callback.answer()
         user_id = callback.from_user.id
         reset_holiday_state(user_id)
-        from main import get_balance, test_mode, buy_generations_keyboard
+        import main as _main
         balance = get_balance(user_id)
         if balance <= 0 and not (user_id == 456504792 and test_mode):
             await callback.message.answer(
@@ -809,11 +809,11 @@ def _build_prompt(state: dict) -> str | None:
         "Лёгкий боке, тёплые оттенки."
     )
 
-    from main import get_size_for_format
+    import main as _main
     fmt_key = state.get("format", "1_1")
     fmt = BIRTHDAY_FORMATS.get(fmt_key, BIRTHDAY_FORMATS["1_1"])
     photo_bytes = state.get("photo")
-    img_size = get_size_for_format(fmt_key, photo_bytes)
+    img_size = _main.get_size_for_format(fmt_key, photo_bytes)
 
     format_lock = (
         f"ФОРМАТ КАДРА: {fmt['name']}, размер {img_size}. "
@@ -869,7 +869,7 @@ def _build_prompt(state: dict) -> str | None:
 
 async def _generate_and_send(message: Message, user_id: int, state: dict):
     from ai_service import generate_image
-    from main import get_balance, spend_generation, test_mode, buy_generations_keyboard
+    import main as _main
 
     photo = state.get("photo")
     if not photo:
@@ -879,10 +879,10 @@ async def _generate_and_send(message: Message, user_id: int, state: dict):
     is_regen = state.get("regen_done", False)
 
     if not is_regen:
-        if not spend_generation(user_id):
+        if not _main.spend_generation(user_id):
             await message.answer(
                 "💎 Генерации закончились.\n\nПополни баланс:",
-                reply_markup=buy_generations_keyboard()
+                reply_markup=_main.buy_generations_keyboard()
             )
             return
 
@@ -916,8 +916,8 @@ async def _generate_and_send(message: Message, user_id: int, state: dict):
         )
         return
 
-    balance = get_balance(user_id)
-    balance_text = "∞" if (user_id == 456504792 and test_mode) else str(balance)
+    balance = _main.get_balance(user_id)
+    balance_text = "∞" if (user_id == 456504792 and _main.test_mode) else str(balance)
 
     try:
         await message.answer_photo(
