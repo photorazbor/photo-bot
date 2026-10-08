@@ -63,18 +63,10 @@ def register_reference_handlers(dp):
         user_id = callback.from_user.id
         balance = _main.get_balance(user_id)
 
-        if balance <= 0 and not (user_id == 456504792 and _main.test_mode):
-            await callback.message.answer(
-                "💎 Генерации закончились.\n\nПополни баланс:",
-                reply_markup=_main.buy_generations_keyboard()
-            )
-            return
-
         _main.user_mode[user_id] = "ref_style"
         reset_ref_state(user_id)
-        ref_awaiting[user_id] = "reference"
 
-        # Показываем примеры коллажей — только раз в день
+        # Сначала — примеры и описание
         from datetime import datetime as _dt
         today = _dt.now().strftime("%Y-%m-%d")
         if ref_examples_shown.get(user_id) != today:
@@ -101,7 +93,21 @@ def register_reference_handlers(dp):
             "3. Я переношу стиль референса на твоё лицо\n\n"
             "⚠️ Результат — художественная интерпретация. "
             "100% сходства не гарантируется.\n\n"
-            "💰 Стоимость: 1 генерация\n\n"
+            "💰 Стоимость: 1 генерация",
+            parse_mode="HTML"
+        )
+
+        # === ПРОВЕРКА БАЛАНСА ПОСЛЕ ПРИМЕРОВ ===
+        if balance <= 0 and not (user_id == 456504792 and _main.test_mode):
+            await callback.message.answer(
+                "💎 Генерации закончились.\n\nПополни баланс:",
+                reply_markup=_main.buy_generations_keyboard()
+            )
+            return
+
+        # Только если баланс есть — просим фото
+        ref_awaiting[user_id] = "reference"
+        await callback.message.answer(
             "📸 <b>Шаг 1.</b> Пришли фото-референс.",
             parse_mode="HTML"
         )
