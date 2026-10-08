@@ -606,11 +606,11 @@ def register_holidays_handlers(dp):
         user_id = callback.from_user.id
         reset_holiday_state(user_id)
         import main as _main
-        balance = get_balance(user_id)
-        if balance <= 0 and not (user_id == 456504792 and test_mode):
+        balance = _main.get_balance(user_id)
+        if balance <= 0 and not (user_id == 456504792 and _main.test_mode):
             await callback.message.answer(
                 "💎 Генерации закончились.\n\nПополни баланс:",
-                reply_markup=buy_generations_keyboard()
+                reply_markup=_main.buy_generations_keyboard()
             )
             return
         holiday_state[user_id] = {"holiday": "birthday"}
