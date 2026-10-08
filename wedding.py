@@ -845,11 +845,11 @@ def _build_prompt(state: dict) -> str | None:
         )
 
     # Формат
-    from main import get_size_for_format
+    import main as _main
     fmt_key = state.get("format", "1_1")
     fmt = WEDDING_FORMATS.get(fmt_key, WEDDING_FORMATS["1_1"])
     photo_bytes = state.get("photo")
-    img_size = get_size_for_format(fmt_key, photo_bytes)
+    img_size = _main.get_size_for_format(fmt_key, photo_bytes)
 
     format_lock = (
         f"ФОРМАТ КАДРА: {fmt['name']}, размер {img_size}. "
@@ -879,7 +879,7 @@ def _build_prompt(state: dict) -> str | None:
 
 async def _generate_and_send(message: Message, user_id: int, state: dict):
     from ai_service import generate_image, generate_image_from_text
-    from main import get_balance, spend_generation, test_mode, buy_generations_keyboard
+    import main as _main
 
     mode_info = WEDDING_MODES.get(state.get("mode", ""), {})
     with_photo = mode_info.get("with_photo", False)
@@ -891,10 +891,10 @@ async def _generate_and_send(message: Message, user_id: int, state: dict):
     is_regen = state.get("regen_done", False)
 
     if not is_regen:
-        if not spend_generation(user_id):
+        if not _main.spend_generation(user_id):
             await message.answer(
                 "💎 Генерации закончились.\n\nПополни баланс:",
-                reply_markup=buy_generations_keyboard(),
+                reply_markup=_main.buy_generations_keyboard(),
             )
             return
 
@@ -934,8 +934,8 @@ async def _generate_and_send(message: Message, user_id: int, state: dict):
         )
         return
 
-    balance = get_balance(user_id)
-    balance_text = "∞" if (user_id == 456504792 and test_mode) else str(balance)
+    balance = _main.get_balance(user_id)
+    balance_text = "∞" if (user_id == 456504792 and _main.test_mode) else str(balance)
 
     try:
         await message.answer_photo(
