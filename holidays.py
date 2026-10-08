@@ -924,6 +924,7 @@ async def _generate_and_send(message: Message, user_id: int, state: dict):
     is_regen = state.get("regen_done", False)
 
     if not is_regen:
+        logger.info(f"🔍 holidays._generate_and_send: вызываю _main.spend_generation, id(module main)={id(_main)}")
         if not _main.spend_generation(user_id):
             await message.answer(
                 "💎 Генерации закончились.\n\nПополни баланс:",
