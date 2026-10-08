@@ -159,6 +159,7 @@ def register_prompt_handlers(dp):
     @dp.callback_query(F.data == "prompt_start")
     async def prompt_start(callback: CallbackQuery):
         await callback.answer()
+        import main as _main
         user_id = callback.from_user.id
         reset_prompt_state(user_id)
 
@@ -186,6 +187,15 @@ def register_prompt_handlers(dp):
             parse_mode="HTML",
             reply_markup=prompt_intro_keyboard(),
         )
+
+        # Проверка баланса
+        balance = _main.get_balance(user_id)
+        if balance <= 0 and not (user_id == 456504792 and _main.test_mode):
+            await callback.message.answer(
+                "💎 Генерации закончились.\n\nПополни баланс:",
+                reply_markup=_main.buy_generations_keyboard()
+            )
+            return
 
     @dp.callback_query(F.data == "prompt_mode_text")
     async def prompt_mode_text(callback: CallbackQuery):
