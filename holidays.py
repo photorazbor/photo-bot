@@ -382,7 +382,6 @@ def register_holidays_handlers(dp):
     @dp.callback_query(F.data == "holiday_birthday")
     async def holiday_birthday(callback: CallbackQuery):
         await callback.answer()
-        import main as _main
         user_id = callback.from_user.id
         balance = _main.get_balance(user_id)
         if balance <= 0 and not (user_id == 456504792 and _main.test_mode):
@@ -605,7 +604,6 @@ def register_holidays_handlers(dp):
         await callback.answer()
         user_id = callback.from_user.id
         reset_holiday_state(user_id)
-        import main as _main
         balance = _main.get_balance(user_id)
         if balance <= 0 and not (user_id == 456504792 and _main.test_mode):
             await callback.message.answer(
@@ -853,7 +851,6 @@ def _build_prompt(state: dict) -> str | None:
         "Лёгкий боке, тёплые оттенки."
     )
 
-    import main as _main
     fmt_key = state.get("format", "1_1")
     fmt = BIRTHDAY_FORMATS.get(fmt_key, BIRTHDAY_FORMATS["1_1"])
     photo_bytes = state.get("photo")
@@ -914,7 +911,6 @@ def _build_prompt(state: dict) -> str | None:
 
 async def _generate_and_send(message: Message, user_id: int, state: dict):
     from ai_service import generate_image
-    import main as _main
 
     photo = state.get("photo")
     if not photo:
