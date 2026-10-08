@@ -242,6 +242,7 @@ def _load_test_mode():
     global test_mode
     data = fb_get("test_mode", default={}) or {}
     test_mode = data.get("enabled", False)
+    logger.info(f"🧪 _load_test_mode: test_mode={test_mode}, data={data}")
 
 
 def _save_test_mode():
@@ -450,6 +451,7 @@ _load_paid_analyses()
 
 
 def get_balance(user_id: int) -> int:
+    logger.info(f"🔍 get_balance: user={user_id}, test_mode={test_mode}, id(module)={id(__import__('sys').modules.get('main'))}")
     if user_id == 456504792 and test_mode:
         return 999
     free_left = max(0, FREE_GENERATIONS - free_generations.get(user_id, 0))
@@ -458,6 +460,7 @@ def get_balance(user_id: int) -> int:
 
 
 def spend_generation(user_id: int) -> bool:
+    logger.info(f"🔍 spend_generation: user={user_id}, test_mode={test_mode}")
     if user_id == 456504792 and test_mode:
         return True
     free_used = free_generations.get(user_id, 0)
@@ -1413,7 +1416,9 @@ async def handle_test(message: Message):
         return
     test_mode = not test_mode
     _save_test_mode()
-    logger.info(f"🧪 TEST MODE TOGGLED: {test_mode}")
+    logger.info(f"🧪 TEST MODE TOGGLED: {test_mode} (user_id={message.from_user.id})")
+    logger.info(f"🧪 main.test_mode сейчас = {test_mode}")
+    logger.info(f"🧪 id(module main) = {id(__import__('sys').modules.get('main'))}")
     if test_mode:
         await message.answer(
             f"🧪 Тестовый режим ВКЛ\nБаланс: {get_balance(message.from_user.id)}",
