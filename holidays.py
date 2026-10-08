@@ -957,7 +957,12 @@ async def _generate_and_send(message: Message, user_id: int, state: dict):
         await message.answer(
             "😔 Не удалось сгенерировать кадр.\n\n"
             "✅ Попытка НЕ списана.\n"
-            "🔄 Нажми «Перегенерировать» ещё раз."
+            "🔄 Нажми «Перегенерировать» ещё раз.",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🔄 Перегенерировать — бесплатно", callback_data="holiday_bd_regen")],
+                [InlineKeyboardButton(text="📷 Загрузить другое фото", callback_data="holiday_bd_upload_again")],
+                [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")],
+            ])
         )
         return
 
