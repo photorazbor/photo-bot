@@ -509,14 +509,14 @@ def register_xmas_handlers(dp):
     async def xmas_start(callback: CallbackQuery):
         await callback.answer()
 
-        from main import get_balance, test_mode, buy_generations_keyboard
+        import main as _main
         user_id = callback.from_user.id
-        balance = get_balance(user_id)
+        balance = _main.get_balance(user_id)
 
-        if balance <= 0 and not (user_id == 456504792 and test_mode):
+        if balance <= 0 and not (user_id == 456504792 and _main.test_mode):
             await callback.message.answer(
                 "💎 Генерации закончились.\n\nПополни баланс — и начнём:",
-                reply_markup=buy_generations_keyboard()
+                reply_markup=_main.buy_generations_keyboard()
             )
             return
 
@@ -897,12 +897,12 @@ def register_xmas_handlers(dp):
         xmas_awaiting_photo.discard(user_id)
         xmas_awaiting_custom.pop(user_id, None)
 
-        from main import get_balance, test_mode, buy_generations_keyboard
-        balance = get_balance(user_id)
-        if balance <= 0 and not (user_id == 456504792 and test_mode):
+        import main as _main
+        balance = _main.get_balance(user_id)
+        if balance <= 0 and not (user_id == 456504792 and _main.test_mode):
             await callback.message.answer(
                 "💎 Генерации закончились.\n\nПополни баланс — и начнём:",
-                reply_markup=buy_generations_keyboard()
+                reply_markup=_main.buy_generations_keyboard()
             )
             return
 
@@ -1196,11 +1196,11 @@ def _build_prompt(state: dict) -> str | None:
     )
 
     # ===== ФОРМАТ =====
-    from main import get_size_for_format
+    import main as _main
     fmt_key = state.get("format", "1_1")
     fmt = XMAS_FORMATS.get(fmt_key, XMAS_FORMATS["1_1"])
     photo_bytes = state.get("photo")
-    img_size = get_size_for_format(fmt_key, photo_bytes)
+    img_size = _main.get_size_for_format(fmt_key, photo_bytes)
 
     format_lock = (
         f"ФОРМАТ КАДРА: {fmt['name']}, размер {img_size}. "
@@ -1255,7 +1255,7 @@ def _build_prompt(state: dict) -> str | None:
 async def _generate_and_send(message: Message, user_id: int, state: dict):
     """Генерирует 1 кадр и отправляет. Списывает 1 генерацию."""
     from ai_service import generate_image
-    from main import get_balance, spend_generation, test_mode, buy_generations_keyboard
+    import main as _main
 
     photo = state.get("photo")
     if not photo:
@@ -1266,10 +1266,10 @@ async def _generate_and_send(message: Message, user_id: int, state: dict):
 
     # При перегенерации — не списываем. При первой генерации — списываем.
     if not is_regen:
-        if not spend_generation(user_id):
+        if not _main.spend_generation(user_id):
             await message.answer(
                 "💎 Генерации закончились.\n\nПополни баланс:",
-                reply_markup=buy_generations_keyboard()
+                reply_markup=_main.buy_generations_keyboard()
             )
             return
 
@@ -1306,8 +1306,8 @@ async def _generate_and_send(message: Message, user_id: int, state: dict):
 
     logger.info(f"✅ xmas: кадр получен")
 
-    balance = get_balance(user_id)
-    balance_text = "∞" if (user_id == 456504792 and test_mode) else str(balance)
+    balance = _main.get_balance(user_id)
+    balance_text = "∞" if (user_id == 456504792 and _main.test_mode) else str(balance)
 
     try:
         await message.answer_photo(
