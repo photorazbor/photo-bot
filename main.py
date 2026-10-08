@@ -259,6 +259,7 @@ def _save_test_mode():
 
 
 _load_test_mode()
+logger.info(f"🧪 СТАРТ: test_mode={test_mode}, id(module)={id(__import__('sys').modules.get('main'))}")
 
 HISTORY_FILE = "history.json"
 PROMO_FILE = "promocodes.json"
@@ -1320,8 +1321,13 @@ async def handle_start(message: Message):
     user_mode[user_id] = "free"
     flat_lay_active[user_id] = False
 
-    if message.from_user.id == 456504792 and not test_mode:
-        await message.answer("👑 Админ-панель", reply_markup=ADMIN_KEYBOARD)
+    logger.info(f"🧪 handle_start: user={user_id}, test_mode={test_mode}")
+
+    if user_id == 456504792:
+        if test_mode:
+            await message.answer("🧪 Тестовый режим ВКЛ", reply_markup=USER_KEYBOARD)
+        else:
+            await message.answer("👑 Режим автора ВКЛ", reply_markup=ADMIN_KEYBOARD)
     else:
         await message.answer("👇 Выбери действие:", reply_markup=USER_KEYBOARD)
 
@@ -1426,11 +1432,9 @@ async def handle_test(message: Message):
     test_mode = not test_mode
     _save_test_mode()
     logger.info(f"🧪 TEST MODE TOGGLED: {test_mode} (user_id={message.from_user.id})")
-    logger.info(f"🧪 main.test_mode сейчас = {test_mode}")
-    logger.info(f"🧪 id(module main) = {id(__import__('sys').modules.get('main'))}")
     if test_mode:
         await message.answer(
-            f"🧪 Тестовый режим ВКЛ\nБаланс: {get_balance(message.from_user.id)}",
+            f"🧪 Тестовый режим ВКЛ\nБаланс: ∞",
             reply_markup=USER_KEYBOARD
         )
     else:
