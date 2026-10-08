@@ -238,29 +238,16 @@ def _analysis_increment(user_id: int):
         _save_paid_analyses()
 
 
-_TEST_MODE_LOADED = False
-
 def _load_test_mode():
-    global test_mode, _TEST_MODE_LOADED
-    if _TEST_MODE_LOADED:
-        logger.info(f"🧪 _load_test_mode: ПРОПУЩЕНО (уже загружено), test_mode={test_mode}")
-        return
-    data = fb_get("test_mode", default={}) or {}
-    test_mode = data.get("enabled", False)
-    _TEST_MODE_LOADED = True
-    logger.info(f"🧪 _load_test_mode: test_mode={test_mode}, data={data}")
+    global test_mode
+    test_mode = False
 
 
 def _save_test_mode():
-    logger.info(f"🔥 fb_set: записываю enabled={test_mode}")
-    result = fb_set("test_mode", {"enabled": test_mode})
-    logger.info(f"🔥 fb_set: результат={result}")
-    check = fb_get("test_mode", default={}) or {}
-    logger.info(f"🔥 fb_set: после записи в Firebase={check}")
+    fb_set("test_mode", {"enabled": test_mode})
 
 
 _load_test_mode()
-logger.info(f"🧪 СТАРТ: test_mode={test_mode}, id(module)={id(__import__('sys').modules.get('main'))}")
 
 HISTORY_FILE = "history.json"
 PROMO_FILE = "promocodes.json"
@@ -462,18 +449,20 @@ _load_paid_analyses()
 
 
 def get_balance(user_id: int) -> int:
-    logger.info(f"🔍 get_balance: user={user_id}, test_mode={test_mode}, id(module)={id(__import__('sys').modules.get('main'))}")
-    if user_id == 456504792 and test_mode:
-        return 999
+    if user_id == 456504792:
+        data = fb_get("test_mode", default={}) or {}
+        if data.get("enabled", False):
+            return 999
     free_left = max(0, FREE_GENERATIONS - free_generations.get(user_id, 0))
     paid_left = paid_generations.get(user_id, 0)
     return free_left + paid_left
 
 
 def spend_generation(user_id: int) -> bool:
-    logger.info(f"🔍 spend_generation: user={user_id}, test_mode={test_mode}")
-    if user_id == 456504792 and test_mode:
-        return True
+    if user_id == 456504792:
+        data = fb_get("test_mode", default={}) or {}
+        if data.get("enabled", False):
+            return True
     free_used = free_generations.get(user_id, 0)
     if free_used < FREE_GENERATIONS:
         free_generations[user_id] = free_used + 1
