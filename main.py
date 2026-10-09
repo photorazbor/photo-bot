@@ -3886,38 +3886,6 @@ async def handle_doc_back_to_outfit(callback: CallbackQuery):
         ])
     )
 
-    
-    elif category == "custom":
-        user_mode[user_id] = f"doc_custom_outfit_{doc_type}"
-        await callback.message.answer(
-            "✏️ <b>Свой образ</b>\n\n"
-            "Опиши одежду, в которой хочешь фото на документы.\n\n"
-            "<b>Примеры:</b>\n"
-            "• «Деловой костюм, тёмно-синий, галстук»\n"
-            "• «Белая рубашка, свободный крой»\n"
-            "• «Тёмная водолазка, минимализм»\n"
-            "• «Светлая блузка, деловой стиль»\n\n"
-            "📝 Напиши свой текст одним сообщением.\n\n"
-            "[🔙 Назад]",
-            parse_mode="HTML",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="🔙 Назад", callback_data=f"doc_back_to_outfit_{doc_type}")]
-            ])
-        )
-    elif category == "ref":
-        user_mode[user_id] = "doc_ref_outfit"
-        doc_type_last[user_id] = doc_type
-        await callback.message.answer(
-            "🖼️ <b>Одежда с фото</b>\n\n"
-            "Пришли фото-референс — откуда взять одежду.\n\n"
-            "⚠️ Лицо будет твоё. Одежда — с референса.\n\n"
-            "[🔙 Назад]",
-            parse_mode="HTML",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="🔙 Назад", callback_data=f"doc_back_to_outfit_{doc_type}")]
-            ])
-        )
-
 
 @dp.callback_query(F.data.startswith("outfit_"))
 async def handle_outfit(callback: CallbackQuery):
