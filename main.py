@@ -3793,6 +3793,7 @@ async def handle_outfitcat(callback: CallbackQuery):
     doc_type = parts[2]
     user_id = callback.from_user.id
     await callback.answer()
+
     if category == "regular":
         user_mode[user_id] = f"doc_outfit_regular_{doc_type}"
         await callback.message.answer(
@@ -3829,6 +3830,36 @@ async def handle_outfitcat(callback: CallbackQuery):
                 [InlineKeyboardButton(text="Оставить как есть", callback_data=f"hair_keep_{doc_type}")],
                 [InlineKeyboardButton(text="Аккуратная укладка", callback_data=f"hair_neat_{doc_type}")],
                 [InlineKeyboardButton(text="Лёгкая коррекция", callback_data=f"hair_fix_{doc_type}")],
+            ])
+        )
+    elif category == "custom":
+        user_mode[user_id] = f"doc_custom_outfit_{doc_type}"
+        await callback.message.answer(
+            "✏️ <b>Свой образ</b>\n\n"
+            "Опиши одежду, в которой хочешь фото на документы.\n\n"
+            "<b>Примеры:</b>\n"
+            "• «Деловой костюм, тёмно-синий, галстук»\n"
+            "• «Белая рубашка, свободный крой»\n"
+            "• «Тёмная водолазка, минимализм»\n"
+            "• «Светлая блузка, деловой стиль»\n\n"
+            "📝 Напиши свой текст одним сообщением.\n\n"
+            "[🔙 Назад]",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🔙 Назад", callback_data=f"doc_back_to_outfit_{doc_type}")]
+            ])
+        )
+    elif category == "ref":
+        user_mode[user_id] = "doc_ref_outfit"
+        doc_type_last[user_id] = doc_type
+        await callback.message.answer(
+            "🖼️ <b>Одежда с фото</b>\n\n"
+            "Пришли фото-референс — откуда взять одежду.\n\n"
+            "⚠️ Лицо будет твоё. Одежда — с референса.\n\n"
+            "[🔙 Назад]",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🔙 Назад", callback_data=f"doc_back_to_outfit_{doc_type}")]
             ])
         )
         
