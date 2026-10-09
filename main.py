@@ -3521,11 +3521,21 @@ async def handle_photo(message: Message):
         )
         return
 
-        if mode == "doc_ref_outfit":
+    if mode == "doc_ref_outfit":
         studio_ref_outfit_store[user_id] = image_bytes
         doc_type = doc_type_last.get(user_id, "passport")
         user_mode[user_id] = f"doc_hair_ref_{doc_type}"
         await message.answer(
+            "✅ Референс одежды получен.\n\n"
+            "💇 <b>Выберите причёску:</b>",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="Оставить как есть", callback_data=f"hair_keep_ref_{doc_type}")],
+                [InlineKeyboardButton(text="Аккуратная укладка", callback_data=f"hair_neat_ref_{doc_type}")],
+                [InlineKeyboardButton(text="Лёгкая коррекция", callback_data=f"hair_fix_ref_{doc_type}")],
+            ])
+        )
+        return
             "✅ Референс одежды получен.\n\n"
             "💇 <b>Выберите причёску:</b>",
             parse_mode="HTML",
