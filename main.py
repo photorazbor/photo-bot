@@ -3521,6 +3521,22 @@ async def handle_photo(message: Message):
         )
         return
 
+        if mode == "doc_ref_outfit":
+        studio_ref_outfit_store[user_id] = image_bytes
+        doc_type = doc_type_last.get(user_id, "passport")
+        user_mode[user_id] = f"doc_hair_ref_{doc_type}"
+        await message.answer(
+            "✅ Референс одежды получен.\n\n"
+            "💇 <b>Выберите причёску:</b>",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="Оставить как есть", callback_data=f"hair_keep_ref_{doc_type}")],
+                [InlineKeyboardButton(text="Аккуратная укладка", callback_data=f"hair_neat_ref_{doc_type}")],
+                [InlineKeyboardButton(text="Лёгкая коррекция", callback_data=f"hair_fix_ref_{doc_type}")],
+            ])
+        )
+        return
+
     if user_id in xmas_awaiting_photo:
         await handle_xmas_photo(message, user_id, image_bytes)
         return
@@ -3623,6 +3639,8 @@ async def handle_photo(message: Message):
                 [InlineKeyboardButton(text="👔 Обычные костюмы", callback_data=f"outfitcat_regular_{doc_type}")],
                 [InlineKeyboardButton(text="🎖 Специализированные", callback_data=f"outfitcat_special_{doc_type}")],
                 [InlineKeyboardButton(text="👕 Оставить свою одежду", callback_data=f"outfitcat_original_{doc_type}")],
+                [InlineKeyboardButton(text="✏️ Свой образ", callback_data=f"outfitcat_custom_{doc_type}")],
+                [InlineKeyboardButton(text="🖼️ Одежда с фото", callback_data=f"outfitcat_ref_{doc_type}")],
             ])
         )
         return
@@ -3813,6 +3831,61 @@ async def handle_outfitcat(callback: CallbackQuery):
                 [InlineKeyboardButton(text="Лёгкая коррекция", callback_data=f"hair_fix_{doc_type}")],
             ])
         )
+        
+
+@dp.callback_query(F.data.startswith("doc_back_to_outfit_"))
+async def handle_doc_back_to_outfit(callback: CallbackQuery):
+    await callback.answer()
+    doc_type = callback.data.replace("doc_back_to_outfit_", "")
+    user_id = callback.from_user.id
+    user_mode[user_id] = f"doc_outfit_{doc_type}"
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
+    await callback.message.answer(
+        "👔 <b>Выберите категорию костюма:</b>",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="👔 Обычные костюмы", callback_data=f"outfitcat_regular_{doc_type}")],
+            [InlineKeyboardButton(text="🎖 Специализированные", callback_data=f"outfitcat_special_{doc_type}")],
+            [InlineKeyboardButton(text="👕 Оставить свою одежду", callback_data=f"outfitcat_original_{doc_type}")],
+            [InlineKeyboardButton(text="✏️ Свой образ", callback_data=f"outfitcat_custom_{doc_type}")],
+            [InlineKeyboardButton(text="🖼️ Одежда с фото", callback_data=f"outfitcat_ref_{doc_type}")],
+        ])
+    )
+
+    
+    elif category == "custom":
+        user_mode[user_id] = f"doc_custom_outfit_{doc_type}"
+        await callback.message.answer(
+            "✏️ <b>Свой образ</b>\n\n"
+            "Опиши одежду, в которой хочешь фото на документы.\n\n"
+            "<b>Примеры:</b>\n"
+            "• «Деловой костюм, тёмно-синий, галстук»\n"
+            "• «Белая рубашка, свободный крой»\n"
+            "• «Тёмная водолазка, минимализм»\n"
+            "• «Светлая блузка, деловой стиль»\n\n"
+            "📝 Напиши свой текст одним сообщением.\n\n"
+            "[🔙 Назад]",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🔙 Назад", callback_data=f"doc_back_to_outfit_{doc_type}")]
+            ])
+        )
+    elif category == "ref":
+        user_mode[user_id] = "doc_ref_outfit"
+        doc_type_last[user_id] = doc_type
+        await callback.message.answer(
+            "🖼️ <b>Одежда с фото</b>\n\n"
+            "Пришли фото-референс — откуда взять одежду.\n\n"
+            "⚠️ Лицо будет твоё. Одежда — с референса.\n\n"
+            "[🔙 Назад]",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🔙 Назад", callback_data=f"doc_back_to_outfit_{doc_type}")]
+            ])
+        )
 
 
 @dp.callback_query(F.data.startswith("outfit_"))
@@ -3861,6 +3934,19 @@ async def handle_hair(callback: CallbackQuery):
     else:
         hair = body[:first_underscore]
         outfit = body[first_underscore + 1:]
+
+    # Если пришли из «Свой образ» или «Одежда с фото» — используем custom_style
+    custom_outfit_text = None
+    if outfit.startswith("custom_"):
+        doc_type_inner = outfit.replace("custom_", "")
+        custom_outfit_text = gen_wish.get(user_id, "")
+        outfit = "custom"
+        doc_type = doc_type_inner
+    elif outfit.startswith("ref_"):
+        doc_type_inner = outfit.replace("ref_", "")
+        custom_outfit_text = "одежда с референс-фото"
+        outfit = "reference"
+        doc_type = doc_type_inner
     user_id = callback.from_user.id
     await callback.answer()
     user_id = callback.from_user.id
@@ -3949,6 +4035,34 @@ async def handle_hair(callback: CallbackQuery):
         ),
     }
     hair_name = hair_names.get(hair, hair)
+
+    ref_bytes = studio_ref_outfit_store.get(user_id) if outfit == "reference" else None
+
+    if ref_bytes:
+        prompt = (
+            f"Деловой портрет на документы. Белый фон, анфас, лицо по центру. "
+            f"ФОРМАТ: вертикальный прямоугольник, пропорция 7:9 (35×45 мм) "
+            f"или 3:4 (30×40 мм). Только вертикаль. "
+            f"Над макушкой — запас 15% от высоты. "
+            f"По бокам — запас 15%. Плечи видны, не обрезаны. "
+            f"Всё лицо полностью в кадре. Ничего не упирается в край. "
+            f"ОДЕЖДА: возьми одежду с приложенного референс-фото — "
+            f"тот же цвет, фасон, ткань, детали. Только эта одежда. "
+            f"Причёска: {hair_name}. "
+            f"ОЧКИ: если на исходном фото есть очки — сохрани их без изменений. "
+            f"Лёгкая деликатная ретушь кожи: чуть смягчи морщины и тёмные круги, "
+            f"выровняй тон. Кожа свежая, но естественная, без «пластика». "
+            f"Сохрани черты лица. Не меняй лицо."
+        )
+        gen_wish[user_id] = prompt
+        if doc_type == "3x4":
+            gen_format[user_id] = "3x4"
+        else:
+            gen_format[user_id] = "passport"
+        flat_lay_active[user_id] = False
+        await do_generation(user_id, callback.message.chat.id, "paid", check_diff=False)
+        return
+
     prompt = (
         f"Деловой портрет на документы. Белый фон, анфас, лицо по центру. "
         f"ФОРМАТ: вертикальный прямоугольник, пропорция 7:9 (35×45 мм) "
@@ -4788,6 +4902,27 @@ async def handle_non_photo(message: Message):
                 [InlineKeyboardButton(text="Оставить как есть", callback_data="studio_hair_keep")],
                 [InlineKeyboardButton(text="Аккуратная укладка", callback_data="studio_hair_neat")],
                 [InlineKeyboardButton(text="Лёгкая коррекция", callback_data="studio_hair_fix")],
+            ])
+        )
+        return
+
+    if mode.startswith("doc_custom_outfit_"):
+        text_clean = text.strip()[:300]
+        if not text_clean:
+            await message.answer("✏️ Пусто. Опиши одежду словами.")
+            return
+        doc_type = mode.replace("doc_custom_outfit_", "")
+        doc_type_last[user_id] = doc_type
+        gen_wish[user_id] = text_clean
+        user_mode[user_id] = f"doc_hair_custom_{doc_type}"
+        await message.answer(
+            f"✅ Образ: <b>{text_clean}</b>\n\n"
+            "💇 <b>Выберите причёску:</b>",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="Оставить как есть", callback_data=f"hair_keep_custom_{doc_type}")],
+                [InlineKeyboardButton(text="Аккуратная укладка", callback_data=f"hair_neat_custom_{doc_type}")],
+                [InlineKeyboardButton(text="Лёгкая коррекция", callback_data=f"hair_fix_custom_{doc_type}")],
             ])
         )
         return
