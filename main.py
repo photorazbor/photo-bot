@@ -717,6 +717,7 @@ def tochka_webhook():
             purpose = webhook_data.get("purpose", "")
             payment_link_id = webhook_data.get("paymentLinkId", "")
             logger.info(f"💰 Платёж: {amount} ₽, назначение: {purpose}")
+
             if payment_link_id:
                 pending = _load_pending_payments()
                 if payment_link_id in pending:
@@ -810,13 +811,8 @@ def tochka_webhook():
                     except Exception as e:
                         logger.warning(f"⚠️ Уведомление упало: {e}")
 
-                    # И в конце — удаляем pending
+                    # В самом конце — удаляем pending
                     del pending[payment_link_id]
-                    fb_set("pending_payments", pending)
-        return "OK", 200
-    except Exception as e:
-        logger.error(f"Ошибка обработки вебхука: {e}")
-        return "OK", 200
                     fb_set("pending_payments", pending)
         return "OK", 200
     except Exception as e:
