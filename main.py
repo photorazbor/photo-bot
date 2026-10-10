@@ -338,7 +338,10 @@ def _reset_all_flows(user_id: int):
 
 
 def _add_history(user_id: int, action: str, details: str = ""):
-    stats_add_history(user_id, action, details)
+    try:
+        stats_add_history(user_id, action, details)
+    except Exception as e:
+        logger.warning(f"⚠️ _add_history упал: {e}")
 
 
 def _add_tool(user_id: int, tool: str):
@@ -720,12 +723,8 @@ def tochka_webhook():
                     info = pending[payment_link_id]
                     uid = info["user_id"]
                     purp = info["purpose"]
-                    _add_tool(uid, f"pay_{amount}")
-                    _add_history(uid, "payment", f"Оплата {amount} ₽ — {purp}")
-                    payer = webhook_data.get("payerName", "Неизвестный")
-                    notify_text = f"💰 <b>Новый платёж!</b>\nСумма: {amount} ₽\nНазначение: {purp}\nПлательщик: {payer}\nID пользователя: <code>{uid}</code>"
-                    _send_telegram_message(-1004468971541, notify_text)
 
+                    # СНАЧАЛА — начисление (главное действие)
                     if "Пакет 30 анализов" in purp:
                         paid_analyses[uid] = paid_analyses.get(uid, 0) + 30
                         _save_paid_analyses()
@@ -782,7 +781,6 @@ def tochka_webhook():
                             bot.send_message(uid, "✅ Оплата получена! Присылай до 5 фото по одному. Нажми «Готово» когда закончишь."),
                             MAIN_LOOP
                         )
-                        _send_telegram_message(-1004468971541, f"🔔 Новый заказ на авторский разбор!\nПользователь: {uid}")
                     elif "мини-курс" in purp or "курс" in purp:
                         from course import activate_by_username
                         activate_by_username(str(uid))
@@ -794,7 +792,31 @@ def tochka_webhook():
                     else:
                         asyncio.run_coroutine_threadsafe(bot.send_message(uid, "💛 Спасибо за поддержку проекта!"), MAIN_LOOP)
 
+                    # ПОТОМ — опциональные действия (в try/except)
+                    try:
+                        _add_tool(uid, f"pay_{amount}")
+                    except Exception as e:
+                        logger.warning(f"⚠️ _add_tool упал: {e}")
+
+                    try:
+                        _add_history(uid, "payment", f"Оплата {amount} ₽ — {purp}")
+                    except Exception as e:
+                        logger.warning(f"⚠️ _add_history упал: {e}")
+
+                    try:
+                        payer = webhook_data.get("payerName", "Неизвестный")
+                        notify_text = f"💰 <b>Новый платёж!</b>\nСумма: {amount} ₽\nНазначение: {purp}\nПлательщик: {payer}\nID пользователя: <code>{uid}</code>"
+                        _send_telegram_message(-1004468971541, notify_text)
+                    except Exception as e:
+                        logger.warning(f"⚠️ Уведомление упало: {e}")
+
+                    # И в конце — удаляем pending
                     del pending[payment_link_id]
+                    fb_set("pending_payments", pending)
+        return "OK", 200
+    except Exception as e:
+        logger.error(f"Ошибка обработки вебхука: {e}")
+        return "OK", 200
                     fb_set("pending_payments", pending)
         return "OK", 200
     except Exception as e:
