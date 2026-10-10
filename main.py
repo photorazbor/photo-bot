@@ -4482,20 +4482,26 @@ async def handle_gen_style(callback: CallbackQuery):
 @dp.callback_query(F.data.startswith("confirm_style_"))
 async def handle_confirm_style(callback: CallbackQuery):
     # Формат: confirm_style_{style}_{gen_type}_{user_id}_{fmt}
+    # style — без подчёркиваний, gen_type — без, user_id — число
+    # fmt может содержать подчёркивания (1_1, 3_4, 16_9 и т.д.)
     raw = callback.data.replace("confirm_style_", "")
-    parts = raw.rsplit("_", 3)
-    if len(parts) < 4:
-        # Старый формат без fmt
-        parts = raw.split("_")
-        style = parts[0]
-        gen_type = parts[1]
+    parts = raw.split("_")
+    # Первые 3 части: style, gen_type, user_id
+    if len(parts) < 3:
+        await callback.answer("Ошибка данных")
+        return
+    style = parts[0]
+    gen_type = parts[1]
+    try:
         user_id = int(parts[2])
-        fmt = "original"
+    except ValueError:
+        await callback.answer("Ошибка данных")
+        return
+    # Всё остальное (если есть) — fmt
+    if len(parts) > 3:
+        fmt = "_".join(parts[3:])
     else:
-        style = parts[0]
-        gen_type = parts[1]
-        user_id = int(parts[2])
-        fmt = parts[3]
+        fmt = "original"
     if style not in ALL_STYLES:
         await callback.answer("Неизвестный стиль")
         return
