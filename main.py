@@ -4481,12 +4481,21 @@ async def handle_gen_style(callback: CallbackQuery):
 
 @dp.callback_query(F.data.startswith("confirm_style_"))
 async def handle_confirm_style(callback: CallbackQuery):
-    parts = callback.data.split("_")
-    style = parts[2]
-    gen_type = parts[3]
-    user_id = int(parts[4])
-    # Формат может быть в parts[5], если пользователь выбирал его
-    fmt = parts[5] if len(parts) > 5 else "original"
+    # Формат: confirm_style_{style}_{gen_type}_{user_id}_{fmt}
+    raw = callback.data.replace("confirm_style_", "")
+    parts = raw.rsplit("_", 3)
+    if len(parts) < 4:
+        # Старый формат без fmt
+        parts = raw.split("_")
+        style = parts[0]
+        gen_type = parts[1]
+        user_id = int(parts[2])
+        fmt = "original"
+    else:
+        style = parts[0]
+        gen_type = parts[1]
+        user_id = int(parts[2])
+        fmt = parts[3]
     if style not in ALL_STYLES:
         await callback.answer("Неизвестный стиль")
         return
@@ -4501,17 +4510,18 @@ async def handle_confirm_style(callback: CallbackQuery):
 
 @dp.callback_query(F.data.startswith("style_fmt_"))
 async def handle_style_format(callback: CallbackQuery):
-    parts = callback.data.split("_")
-    # style_fmt_{fmt}_{style}_{gen_type}_{user_id}
-    if len(parts) < 6:
-        await callback.answer("Ошибка данных")
-        return
-    fmt = parts[2]
-    style = parts[3]
-    gen_type = parts[4]
+    # Формат: style_fmt_{fmt}_{style}_{gen_type}_{user_id}
+    # fmt может содержать подчёркивания (1_1, 3_4, 4_3, 4_5, 9_16, 16_9, original)
+    raw = callback.data.replace("style_fmt_", "")
+    # Последние 3 части — style, gen_type, user_id (без подчёркиваний)
+    # Всё, что до — это fmt
     try:
-        user_id = int(parts[5])
-    except ValueError:
+        parts = raw.rsplit("_", 3)
+        fmt = parts[0]
+        style = parts[1]
+        gen_type = parts[2]
+        user_id = int(parts[3])
+    except (IndexError, ValueError):
         await callback.answer("Ошибка данных")
         return
 
@@ -4521,7 +4531,7 @@ async def handle_style_format(callback: CallbackQuery):
 
     await callback.answer()
     await callback.message.answer(
-        "✅ Применить стиль в этом формате?",
+        f"✅ Применить стиль в этом формате?",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(
                 text="✅ Стилизовать",
@@ -4530,7 +4540,6 @@ async def handle_style_format(callback: CallbackQuery):
             [InlineKeyboardButton(text="🔙 Назад", callback_data="main_menu")],
         ])
     )
-
 
 # ===== ЛОГИКА КУРСА =====
 def _is_trial(user_id: int) -> bool:
