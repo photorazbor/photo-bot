@@ -4465,13 +4465,17 @@ async def handle_gen_style(callback: CallbackQuery):
         )
         return
 
-    # Если баланс есть — кнопка «Стилизовать»
+    # Выбор формата
+    keyboard = []
+    for fmt, name in FORMATS:
+        keyboard.append([InlineKeyboardButton(
+            text=name,
+            callback_data=f"style_fmt_{fmt}_{style}_{gen_type}_{user_id}"
+        )])
     await callback.message.answer(
-        "Готов применить стиль?",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="✅ Стилизовать", callback_data=f"confirm_style_{style}_{gen_type}_{user_id}")],
-            [InlineKeyboardButton(text="🔙 Назад", callback_data="main_menu")],
-        ])
+        "📐 <b>Выбери формат:</b>",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard)
     )
 
 
@@ -4481,16 +4485,51 @@ async def handle_confirm_style(callback: CallbackQuery):
     style = parts[2]
     gen_type = parts[3]
     user_id = int(parts[4])
+    # Формат может быть в parts[5], если пользователь выбирал его
+    fmt = parts[5] if len(parts) > 5 else "original"
     if style not in ALL_STYLES:
         await callback.answer("Неизвестный стиль")
         return
     gen_wish[user_id] = STYLE_PROMPTS.get(style, "Примени художественный стиль.")
     user_mode[user_id] = f"gen_wish_{gen_type}"
-    gen_format[user_id] = "original"
+    gen_format[user_id] = fmt
     style_active[user_id] = True
     await callback.answer("🎨 Применяю стиль...")
     await do_generation(user_id, callback.message.chat.id, gen_type, check_diff=False)
     user_mode[user_id] = "free"
+
+
+@dp.callback_query(F.data.startswith("style_fmt_"))
+async def handle_style_format(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    # style_fmt_{fmt}_{style}_{gen_type}_{user_id}
+    if len(parts) < 6:
+        await callback.answer("Ошибка данных")
+        return
+    fmt = parts[2]
+    style = parts[3]
+    gen_type = parts[4]
+    try:
+        user_id = int(parts[5])
+    except ValueError:
+        await callback.answer("Ошибка данных")
+        return
+
+    if style not in ALL_STYLES:
+        await callback.answer("Неизвестный стиль")
+        return
+
+    await callback.answer()
+    await callback.message.answer(
+        "✅ Применить стиль в этом формате?",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(
+                text="✅ Стилизовать",
+                callback_data=f"confirm_style_{style}_{gen_type}_{user_id}_{fmt}"
+            )],
+            [InlineKeyboardButton(text="🔙 Назад", callback_data="main_menu")],
+        ])
+    )
 
 
 # ===== ЛОГИКА КУРСА =====
